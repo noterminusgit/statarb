@@ -1,4 +1,37 @@
 #!/usr/bin/env python
+"""
+Data Loading and Preprocessing Module
+
+This module handles loading and preprocessing of market data for the statistical
+arbitrage trading system. It provides functions to load various data sources including:
+
+- Stock universe definitions with filters for price, volume, and market cap
+- Daily OHLCV price data from CSV files
+- Intraday tick bar data aggregated into 30-minute intervals
+- Barra risk factors (beta, volatility, momentum, size, etc.)
+- Fundamental data (earnings dates, analyst estimates, ratings)
+- Short locate availability data
+
+Key Functions:
+    get_uni(): Load and filter stock universe based on criteria
+    load_prices(): Load daily price data and calculate returns
+    load_bars(): Load and aggregate intraday bar data with VWAP
+    load_barra(): Load Barra risk factors and industry classifications
+    load_earnings(): Load earnings announcement dates
+    load_locates(): Load short borrow availability data
+    load_ratings_hist(): Load analyst rating change history
+    load_cache(): Cache preprocessed data in HDF5 format for faster access
+
+Universe Filters:
+    - Price range: $2.00 - $500.00
+    - Minimum ADV: $1M (tradable) / $5M (expandable)
+    - Country: USA only
+    - Currency: USD only
+    - Top stocks by market cap (default: 1400)
+
+The module caches processed data in HDF5 format to improve performance on
+subsequent runs.
+"""
 
 import sys
 import os

@@ -1,4 +1,44 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+PCA Factor Decomposition Module
+
+Principal Component Analysis (PCA) module for decomposing stock returns into
+systematic factors and measuring market-neutral alpha as residuals.
+
+Key Concepts:
+    - Decomposes returns into 5 principal components
+    - Uses 30-day rolling windows for component calculation
+    - Separates systematic (market) risk from idiosyncratic returns
+    - Market-neutral alpha = actual returns - PCA predicted returns
+
+Configuration:
+    COMPONENTS: Number of principal components (default: 5)
+    WINDOW: Rolling window size in days (default: 30)
+
+Functions:
+    calc_pca_daily(): Daily PCA decomposition and alpha calculation
+        - Fits PCA on 30-day rolling window of returns
+        - Projects current returns onto principal components
+        - Calculates residuals (market-neutral returns)
+        - Generates pca0, pca1, ..., pca4 factor loadings
+
+    calc_pca_intra(): Intraday PCA for 30-minute bars
+        - Time-slice specific PCA decomposition
+        - Handles intraday return patterns
+        - Supports lagged component analysis
+
+PCA Alpha Interpretation:
+    - pca0: Market-neutral return after removing first component
+    - Higher components: Additional systematic factors (size, momentum, etc.)
+    - Residual (alpha): Stock-specific return after factor removal
+
+The module uses scikit-learn's PCA implementation with rolling window updates
+to adapt to changing market conditions while maintaining statistical stability.
+
+Usage:
+    For large-cap stocks (market cap > $10B) to ensure liquid, tradable universe
+    with sufficient cross-sectional diversity for robust PCA estimation.
+"""
 
 from regress import *
 from loaddata import *

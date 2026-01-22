@@ -1,4 +1,44 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+BSIM - Big Simulation Engine
+
+This is the main backtesting simulation engine for daily statistical arbitrage
+trading strategies. BSIM loads pre-computed optimized portfolio positions and
+simulates trading with realistic execution costs and constraints.
+
+Key Features:
+    - Daily rebalancing simulation with optimized positions
+    - Multiple alpha signal combination with configurable weights
+    - Corporate action handling (splits, dividends)
+    - Transaction cost modeling (slippage + execution fees)
+    - Factor exposure tracking across dates
+    - P&L attribution and performance metrics
+    - VWAP vs. close execution strategies
+
+Command-Line Arguments:
+    --start: Start date (YYYYMMDD)
+    --end: End date (YYYYMMDD)
+    --fcast: Alpha signals (format: "name:multiplier:weight,name2:mult2:weight2")
+    --horizon: Forecast horizon in days (default: 3)
+    --mult: Global alpha multiplier (default: 1.0)
+    --kappa: Risk aversion parameter (default: 2.0e-8)
+    --maxnot: Maximum notional ($200M default)
+    --maxdollars: Maximum position size per stock ($1M default)
+    --vwap: Use VWAP execution (default: False, uses close)
+    --locates: Require short locates (default: True)
+    --earnings: Earnings avoidance (default: None)
+
+Output:
+    - Daily P&L and cumulative returns
+    - Sharpe ratio and drawdown statistics
+    - Factor exposures (Barra + Industries)
+    - Turnover and participation metrics
+    - Position files in opt/ directory
+
+Example:
+    python bsim.py --start=20130101 --end=20130630 \\
+        --fcast=hl:1:1,bd:0.5:0.5 --kappa=2e-8
+"""
 
 from util import *
 from regress import *
