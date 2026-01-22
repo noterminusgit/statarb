@@ -1,4 +1,54 @@
 #!/usr/bin/env python
+"""
+Portfolio Optimization Module
+
+This module implements portfolio optimization using OpenOpt NLP solver to
+maximize risk-adjusted returns while respecting trading constraints.
+
+Objective Function:
+    Maximize: Alpha - κ(Specific Risk + Factor Risk) - Slippage - Execution Costs
+
+Components:
+    Alpha: Expected return from alpha signals (μ · positions)
+    Specific Risk: Idiosyncratic variance (σ² · positions²)
+    Factor Risk: Systematic risk from Barra factors (x'Fx)
+    Slippage: Nonlinear market impact cost function
+    Execution Fees: Fixed bps cost (default: 1.5 bps)
+
+Constraints:
+    - Position Limits: Min/max shares per security (±0.04M notional)
+    - Capital Limits: Max aggregate notional ($4-50M)
+    - Factor Exposure Limits: Bounds on factor bets
+    - Participation Limits: Max 1.5% participation rate
+    - Dollar Neutrality: Optional long/short balance
+    - Sector Limits: Optional industry concentration limits
+
+Slippage Model:
+    Cost = α + δ · (participation_rate)^β + γ · volatility + ν · price_impact
+    - α (slip_alpha): Base cost (default: 1.0 bps)
+    - β (slip_beta): Participation power (default: 0.6)
+    - δ (slip_delta): Participation coefficient (default: 0.25)
+    - γ (slip_gamma): Volatility coefficient (default: 0.3)
+    - ν (slip_nu): Market impact coefficient (default: 0.14-0.18)
+
+Parameters:
+    kappa: Risk aversion parameter (4.3e-5 default)
+    max_sumnot: Max total notional ($50M default)
+    max_posnot: Max position as fraction of capital (0.48% default)
+    max_expnot: Max exposure per security (4.8% default)
+
+The optimizer uses OpenOpt's NLP solver with gradient-based methods for
+efficient convergence. Typical solve time: 1-5 seconds for 1400 securities.
+
+Global Variables:
+    g_positions: Current positions
+    g_mu: Expected returns (alpha signals)
+    g_rvar: Residual variance (specific risk)
+    g_factors: Factor loadings matrix
+    g_fcov: Factor covariance matrix
+    g_advp: Average daily volume in dollars
+    g_borrowRate: Borrow costs for shorts
+"""
 
 import sys
 import numpy

@@ -1,4 +1,40 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+QSIM - Quote/Intraday Simulation Engine
+
+Intraday backtesting simulation that evaluates alpha signals at multiple
+time slices throughout the trading day using 30-minute bar data.
+
+Key Features:
+    - 30-minute bar simulation from 9:45 AM to 4:00 PM
+    - Time-of-day performance analysis
+    - Day-of-week stratification
+    - Intraday volume participation constraints
+    - VWAP-based execution modeling
+
+Time Slices:
+    - 9:45, 10:00, 10:15, ..., 15:30, 15:45, 16:00
+    - Each slice represents a 30-minute bar close
+
+Command-Line Arguments:
+    --start: Start date (YYYYMMDD)
+    --end: End date (YYYYMMDD)
+    --fcast: Alpha signal files (intraday forecasts)
+    --cond: Conditioning variable for stratification (default: mkt_cap)
+    --horizon: Forecast horizon in bars (default: 3)
+    --mult: Alpha multiplier (default: 1000.0)
+    --slipbps: Slippage in basis points (default: 0.0001)
+    --vwap: Use VWAP execution (default: False)
+
+Analysis Output:
+    - P&L by time of day
+    - P&L by day of week
+    - Average returns across time slices
+    - Sharpe ratios for each time window
+
+QSIM is useful for testing market-making strategies and identifying optimal
+intraday entry/exit times based on alpha signal performance patterns.
+"""
 
 from util import *
 from regress import *

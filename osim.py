@@ -1,4 +1,39 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+OSIM - Order Simulation Engine
+
+Order-level backtesting simulation that focuses on detailed execution modeling
+and fill price analysis. OSIM optimizes weights across multiple forecasts by
+evaluating realized P&L with different fill strategies.
+
+Key Features:
+    - Order-level execution tracking with fill prices
+    - Multiple fill strategies (VWAP, midpoint, close)
+    - Slippage analysis: estimated vs. realized
+    - Forecast weight optimization via objective function
+    - Half-day and holiday handling
+    - Participation rate constraints
+
+Fill Strategies:
+    - 'vwap': Execute at bar VWAP price
+    - 'mid': Execute at bid-ask midpoint
+    - 'close': Execute at closing price
+
+Command-Line Arguments:
+    --start: Start date (YYYYMMDD)
+    --end: End date (YYYYMMDD)
+    --fill: Fill strategy (vwap/mid/close, default: mid)
+    --slipbps: Slippage in basis points (default: 0.0001)
+    --fcast: Alpha signal files to load
+    --weights: Optional pre-computed forecast weights
+
+Special Dates:
+    halfdays: Early market close dates (1pm EST)
+    breaks: Trading breaks and holidays
+
+The simulation tracks volume-weighted execution and compares estimated slippage
+from the optimization model against realized trading costs.
+"""
 
 from util import *
 from regress import *

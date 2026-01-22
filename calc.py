@@ -1,4 +1,40 @@
 #!/usr/bin/env python
+"""
+Factor Calculation and Analysis Module
+
+This module provides functions for calculating alpha factors, forward returns,
+and statistical transformations used in the statistical arbitrage system.
+
+Key Features:
+    - Forward return calculation at multiple horizons (1-5 days)
+    - Volume profile calculation for intraday patterns
+    - Data winsorization to handle outliers
+    - Rolling correlations and exponentially-weighted calculations
+    - Price and volume ratio calculations
+
+Factor Categories:
+    BARRA_FACTORS: Standard risk factors (13 factors)
+        - growth, size, sizenl, divyild, btop, earnyild
+        - beta, resvol, betanl, momentum, leverage, liquidty, country
+
+    INDUSTRIES: Industry classifications (58 industries)
+        - Barra GICS-based industry groupings
+
+    PROP_FACTORS: Proprietary factors (2 factors)
+        - srisk_pct_z: Standardized specific risk percentage
+        - rating_mean_z: Standardized analyst rating mean
+
+Key Functions:
+    calc_forward_returns(): Calculate cumulative returns at multiple horizons
+    calc_vol_profiles(): Calculate intraday volume participation patterns
+    winsorize(): Trim outliers at specified standard deviation levels
+    winsorize_by_date(): Apply winsorization within each date
+    calc_price_extras(): Calculate volatility ratios and volume metrics
+    rolling_ew_corr_pairwise(): Exponentially-weighted pairwise correlations
+
+The module uses pandas DataFrames with MultiIndex (date, sid) for efficient
+time-series operations across securities.
+"""
 
 import numpy as np
 import pandas as pd

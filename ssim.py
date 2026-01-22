@@ -1,4 +1,39 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+SSIM - System Simulation Engine
+
+Full lifecycle backtesting simulation that tracks the complete order-to-execution
+workflow including positions, cash balances, and P&L across extended periods.
+
+Key Features:
+    - Complete position tracking across months/years
+    - Cash and margin management
+    - P&L attribution by day, month, and time bucket
+    - Realized vs. estimated cost analysis
+    - Long/short balance monitoring
+    - Half-day and holiday handling
+    - Turnover and capital efficiency metrics
+
+Tracking Buckets:
+    day_bucket: Daily aggregations (notional, pnl, turnover, long, short)
+    month_bucket: Monthly aggregations (notional, pnl, turnover)
+    time_bucket: Time-of-day aggregations (notional, pnl, turnover)
+
+Special Dates:
+    halfdays: Early market close dates requiring adjusted execution
+
+Output Metrics:
+    - Cumulative P&L and returns
+    - Sharpe ratio and information ratio
+    - Maximum drawdown
+    - Average turnover
+    - Capital utilization
+    - Long/short ratio
+
+SSIM provides the most comprehensive view of strategy performance with full
+position lifecycle tracking and realistic execution simulation over extended
+backtesting periods.
+"""
 
 from util import *
 from regress import *

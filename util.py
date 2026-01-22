@@ -1,4 +1,31 @@
 #!/usr/bin/env python
+"""
+Utility Functions Module
+
+This module provides common utility functions used throughout the statistical
+arbitrage system for data manipulation, file operations, and data merging.
+
+Key Functions:
+    mkdir_p(): Create directory with parents (similar to mkdir -p)
+    email(): Send email notifications for alerts and reports
+    merge_barra_data(): Merge Barra factor data with price data
+    merge_intra_eod(): Merge end-of-day bar data with daily data
+    merge_intra_data(): Merge intraday data with daily data
+    filter_expandable(): Filter securities to expandable universe
+    filter_pca(): Filter securities for PCA analysis (large cap only)
+    dump_hd5(): Save DataFrame to HDF5 format with compression
+    dump_all(): Export alpha signals to files grouped by timestamp
+    remove_dup_cols(): Remove duplicate columns after merges
+
+Data Merging Strategies:
+    - Lagging Barra data by 1 day to avoid look-ahead bias
+    - Joining intraday and daily data on (date, sid) keys
+    - Handling time zones and timestamp alignment
+    - Removing duplicate columns with '_dead' suffix
+
+The module ensures data integrity and proper temporal alignment to prevent
+look-ahead bias in backtesting.
+"""
 
 import sys
 import os

@@ -1,4 +1,36 @@
 #!/usr/bin/env python
+"""
+Regression Analysis Module
+
+This module performs regression analysis to fit alpha factors against forward
+returns and extract predictive coefficients for the statistical arbitrage system.
+
+Key Features:
+    - Weighted Least Squares (WLS) regression with market cap weighting
+    - Multiple horizon regression (1-5 days ahead)
+    - Outlier handling via winsorization
+    - Cross-sectional regression by date
+    - Statistical diagnostics (t-stats, standard errors, R-squared)
+    - Visualization of regression results
+
+Regression Types:
+    - Daily: Cross-sectional regression of daily alphas vs. forward returns
+    - Intraday: Time-slice regression for intraday signals
+    - Day-of-Week: Separate regressions by day of week
+
+Functions:
+    regress_alpha(): Main regression function with WLS
+    extract_results(): Extract coefficients and statistics from regression
+    plot_fit(): Visualize coefficient decay across horizons
+    regress_day_alpha(): Day-specific regression analysis
+    run_intra_regression(): Intraday time-slice regression
+
+The module uses statsmodels for robust regression with proper handling of
+missing data and outliers. Results include coefficients, t-statistics, and
+standard errors for alpha signal calibration.
+
+ADV_POWER: Power parameter for ADV-based weighting (default: 0.5)
+"""
 
 import sys
 import os
