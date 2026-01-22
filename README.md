@@ -555,7 +555,7 @@ This is a research codebase. Key areas for improvement:
 
 ## License
 
-Please check with the repository owner for licensing information.
+Apache 2.0
 
 ## Contact
 
