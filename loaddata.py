@@ -73,6 +73,32 @@ e_min_advp = 5000000.0
 fromtimestamp = lambda x:datetime.fromtimestamp(int(x) / 1000.)
 
 def get_uni(start, end, lookback, uni_size=1400):
+    """
+    Load and filter stock universe based on multiple criteria.
+
+    Applies a series of filters to create a tradable universe of stocks:
+    1. Country/Currency: USA only, USD only
+    2. Barra estimation universe membership (estu_barra4s) or REITs (ind=404020)
+    3. Excludes biotechnology stocks (group=3520)
+    4. Price range: $2.00-$500.00 (t_low_price to t_high_price)
+    5. Minimum ADV: $1M tradable (t_min_advp)
+    6. Market cap ranking: top N stocks (default 1400)
+
+    Args:
+        start: datetime, simulation start date
+        end: datetime, simulation end date
+        lookback: int, days before start to determine universe date
+        uni_size: int, maximum number of stocks to include (default 1400)
+
+    Returns:
+        DataFrame with columns ['symbol', 'sector_name'], indexed by sid.
+        Contains filtered universe of tradable stocks.
+
+    File Dependencies:
+        - UNIV_BASE_DIR/{year}/{date}.csv - Universe definitions
+        - SECDATA_BASE_DIR/{year}/{date}.csv.gz - Security data with sectors
+        - PRICE_BASE_DIR/{year}/{date}.csv - Price/volume data
+    """
     unidate = start - timedelta(days=lookback)
     year = unidate.strftime("%Y")
     unidate = unidate.strftime("%Y%m%d")
@@ -147,6 +173,26 @@ def get_uni(start, end, lookback, uni_size=1400):
     # return result_df
 
 def load_barra(uni_df, start, end, cols=None):
+    """
+    Load Barra risk factors for the given universe and date range.
+
+    Loads daily Barra USE4S risk model data including style factors (beta,
+    momentum, size, volatility, etc.) and industry classifications.
+
+    Args:
+        uni_df: DataFrame, universe of stocks (from get_uni)
+        start: datetime, start date
+        end: datetime, end date
+        cols: list of str or None, specific columns to load (sid auto-added)
+
+    Returns:
+        DataFrame indexed by (date, sid) containing Barra risk factors.
+        Common columns: hbeta, pbeta, srisk_pct, trisk_pct, momentum,
+        size, sizenl, beta, resvol, leverage, liquidty, indname1, etc.
+
+    File Dependencies:
+        - BARRA_BASE_DIR/{year}/{date}.use4s_rsk.rev.csv
+    """
     if cols is not None:
         cols.append('sid')
 #    if cols is None:
@@ -181,6 +227,26 @@ def load_barra(uni_df, start, end, cols=None):
     return result_df
 
 def load_daybars(uni_df, start, end, cols=None, freq='30Min'):
+    """
+    Load daily bar summaries with intraday high/low and VWAP.
+
+    Loads pre-aggregated daily bars that include both daily OHLC and
+    intraday extremes. Data is resampled to specified frequency.
+
+    Args:
+        uni_df: DataFrame, universe of stocks (must have 'ticker' column)
+        start: datetime, start date
+        end: datetime, end date
+        cols: list of str or None, columns to load (default includes OHLC, VWAP)
+        freq: str, resampling frequency (default '30Min')
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with daily bar data.
+        Columns include: dopen, dhigh, dlow, qhigh, qlow, dvwap, dvolume, dtrades
+
+    File Dependencies:
+        - BAR_BASE_DIR/{date}/daily.txt.gz
+    """
     if cols is None:
         cols = ['dopen', 'dhigh', 'dlow', 'qhigh', 'qlow', 'dvwap', 'dvolume', 'dtrades']
     cols.extend( ['ticker', 'iclose_ts', 'iclose', 'dvolume', 'dopen' ] )
@@ -217,6 +283,32 @@ def load_daybars(uni_df, start, end, cols=None, freq='30Min'):
     return result_df
 
 def load_prices(uni_df, start, end, cols):
+    """
+    Load daily price data with returns and volume metrics.
+
+    Primary data loader for equity prices including OHLC, returns,
+    volatility, and median volume calculations. Also computes lagged
+    values and expandable universe flags.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+        cols: list of str or None, columns to load
+
+    Returns:
+        DataFrame indexed by (date, sid) containing:
+        - Price data: open, high, low, close
+        - Returns: ret, log_ret, overnight_log_ret, today_log_ret
+        - Volume: prim_volume, comp_volume, tradable_med_volume_*
+        - Volatility: volat_21, volat_60, overnight_volat_21
+        - Corporate actions: split, div
+        - Derived: mdvp (median dollar volume), expandable flag
+        - Lagged values (*_y suffix) from lag_data()
+
+    File Dependencies:
+        - PRICE_BASE_DIR/{year}/{date}.equ_prices.rev.csv
+    """
     if cols is None:
         cols = ['open', 'high', 'low', 'prim_volume', 'comp_volume', 'shares_out', 'ret', 'log_ret', 'prim_med_volume_21', 'prim_med_volume_60', 'comp_med_volume_21', 'comp_med_volume_60', 'tradable_med_volume_60', 'volat_21', 'volat_60', 'cum_log_ret', 'overnight_log_ret', 'today_log_ret', 'overnight_volat_21', 'today_volat_21', 'split', 'div']
     cols.extend( ['sid', 'ticker', 'close', 'tradable_med_volume_21', 'log_ret', 'tradable_volume', 'mkt_cap'] )
@@ -260,6 +352,25 @@ def load_prices(uni_df, start, end, cols):
     return result_df
 
 def load_volume_profile(uni_df, start, end, freq='30Min'):
+    """
+    Load intraday volume profiles showing median cumulative volume by time.
+
+    Loads 20-day median volume profiles for each stock, which are used
+    for VWAP calculations and participation rate estimates.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+        freq: str, resampling frequency (default '30Min')
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with med_cum_volume column
+        showing the median cumulative volume at each time slice.
+
+    File Dependencies:
+        - PRICE_BASE_DIR/{year}/{date}.equ_volume_profiles_20d.rev.csv
+    """
     date = start
     result_dfs = list()
     while ( date < end ):
@@ -322,6 +433,30 @@ def load_volume_profile(uni_df, start, end, freq='30Min'):
     return result_df
 
 def aggregate_bars(bars_df, freq=30):
+    """
+    Aggregate tick-level bars into specified time intervals.
+
+    Takes raw bars (typically 1-minute or tick data) and aggregates into
+    larger time buckets. Computes both cumulative (from market open) and
+    interval-specific metrics (suffix _b).
+
+    Args:
+        bars_df: DataFrame with tick bar data indexed by timestamp
+        freq: int, aggregation frequency in minutes (default 30)
+
+    Returns:
+        DataFrame with aggregated bars including:
+        - OHLC: bopen, bhigh, blow, blast, iclose
+        - Volume: bvwap, bvolume, btrades
+        - Microstructure: meanSpread, meanEffectiveSpread, bidHitTrades,
+          askHitTrades, outsideTrades, etc.
+        - Derived metrics: insideness (log effective/quoted spread),
+          adj_trade_size, spread_bps
+
+    Notes:
+        - Cumulative columns aggregate from market open
+        - Interval columns (suffix _b) aggregate within each bucket
+    """
     print "Aggregating bars..."
     #ASSUMES SORTED
     start = bars_df['bopen_ts'].min()
@@ -401,6 +536,31 @@ def aggregate_bars(bars_df, freq=30):
     return agg_bars_df
 
 def load_bars(uni_df, start, end, cols=None, freq=30):
+    """
+    Load and aggregate intraday tick bars for the given universe.
+
+    Primary intraday data loader that reads raw bar files, filters to
+    market hours (9:30-16:00), aggregates to specified frequency, and
+    joins with universe data.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+        cols: list of str or None, specific columns to include
+        freq: int, aggregation frequency in minutes (default 30)
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with aggregated bar data.
+        See aggregate_bars() for column details.
+
+    File Dependencies:
+        - BAR_BASE_DIR/{date}/bars.txt.gz
+
+    Notes:
+        Uses aggregate_bars() internally for time aggregation.
+        Bar files are pipe-delimited with 24 columns of tick data.
+    """
     if cols is not None:
         cols.extend( ['ticker', 'iclose_ts', 'iclose', 'date', 'gdate', 'giclose_ts'] )
     date = start
@@ -435,6 +595,30 @@ def load_bars(uni_df, start, end, cols=None, freq=30):
     return result_df
 
 def load_earnings_dates(uni_df, start, end):
+    """
+    Load upcoming earnings announcement dates for the universe.
+
+    Calculates business days until each stock's next earnings report,
+    adjusting for after-market announcements.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+
+    Returns:
+        DataFrame indexed by (date, sid) containing:
+        - earndate: earnings announcement date
+        - daysToEarn: business days until announcement
+        - earn_rpt_time_norm: announcement timing (AFTMKT, etc.)
+
+    File Dependencies:
+        - EARNINGS_BASE_DIR/{date}.csv
+
+    Notes:
+        After-market (AFTMKT) announcements add +1 to daysToEarn
+        since the price reaction occurs the next trading day.
+    """
     date = start
     result_dfs = list()
     uni_df = uni_df.reset_index()
@@ -465,6 +649,25 @@ def load_earnings_dates(uni_df, start, end):
     return result_df
 
 def load_past_earnings_dates(uni_df, start, end):
+    """
+    Load most recent past earnings dates for the universe.
+
+    Calculates business days since each stock's last earnings report,
+    useful for post-earnings drift signals.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+
+    Returns:
+        DataFrame indexed by (date, sid) containing:
+        - latest_earnings_date: most recent earnings date
+        - daysFromEarn: business days since last announcement
+
+    File Dependencies:
+        - EARNINGS_BASE_DIR/{date}.latest_earnings_date.rev.csv
+    """
     date = start
     result_dfs = list()
     uni_df = uni_df.reset_index()
@@ -498,6 +701,25 @@ def load_past_earnings_dates(uni_df, start, end):
     return result_df
 
 def load_locates(uni_df, start, end):
+    """
+    Load short sale locate availability and borrow costs.
+
+    Loads data on shares available to borrow for short selling and
+    associated fee rates. Essential for realistic short-side simulation.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+
+    Returns:
+        DataFrame indexed by (date, sid) containing:
+        - borrow_qty: shares available to borrow (negative sign convention)
+        - fee_rate: annualized borrow fee rate
+
+    File Dependencies:
+        - LOCATES_BASE_DIR/{date}.csv
+    """
     date = start
     result_dfs = list()
     uni_df = uni_df.reset_index()
@@ -526,6 +748,22 @@ def load_locates(uni_df, start, end):
     return result_df
     
 def load_merged_results(fdirs, start, end, cols=None):
+    """
+    Load and merge alpha results from multiple forecast directories.
+
+    Combines alpha signals from different strategy directories into
+    a single DataFrame, handling column conflicts with suffixes.
+
+    Args:
+        fdirs: list of str, directories containing alpha results
+        start: datetime, start date
+        end: datetime, end date
+        cols: list of str or None, specific columns to load
+
+    Returns:
+        DataFrame with merged alpha signals from all directories.
+        Duplicate columns (excluding _dead suffix) are removed.
+    """
     merged_df = None
     for fdir in fdirs:
         df = load_all_results(fdir, start, end, cols)
@@ -538,6 +776,24 @@ def load_merged_results(fdirs, start, end, cols=None):
     return merged_df
 
 def load_mus(mdir, fcast, start, end):
+    """
+    Load alpha/mu forecasts from a specific forecast directory.
+
+    Loads intraday alpha signals generated by a specific strategy.
+    Only loads data for market hours (9:30-16:00).
+
+    Args:
+        mdir: str, base directory containing forecast subdirectories
+        fcast: str, forecast name to load
+        start: str or None, start date (YYYYMMDD format)
+        end: str or None, end date (YYYYMMDD format)
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with alpha forecasts.
+
+    File Pattern:
+        {mdir}/{fcast}/alpha.{fcast}.{date}_{time}.*
+    """
     print "Looking in {}".format(mdir)
     fcast_dfs = list()
     for ff in sorted(glob.glob(mdir + "/"+ fcast + "/alpha.*")):
@@ -558,6 +814,26 @@ def load_mus(mdir, fcast, start, end):
     return fcast_df
 
 def load_qb_implied_orders(mdir, start, end):
+    """
+    Load implied order flow from quantbot portfolio files.
+
+    Extracts implied order sizes from open long/short amounts at
+    specific intraday time slices (every 30 min from 10:02 to 15:32).
+
+    Args:
+        mdir: str, directory containing portfolio files
+        start: str or None, start date (YYYYMMDD format)
+        end: str or None, end date (YYYYMMDD format)
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with:
+        - net_qty: current position
+        - open_order: implied order size from open amounts
+        - ref_price: reference price for calculations
+
+    File Pattern:
+        {mdir}/{date}.PORTFOLIO.csv
+    """
     print "Looking in {}".format(mdir)
     fcast_dfs = list()
     files = sorted(glob.glob(mdir + "/*.PORTFOLIO.csv"))
@@ -585,6 +861,23 @@ def load_qb_implied_orders(mdir, start, end):
     return fcast_df
 
 def load_qb_positions(mdir, start, end):
+    """
+    Load full intraday position history from quantbot portfolio files.
+
+    Unlike load_qb_implied_orders, this loads all timestamps without
+    filtering to specific time slices.
+
+    Args:
+        mdir: str, directory containing portfolio files
+        start: str or None, start date (YYYYMMDD format)
+        end: str or None, end date (YYYYMMDD format)
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with position data.
+
+    File Pattern:
+        {mdir}/{date}.PORTFOLIO.csv
+    """
     print "Looking in {}".format(mdir)
     fcast_dfs = list()
     files = sorted(glob.glob(mdir + "/*.csv"))
@@ -604,6 +897,24 @@ def load_qb_positions(mdir, start, end):
     return fcast_df
 
 def load_qb_eods(mdir, start, end):
+    """
+    Load end-of-day position and trading summary from quantbot.
+
+    Extracts daily trading notional from EOD files.
+
+    Args:
+        mdir: str, directory containing EOD files
+        start: str or None, start date (YYYYMMDD format)
+        end: str or None, end date (YYYYMMDD format)
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with:
+        - today_long, today_short: daily trading amounts
+        - dtradenot: net daily trade notional (long - short)
+
+    File Pattern:
+        {mdir}/{date}.EOD.csv
+    """
     print "Looking in {}".format(mdir)
     fcast_dfs = list()
     files = sorted(glob.glob(mdir + "/.csv"))
@@ -623,6 +934,20 @@ def load_qb_eods(mdir, start, end):
     return fcast_df
 
 def load_qb_orders(ofile, date):
+    """
+    Load order submission data from a quantbot orders file.
+
+    Filters to NEW orders only and converts short side quantities
+    to negative values.
+
+    Args:
+        ofile: str, path to orders file
+        date: str, date string (YYYYMMDD format)
+
+    Returns:
+        DataFrame indexed by (ts, sid) with order details.
+        Short/SellShort orders have negative qty.
+    """
     df = pd.read_csv(ofile, usecols=['time', 'symbol', 'sid', 'id', 'side', 'qty', 'px', 'state'])
     df = df[ df['state'] == "NEW" ]
     df['ts'] = pd.to_datetime( date + " " + df['time'])
@@ -636,6 +961,19 @@ def load_qb_orders(ofile, date):
     return df
 
 def load_qb_exec(efile, date):
+    """
+    Load execution/fill data from a quantbot executions file.
+
+    Converts short side quantities to negative values.
+
+    Args:
+        efile: str, path to executions file
+        date: str, date string (YYYYMMDD format)
+
+    Returns:
+        DataFrame with execution details (qty, px, order_id, etc.).
+        Short/SellShort executions have negative qty.
+    """
     df = pd.read_csv(efile, usecols=['time', 'symbol', 'sid', 'order_id', 'side', 'qty', 'px'])
     df['ts'] = pd.to_datetime( date + " " + df['time'])
     del df['time']
@@ -646,6 +984,25 @@ def load_qb_exec(efile, date):
 
 
 def load_factor_cache(start, end):
+    """
+    Load cached factor data from HDF5 files.
+
+    Loads pre-computed factor values from the cache directory,
+    combining multiple cache files that overlap the date range.
+
+    Args:
+        start: datetime, start date
+        end: datetime, end date
+
+    Returns:
+        DataFrame indexed by (date, factor) with cached factor values.
+
+    Environment:
+        Requires CACHE_DIR environment variable.
+
+    File Pattern:
+        $CACHE_DIR/all.factors.{startdate}-{enddate}.h5
+    """
     dfs = list()
     for ff in sorted(glob.glob(os.environ['CACHE_DIR'] + "/all.factors.*")):
         m = re.match(r".*all\.factors\.(\d{8})-(\d{8}).h5", str(ff))
@@ -668,6 +1025,27 @@ def load_factor_cache(start, end):
     return result_df
 
 def load_cache(start, end, cols=None):
+    """
+    Load cached market data from HDF5 files.
+
+    Primary cache loader that combines multiple HDF5 cache files
+    spanning the requested date range. Uses combine_first to handle
+    overlapping date ranges.
+
+    Args:
+        start: datetime, start date
+        end: datetime, end date
+        cols: list of str or None, specific columns to load
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with cached data.
+
+    Environment:
+        Requires CACHE_DIR environment variable.
+
+    File Pattern:
+        $CACHE_DIR/all.{startdate}-{enddate}.h5
+    """
     dfs = list()
     for ff in sorted(glob.glob(os.environ['CACHE_DIR'] + "/all.2*")):
         m = re.match(r".*all\.(\d{8})-(\d{8}).h5", str(ff))
@@ -692,7 +1070,24 @@ def load_cache(start, end, cols=None):
     return result_df
 
 def load_all_results(fdir, start, end, cols=None):
-    fdir += "/all/"    
+    """
+    Load alpha results from a single forecast directory.
+
+    Loads intraday alpha files, filtering to market hours (10:00-15:30).
+
+    Args:
+        fdir: str, base directory for alpha results
+        start: str, start date (YYYYMMDD format)
+        end: str, end date (YYYYMMDD format)
+        cols: list of str or None, specific columns to load
+
+    Returns:
+        DataFrame indexed by (iclose_ts, sid) with alpha signals.
+
+    File Pattern:
+        {fdir}/all/alpha.all.{date}_{time}.*
+    """
+    fdir += "/all/"
     print "Looking in {}".format(fdir)
     fcast_dfs = list()
     for ff in sorted(glob.glob(fdir + "/alpha.*")):
@@ -717,6 +1112,25 @@ def load_all_results(fdir, start, end, cols=None):
 BARRA_INDS = ['indname1', 'wgt1', 'indname2', 'wgt2', 'indname3', 'wgt3', 'indname4', 'wgt4', 'indname5', 'wgt5']
 
 def transform_barra(barra_df):
+    """
+    Transform Barra industry classifications from long to wide format.
+
+    Barra assigns stocks to up to 5 industries with percentage weights.
+    This function pivots those assignments into one-hot encoded columns
+    for use in factor models.
+
+    Args:
+        barra_df: DataFrame with Barra data including indname1-5 and wgt1-5
+
+    Returns:
+        DataFrame with industry weights as separate columns (one per industry).
+        Original indname2-5 and wgt1-5 columns are removed.
+        indname1 is preserved as the primary industry.
+
+    Notes:
+        Industry weights sum to 1.0 across a stock's assigned industries.
+        Used for industry neutralization in optimization.
+    """
     print "Transforming barra data..."
     barra1_df = barra_df[ ['indname1', 'wgt1'] ].dropna()
     barra2_df = barra_df[ ['indname2', 'wgt2'] ].dropna()
@@ -757,6 +1171,32 @@ def transform_barra(barra_df):
     return barra_df
 
 def load_ratings_hist(uni_df, start, end, intra=False):
+    """
+    Load analyst rating history and compute consensus metrics.
+
+    Queries IBES database for historical analyst recommendations,
+    computing consensus statistics and rating changes over a 252-day window.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+        intra: bool, if True load intraday snapshots (15-min intervals)
+
+    Returns:
+        DataFrame indexed by (date/iclose_ts, sid) containing:
+        - rating_mean, rating_median, rating_std: consensus stats
+        - rating_count, rating_max, rating_min: coverage stats
+        - rating_last: most recent rating timestamp
+        - rating_diff_mean: average rating change (upgrades/downgrades)
+
+    Database:
+        Uses ESTIMATES_BASE_DIR/ibes.db SQLite database.
+        Queries t_ibes_hist_rec_snapshot table.
+
+    Notes:
+        Rating codes typically: 1=Strong Buy, 2=Buy, 3=Hold, 4=Sell, 5=Strong Sell
+    """
     if intra:
         times = ['09:45', '10:00', '10:15', '10:30', '10:45', '11:00', '11:15', '11:30', '11:45', '12:00', '12:15', '12:30', '12:45', '13:00', '13:15', '13:30', '13:45', '14:00', '14:15', '14:30', '14:45', '15:00', '15:15', '15:30', '15:45', '16:00' ]
     else:
@@ -823,8 +1263,31 @@ def load_ratings_hist(uni_df, start, end, intra=False):
     return result_df
 
 def load_target_hist(uni_df, start, end, intra=False):
+    """
+    Load analyst price target history and compute consensus metrics.
+
+    Queries IBES database for historical price targets with 12-month
+    horizon, computing consensus statistics over a 252-day window.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+        intra: bool, currently unused (daily mode only)
+
+    Returns:
+        DataFrame indexed by (date, sid) containing:
+        - target_mean, target_median, target_std: consensus price targets
+        - target_count, target_max, target_min: coverage stats
+        - target_last: most recent target timestamp
+        - target_diff_mean: average target price change
+
+    Database:
+        Uses ESTIMATES_BASE_DIR/ibes.db SQLite database.
+        Queries t_ibes_hist_ptg_snapshot table.
+    """
     window = timedelta(days=252)
-    con = lite.connect(ESTIMATES_BASE_DIR + "ibes.db")    
+    con = lite.connect(ESTIMATES_BASE_DIR + "ibes.db")
     date = start
 
     df_list = list()
@@ -838,8 +1301,8 @@ def load_target_hist(uni_df, start, end, intra=False):
 
         endDateStr = date.strftime('%Y%m%d')
         startDateStr = (date - window).strftime('%Y%m%d')
-        for time in times:            
-            #timeAdjusted = str(int(time.split(":")[0]) - 3) + ":" + time.split(":")[1] 
+        for time in times:
+            #timeAdjusted = str(int(time.split(":")[0]) - 3) + ":" + time.split(":")[1]
             sql = "select * from t_ibes_hist_ptg_snapshot where timestamp between '{} {}' and '{} {}' and horizon in ('', 12) and value > 0 group by sid, ibes_ticker, estimator having timestamp = max(timestamp)".format(startDateStr, time, endDateStr, time)
             print sql
             df = psql.frame_query(sql, con)
@@ -876,8 +1339,35 @@ def load_target_hist(uni_df, start, end, intra=False):
     return result_df
 
 def load_estimate_hist(uni_df, start, end, estimate):
+    """
+    Load analyst estimate history for a specific measure (EPS, revenue, etc).
+
+    Queries IBES database for detailed estimates, filtering to the next
+    fiscal period and computing consensus statistics.
+
+    Args:
+        uni_df: DataFrame, universe of stocks
+        start: datetime, start date
+        end: datetime, end date
+        estimate: str, estimate type to load (e.g., 'EPS', 'REV')
+
+    Returns:
+        DataFrame indexed by (date, sid) containing:
+        - {estimate}_mean, {estimate}_median, {estimate}_std: consensus
+        - {estimate}_count, {estimate}_max, {estimate}_min: coverage
+        - {estimate}_last: most recent estimate timestamp
+        - {estimate}_diff_mean: average estimate revision
+
+    Database:
+        Uses ESTIMATES_BASE_DIR/ibes.db SQLite database.
+        Queries t_ibes_det_snapshot table.
+
+    Notes:
+        Filters to forecast_period_ind=1 (next fiscal period).
+        Fiscal period must be within 2 years of current date.
+    """
     window = timedelta(days=252)
-    con = lite.connect(ESTIMATES_BASE_DIR + "ibes.db")    
+    con = lite.connect(ESTIMATES_BASE_DIR + "ibes.db")
     date = start
 
     df_list = list()
@@ -889,7 +1379,7 @@ def load_estimate_hist(uni_df, start, end, estimate):
             times = ['16:00']
         endDateStr = date.strftime('%Y%m%d')
         startDateStr = (date - window).strftime('%Y%m%d')
-        for time in times:            
+        for time in times:
             minPeriod = str(int(endDateStr[2:4])) + endDateStr[4:6]
             maxPeriod = str(int(endDateStr[2:4]) + 2) + "00"
             sql = "select * from t_ibes_det_snapshot where timestamp between '{} {}' and '{} {}' and measure = '{}' and forecast_period_ind = 1 and forecast_period_end_date > {} and forecast_period_end_date < {} group by sid, ibes_ticker, estimator, forecast_period_ind, forecast_period_end_date having timestamp = max(timestamp) order by sid, forecast_period_end_date;".format(startDateStr, time, endDateStr, time, estimate, minPeriod, maxPeriod)
@@ -933,6 +1423,25 @@ def load_estimate_hist(uni_df, start, end, estimate):
 
     
 def load_consensus(dtype, uni_df, start, end, freq='30Min'):
+    """
+    Load intraday consensus estimate data from IBES QFS files.
+
+    Loads real-time consensus data and resamples to specified frequency.
+
+    Args:
+        dtype: str, data type to load (estimate category)
+        uni_df: DataFrame, universe of stocks (currently unused)
+        start: datetime, start date
+        end: datetime, end date
+        freq: str, resampling frequency (default '30Min')
+
+    Returns:
+        DataFrame resampled to specified frequency with consensus data.
+        Forward-fills missing values within each security.
+
+    File Pattern:
+        ESTIMATES_BASE_DIR/{year}/{date}.ibes_qfs_{dtype}_*.rev.csv
+    """
     date = start
     df_list = list()
     while (date < end ):
