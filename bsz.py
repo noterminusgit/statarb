@@ -1,4 +1,43 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Bid-Ask Size Imbalance Alpha Strategy
+
+Generates trading signals based on bid/ask size imbalance normalized by spread.
+This strategy exploits order book depth asymmetries as predictive signals.
+
+Methodology:
+  1. Calculate size imbalance: (AskSize - BidSize) / (BidSize + AskSize)
+  2. Normalize by sqrt(spread) to account for liquidity differences
+  3. Scale by 1/10000 and winsorize
+  4. Industry-demean to maintain market neutrality
+  5. Regress against beta-adjusted forward returns
+  6. Generate forecasts with intraday time-of-day coefficients
+
+Key Features:
+  - Uses both daily EOD and intraday 30-min bar data
+  - Calculates beta-adjusted returns (market-cap weighted)
+  - Different coefficients for 6 intraday periods (hourly buckets)
+  - Combines current intraday signal with lagged daily signals
+
+Usage:
+  python bsz.py --start=20130101 --end=20130630 --mid=20130315 --horizon=3
+
+Arguments:
+  --start: Start date (YYYYMMDD)
+  --end: End date (YYYYMMDD)
+  --mid: Mid-date for in-sample/out-sample split (YYYYMMDD)
+  --freq: Bar frequency in minutes (default: 15)
+  --horizon: Forecast horizon in days (default: 3)
+
+Output:
+  - Regression plots for daily and intraday periods
+  - HDF5 cache files: bsz{start}.{end}_daily.h5 and _intra.h5
+  - Alpha forecast in 'bsz' column via dump_alpha()
+
+Data Requirements:
+  - meanAskSize, meanBidSize: Average bid/ask sizes from order book
+  - meanSpread, spread_bps: Spread measures
+  - pbeta: Predicted beta from Barra model
+"""
 
 from regress import *
 from loaddata import *

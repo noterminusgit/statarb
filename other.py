@@ -1,4 +1,35 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Volatility Ratio Alpha Strategy
+
+Generates trading signals by multiplying log returns with volatility ratio.
+This strategy attempts to capture mean reversion effects that vary with
+realized volatility patterns.
+
+Methodology:
+  1. Calculate log_ret * volat_ratio for each stock
+  2. Winsorize and industry-demean the signal
+  3. Create lagged features for multi-day horizons
+  4. Regress against forward returns (both daily and intraday)
+  5. Generate forecasts using fitted coefficients
+
+The strategy combines daily overnight-to-close returns with intraday signals,
+using industry-relative normalization to maintain market neutrality.
+
+Usage:
+  python other.py --start=20130101 --end=20130630
+
+Arguments:
+  --start: Start date (YYYYMMDD)
+  --end: End date (YYYYMMDD)
+
+Output:
+  - Regression plots for daily and intraday regressions
+  - Alpha forecast in 'other' column via dump_alpha()
+  - Full dataset dump via dump_all()
+  - Simulation results via sim_alphas()
+
+NOTE: This file should be renamed to 'volat_ratio.py' for clarity.
+"""
 
 from alphacalc import *
 

@@ -76,3 +76,51 @@
 - Uses deprecated pandas.stats.moments API (ewmcorr, ewmcov)
 - Forward returns use shift(-N) to look ahead for backtesting
 - Winsorization default: 5σ (retains ~99.9999% of normal data)
+
+---
+
+### Task: Investigate and Document Critical Unknown Files (COMPLETE)
+
+**Decision rationale:** Highest priority investigation task:
+- 5 files with completely unknown purpose (new1.py, other.py, other2.py, bsz.py, bsz1.py)
+- Potential dead code cluttering codebase OR critical undocumented strategies
+- Marked CRITICAL in documentation plan
+- Must be understood before other documentation work
+
+**Investigation findings:**
+1. **new1.py** → Insideness alpha strategy
+   - Beta-adjusted returns * order book insideness
+   - Daily + intraday with time-of-day coefficients
+   - Horizon: 3 days, uses WLS regression
+
+2. **other.py** → Volatility ratio alpha strategy
+   - log_ret * volat_ratio (realized volatility)
+   - Mean reversion with volatility adjustment
+   - Industry-demeaned, horizon: 2 days
+
+3. **other2.py** → Simplified insideness alpha
+   - log_ret * insideness (NO beta adjustment)
+   - Very similar to new1.py but simpler framework
+   - Uses alphacalc instead of direct regress module
+
+4. **bsz.py** → Bid-ask size imbalance alpha
+   - (AskSize - BidSize) / (BidSize + AskSize) / sqrt(spread)
+   - Beta-adjusted returns, 6 intraday time buckets
+   - Sophisticated order book microstructure strategy
+
+5. **bsz1.py** → Simplified bid-ask imbalance
+   - Same signal as bsz.py but no beta adjustment
+   - Sector-specific analysis (Energy vs non-Energy)
+   - Generates both raw and market-adjusted forecasts
+
+**Work completed:**
+- Comprehensive module docstrings for all 5 files
+- Documented methodology, CLI args, outputs, data requirements
+- Updated plan/21-critical-unknown-files.md to COMPLETE
+- All tasks checked off in plan file
+
+**Recommendations documented:**
+- Rename for clarity: new1.py→insd.py, other.py→volat_ratio.py, etc.
+- Consider consolidating other2.py with new1.py (both use insideness)
+- ALL files are legitimate strategies - NONE should be deleted
+- Need performance analysis before deciding which variants to keep

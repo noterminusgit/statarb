@@ -1,4 +1,37 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Insideness-Return Alpha Strategy (Simplified)
+
+Generates trading signals by multiplying log returns with order book insideness.
+This is a simpler variant of the strategy in new1.py, without beta adjustment.
+
+Methodology:
+  1. Calculate log_ret * insideness for each stock
+  2. Winsorize and industry-demean the signal
+  3. Create lagged features for multi-day horizons
+  4. Regress against forward returns (both daily and intraday)
+  5. Generate forecasts using fitted coefficients
+
+Differences from new1.py:
+  - Does NOT beta-adjust returns (simpler)
+  - Uses alphacalc framework instead of direct regression
+  - Different regression approach but similar signal construction
+
+Usage:
+  python other2.py --start=20130101 --end=20130630
+
+Arguments:
+  --start: Start date (YYYYMMDD)
+  --end: End date (YYYYMMDD)
+
+Output:
+  - Regression plots for daily and intraday regressions
+  - Alpha forecast in 'other' column via dump_alpha()
+  - Full dataset dump via dump_all()
+  - Simulation results via sim_alphas()
+
+NOTE: This file should be renamed (e.g., 'insd_simple.py') and potentially
+consolidated with new1.py or other.py to reduce code duplication.
+"""
 
 from alphacalc import *
 

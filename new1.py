@@ -1,4 +1,37 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Insideness Alpha Strategy
+
+Generates trading signals based on order book "insideness" (a measure of order flow
+imbalance) combined with beta-adjusted returns. This strategy exploits the
+informational content in order book microstructure.
+
+Methodology:
+  1. Calculate beta-adjusted returns (remove market component)
+  2. Multiply by insideness measure from order book data
+  3. Winsorize and industry-demean the signal
+  4. Regress against forward returns to estimate coefficients
+  5. Generate forecasts using fitted coefficients
+
+The strategy operates on both daily and intraday (30-min bar) timeframes,
+combining lagged daily signals with current intraday signals.
+
+Usage:
+  python new1.py --start=20130101 --end=20130630 --mid=20130315 --horizon=3
+
+Arguments:
+  --start: Start date (YYYYMMDD)
+  --end: End date (YYYYMMDD)
+  --mid: Mid-date for in-sample/out-sample split (YYYYMMDD)
+  --freq: Bar frequency in minutes (default: 15)
+  --horizon: Forecast horizon in days (default: 3)
+
+Output:
+  - Regression plots showing coefficient stability
+  - HDF5 cache files: insd{start}.{end}_daily.h5 and _intra.h5
+  - Alpha forecast in 'insd' column via dump_alpha()
+
+NOTE: This file should be renamed to 'insd.py' for clarity.
+"""
 
 from regress import *
 from loaddata import *

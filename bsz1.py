@@ -1,4 +1,37 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Bid-Ask Size Imbalance Alpha Strategy (Simplified Variant)
+
+Simplified version of bsz.py using alphacalc framework instead of direct regression.
+Generates signals based on bid/ask size imbalance normalized by spread.
+
+Methodology:
+  1. Calculate size imbalance: (AskSize - BidSize) / (BidSize + AskSize)
+  2. Normalize by sqrt(spread)
+  3. Winsorize and industry-demean
+  4. Regress against forward returns
+  5. Generate forecasts (both raw 'bsz' and market-adjusted 'bszma')
+
+Key Differences from bsz.py:
+  - Does NOT beta-adjust returns
+  - Uses alphacalc regression framework
+  - Simpler coefficient structure (no time-of-day buckets)
+  - Includes sector-specific analysis (Energy vs non-Energy)
+  - Generates both raw and market-adjusted forecasts
+
+Usage:
+  python bsz1.py
+
+Note: This version has hardcoded dates (20130201-20130401) and should be
+parameterized via argparse for production use.
+
+Output:
+  - Regression plots for 'bsz' and 'bszma' (market-adjusted)
+  - Separate plots for Energy sector vs rest of universe
+  - Alpha forecasts in 'bsz' and 'bszma' columns via dump_alpha()
+
+NOTE: This file should be renamed (e.g., 'bsz_simple.py') and potentially
+consolidated with bsz.py to reduce code duplication.
+"""
 
 from alphacalc import *
 
