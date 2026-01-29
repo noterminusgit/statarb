@@ -1,16 +1,16 @@
 # Documentation Plan: Production/Deployment Modules
 
 ## Priority: CRITICAL
-## Status: In Progress (1/4 complete)
+## Status: In Progress (2/4 complete)
 ## Estimated Scope: 4 files
 
 ## Files Covered
-1. `prod_sal.py` (213 lines) - Sales/production pipeline - **PENDING**
+1. `prod_sal.py` (213 lines) - SAL analyst estimate production - **COMPLETE**
 2. `prod_eps.py` (190 lines) - EPS production - **PENDING**
 3. `prod_rtg.py` (190 lines) - Rating production - **PENDING**
 4. `load_data_live.py` (206 lines) - Live data loading - **COMPLETE**
 
-**3/4 FILES STILL HAVE NO DOCSTRINGS - CRITICAL PRIORITY**
+**2/4 FILES STILL HAVE NO DOCSTRINGS - CRITICAL PRIORITY**
 
 ## Overview
 
@@ -27,10 +27,13 @@ Production modules handle live/deployment workflows:
 - [ ] Document scheduling/orchestration
 
 ### 2. prod_sal.py Documentation
-- [ ] **INVESTIGATE** purpose (Sales? Salamander?)
-- [ ] Add comprehensive module docstring
-- [ ] Document CLI parameters
-- [ ] Document output format
+- [x] **INVESTIGATE** purpose (Sales? Salamander?)
+  - **FOUND: SAL = Sell-side Analyst Liquidity (estimate revisions)**
+- [x] Add comprehensive module docstring
+- [x] Document CLI parameters
+- [x] Document output format
+- [x] Document all 5 functions (wavg, calc_sal_daily, generate_coefs, sal_alpha, calc_sal_forecast)
+- [x] Document strategy logic and operating modes (fit vs. production)
 
 ### 3. prod_eps.py Documentation
 - [ ] Add module docstring for EPS production

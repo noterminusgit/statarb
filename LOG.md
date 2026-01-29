@@ -159,3 +159,101 @@
 - Called by prod_sal.py, prod_eps.py, prod_rtg.py for signal generation
 - Uses same util.py/calc.py as backtesting but different data sources
 - Simpler than loaddata.py - relies on pre-filtered universe
+---
+
+### Task: Document bsim_weights.py (COMPLETE)
+
+**Decision rationale:** Most critical undocumented optimization module:
+- CRITICAL priority in plan/10-optimization-bsim-weights.md
+- Zero documentation (372 lines, NO module docstring)
+- Core portfolio optimization functionality used in simulations
+- More focused than 3 remaining production modules (single file vs. 3 files)
+
+**Work completed:**
+- Added comprehensive 80+ line module docstring covering:
+  - Purpose and key features
+  - Dynamic weight adjustment algorithm
+  - Complete CLI parameter documentation
+  - Usage examples and workflow
+  - Differences from bsim.py
+  - Output format specifications
+- Documented pnl_sum() function
+- Updated plan/10-optimization-bsim-weights.md to COMPLETE status
+
+**Module purpose:**
+- Dynamic alpha weight optimization backtester
+- Adjusts strategy weights based on rolling 5-day performance
+- Creates momentum-based meta-strategy on top of alpha signals
+
+**Key algorithm:**
+- Reads return history from <alpha_dir>/rets.txt
+- For each alpha on each day:
+  - If 5-day rolling return > 0: weight *= 1.2 (capped at 0.9)
+  - If 5-day rolling return <= 0: weight *= 0.8 (floored at 0.1)
+  - Exception: HTB strategy always uses weight 0.5
+- Combines adjusted forecasts and runs portfolio optimization
+- Saves detailed results to ./opt/ directory
+
+**Differences from bsim.py:**
+1. bsim.py: Fixed weights throughout simulation
+2. bsim_weights.py: Adaptive weights based on recent performance
+3. bsim_weights.py saves per-timestamp optimization details
+4. bsim_weights.py focuses on optimization output, not aggregate P&L
+
+**Use cases:**
+- Adaptive weight allocation in changing market conditions
+- Meta-strategy optimization
+- Live trading with performance-based rebalancing
+- Comparing fixed vs. adaptive weight strategies
+
+---
+
+### Task: Document prod_sal.py (COMPLETE)
+
+**Decision rationale:** Most critical undocumented production module remaining:
+- CRITICAL priority in plan/18-production-modules.md (3/4 files still undocumented)
+- Zero documentation - production signal generation without any docs
+- Named ambiguously ("sal" purpose unclear without investigation)
+- Used for live trading signal generation
+
+**Work completed:**
+- Added comprehensive 70+ line module docstring covering:
+  - Strategy logic (analyst estimate revisions)
+  - Operating modes (fitting vs. production)
+  - Signal construction methodology
+  - Data requirements and CLI usage examples
+  - Key parameters and output formats
+- Documented 5 functions:
+  - wavg(): Market-cap weighted beta-adjusted returns
+  - calc_sal_daily(): Daily SAL alpha signal calculation
+  - generate_coefs(): WLS regression coefficient fitting
+  - sal_alpha(): Apply coefficients to generate forecasts
+  - calc_sal_forecast(): Main entry point orchestration
+- Updated plan/18-production-modules.md progress (2/4 complete)
+
+**Module purpose - "SAL" = Sell-side Analyst Liquidity (estimate revisions):**
+- Tracks changes in analyst consensus estimates (SAL_diff_mean)
+- Normalizes by median estimate level and filters for increasing uncertainty
+- Fits separate regressions for upgrades (up) vs. downgrades (dn)
+- Generates multi-lag forecasts using fitted coefficients
+
+**Strategy mechanics:**
+1. Base signal: (SAL_diff_mean / SAL_median) when SAL_std increases
+2. Beta adjustment for market neutrality
+3. Multi-lag structure (0 to 19 days) with declining weights
+4. Separate treatment for positive vs. negative revisions
+
+**Operating modes:**
+- Fit mode (--fit): 720-day lookback, calibrates coefficients, saves CSV
+- Production mode: horizon+5 days, applies coefficients, outputs signals
+
+**Key parameters:**
+- horizon: 20 days (forecast period)
+- ESTIMATE: "SAL" (analyst data query identifier)
+- lookback: 720 days (fit) or horizon+5 (production)
+
+**Data flow:**
+1. Loads price/Barra/analyst data via loaddata.py or load_data_live.py
+2. Calculates SAL signals (normalized estimate changes)
+3. Fits or applies regression coefficients
+4. Outputs via dump_prod_alpha() for portfolio optimization

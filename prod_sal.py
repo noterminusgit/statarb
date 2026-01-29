@@ -1,4 +1,69 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Production alpha generator for sell-side analyst estimate revisions.
+
+This module generates trading signals based on changes in analyst estimates,
+specifically tracking the "SAL" (Sell-side Analyst Liquidity) estimate type.
+The strategy capitalizes on information content in analyst estimate revisions.
+
+**Strategy Logic:**
+1. Tracks changes in analyst consensus estimates (SAL_diff_mean)
+2. Normalizes estimate changes by median estimate level (SAL_median)
+3. Filters for positive standard deviation changes (increasing uncertainty)
+4. Fits separate regression models for estimate upgrades vs. downgrades
+5. Generates lagged multi-day forecasts using fitted coefficients
+
+**Operating Modes:**
+- **Fitting mode** (--fit): Calibrates regression coefficients using 720-day lookback
+  - Performs WLS regression of alpha factors against forward returns
+  - Separates into "up" (positive revisions) and "dn" (negative revisions) regimes
+  - Saves coefficients to CSV for production use
+
+- **Production mode**: Generates alpha signals for live trading
+  - Loads pre-fitted coefficients from CSV
+  - Applies coefficients to recent estimate data (horizon+5 days)
+  - Outputs signals via dump_prod_alpha()
+
+**Signal Construction:**
+- Base signal: (SAL_diff_mean / SAL_median) when SAL_std increases
+- Beta-adjusted returns used for market neutrality
+- Multi-lag structure (0 to horizon-1 days) with declining coefficients
+- Separate treatment for positive vs. negative estimate revisions
+
+**Data Requirements:**
+- Price and volume data (via loaddata.py)
+- Barra risk factors (ind1, pbeta)
+- Analyst estimate history from estimates database
+- Pre-fitted coefficient file (production mode only)
+
+**Usage Examples:**
+
+Fit coefficients (calibration):
+    python prod_sal.py --asof=20130630 --coeffile=./coefs --fit=True
+
+Generate production signals:
+    python prod_sal.py --asof=20130701 --inputfile=live_data.csv \\
+                       --outputfile=sal_alpha.csv --coeffile=./coefs/20130630.sal.csv
+
+**Key Parameters:**
+- horizon: Forecast horizon in days (default: 20)
+- lookback: 720 days for fitting, horizon+5 for production
+- ESTIMATE: Fixed to "SAL" for analyst estimate tracking
+
+**Output:**
+- Fit mode: Coefficient CSV with lagged weights for up/down regimes
+- Production mode: Alpha forecast CSV with 'sal' column
+
+**Dependencies:**
+- regress.py: WLS regression and coefficient fitting
+- load_data_live.py: Live data loading for production mode
+- loaddata.py: Historical data loading and estimate history
+- util.py: Data merging and output utilities
+
+**Author Notes:**
+- Originally designed for analyst estimate momentum/reversal signals
+- SAL estimate type may refer to specific data vendor or estimate category
+- Beta adjustment ensures market-neutral signal construction
+"""
 
 from regress import *
 from load_data_live import *
@@ -7,9 +72,29 @@ from util import *
 
 from pandas.stats.moments import ewma
 
-ESTIMATE = "SAL"
+ESTIMATE = "SAL"  # Estimate type identifier for analyst data queries
 
 def wavg(group):
+    """Calculate market-cap weighted beta-adjusted returns for a date group.
+
+    Computes the market return for each date using cap-weighted log returns,
+    then multiplies by each stock's predicted beta to get expected return.
+
+    Args:
+        group: DataFrame group for single date with columns:
+            - pbeta: Predicted beta from Barra
+            - log_ret: Log returns
+            - mkt_cap_y: Market capitalization
+            - gdate: Date identifier
+
+    Returns:
+        Series: Beta * market_return for each stock in the group
+
+    Notes:
+        - Market cap is scaled to millions for numerical stability
+        - Prints market return for monitoring/debugging
+        - Used to calculate beta-adjusted returns (actual - expected)
+    """
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -19,6 +104,40 @@ def wavg(group):
 
 
 def calc_sal_daily(daily_df, horizon):
+    """Calculate daily SAL (analyst estimate revision) alpha signals.
+
+    Constructs alpha signals from analyst estimate changes, filtering for cases
+    where estimate uncertainty is increasing (positive std_diff). Normalizes
+    estimate changes by median estimate level and computes multi-lag features.
+
+    Args:
+        daily_df: DataFrame with columns:
+            - SAL_diff_mean: Change in mean analyst estimate
+            - SAL_median: Median analyst estimate
+            - SAL_std: Standard deviation of analyst estimates
+            - log_ret: Daily log returns
+            - pbeta: Predicted beta
+            - mkt_cap_y: Market capitalization
+            - gdate: Date identifier
+        horizon: Forecast horizon in days (default: 20)
+
+    Returns:
+        DataFrame with additional columns:
+            - bret: Beta-adjusted expected return (beta * market_return)
+            - badjret: Beta-adjusted residual return (log_ret - bret)
+            - badj0_B: Winsorized beta-adjusted returns
+            - cum_ret: Rolling sum of returns over horizon
+            - std_diff: Change in estimate standard deviation
+            - sal0: Base signal (SAL_diff_mean / SAL_median) when std increases
+            - sal0_ma: Moving average of base signal
+            - sal1_ma, sal2_ma, ...: Lagged versions of sal0_ma
+
+    Notes:
+        - Only generates signals when std_diff > 0 (increasing uncertainty)
+        - Sets sal0=0 when estimate std is decreasing (stability implies no signal)
+        - Creates horizon lags of the base signal for distributed forecasts
+        - Uses filter_expandable() to limit universe
+    """
     print "Caculating daily sal..."
     result_df = filter_expandable(daily_df)
 
@@ -67,6 +186,43 @@ def calc_sal_daily(daily_df, horizon):
     return result_df
 
 def generate_coefs(daily_df, horizon, name, coeffile=None, intercepts=None):
+    """Fit regression coefficients for SAL alpha signal.
+
+    Performs separate WLS regressions for positive and negative estimate revisions,
+    fitting lagged coefficients to predict forward returns. Saves coefficients to
+    CSV for use in production signal generation.
+
+    Args:
+        daily_df: DataFrame with SAL signals and forward returns
+        horizon: Forecast horizon in days
+        name: Strategy name identifier (typically "all")
+        coeffile: Path to output coefficient CSV file
+        intercepts: Dict mapping lag -> intercept adjustment values
+            Subtracted from fitted intercepts to adjust for bias
+
+    Returns:
+        None (writes coefficient CSV to disk)
+
+    Coefficient Structure:
+        For each lag (0 to horizon-1) and regime (up/dn):
+        - sal{lag}_ma_coef: Slope coefficient for lagged signal
+        - sal{lag}_ma_intercept: Intercept term
+
+    Regression Details:
+        - Uses regress_alpha() with WLS for heteroskedasticity
+        - Fits sal0_ma against forward returns at each horizon
+        - Computes incremental coefficients: coef[lag] = coef[horizon] - coef[lag]
+        - Separate models for up (positive SAL_diff_mean) and dn (negative/zero)
+
+    Output CSV Format:
+        Columns: name, group, coef
+        Index: MultiIndex(name, group) where group in ['up', 'dn']
+
+    Notes:
+        - Intercept adjustment critical for bias correction
+        - Separate up/dn models capture asymmetric estimate revision effects
+        - Incremental coefficient structure ensures signals decay with lag
+    """
     insample_daily_df = daily_df
 
     insample_up_df = insample_daily_df[ insample_daily_df[ESTIMATE + "_diff_mean"] > 0 ]
@@ -117,6 +273,37 @@ def generate_coefs(daily_df, horizon, name, coeffile=None, intercepts=None):
     return
 
 def sal_alpha(daily_df, horizon, name, coeffile):
+    """Apply fitted coefficients to generate SAL alpha forecasts.
+
+    Loads pre-fitted regression coefficients and applies them to SAL signals,
+    using separate coefficient sets for positive vs. negative estimate revisions.
+
+    Args:
+        daily_df: DataFrame with SAL signals (sal0_ma, sal1_ma, ..., sal{horizon-1}_ma)
+        horizon: Forecast horizon in days (must match coefficient fitting)
+        name: Strategy name identifier (typically "all")
+        coeffile: Path to coefficient CSV file from generate_coefs()
+
+    Returns:
+        DataFrame with additional 'sal' column containing alpha forecast
+
+    Alpha Calculation:
+        For each stock-date:
+        1. Select coefficient set based on SAL_diff_mean sign (up vs. dn)
+        2. sal = sum over lags: (sal{lag}_ma * coef + intercept)
+        3. Lagged signals provide distributed multi-day forecast
+
+    Coefficient Application:
+        - Positive SAL_diff_mean: Use "up" regime coefficients
+        - Negative/zero SAL_diff_mean: Use "dn" regime coefficients
+        - Each lag (0 to horizon-1) contributes to final signal
+        - Missing values filled with 0
+
+    Notes:
+        - Requires coefficient CSV with MultiIndex(name, group)
+        - Separate up/dn treatment captures asymmetric revision effects
+        - Output 'sal' column ready for portfolio optimization
+    """
     coef_df = pd.read_csv(coeffile, header=0, index_col=['name', 'group'])
     outsample_daily_df = daily_df
     outsample_daily_df['sal'] = 0.0
@@ -152,6 +339,41 @@ def sal_alpha(daily_df, horizon, name, coeffile):
     return outsample_daily_df
 
 def calc_sal_forecast(daily_df, horizon, coeffile, fit):
+    """Main entry point for SAL alpha generation (fitting or production).
+
+    Orchestrates the complete SAL alpha workflow: signal calculation,
+    coefficient fitting (if requested), and alpha forecast generation.
+
+    Args:
+        daily_df: DataFrame with price, Barra, and analyst estimate data
+        horizon: Forecast horizon in days (typically 20)
+        coeffile: Path to coefficient CSV (input for production, output for fitting)
+        fit: Boolean flag:
+            - True: Fit mode - calculate coefficients and save to coeffile
+            - False: Production mode - apply existing coefficients to generate signals
+
+    Returns:
+        - Fit mode (fit=True): None (writes coefficients to disk)
+        - Production mode (fit=False): DataFrame with 'sal' alpha column
+
+    Workflow:
+        1. Calculate base SAL signals via calc_sal_daily()
+        2. If fitting:
+           a. Compute forward returns for regression targets
+           b. Calculate intercept adjustments via get_intercept()
+           c. Fit coefficients via generate_coefs()
+           d. Save coefficients to coeffile
+        3. If production:
+           a. Load coefficients from coeffile
+           b. Apply coefficients via sal_alpha()
+           c. Return DataFrame ready for portfolio optimization
+
+    Notes:
+        - Fit mode used for periodic coefficient recalibration (e.g., monthly)
+        - Production mode used for daily signal generation
+        - Intercept adjustment critical for bias correction in fitting
+        - Output suitable for merge with other alpha signals
+    """
     daily_results_df = calc_sal_daily(daily_df, horizon) 
 
     if fit:
