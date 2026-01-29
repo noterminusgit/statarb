@@ -124,3 +124,38 @@
 - Consider consolidating other2.py with new1.py (both use insideness)
 - ALL files are legitimate strategies - NONE should be deleted
 - Need performance analysis before deciding which variants to keep
+
+---
+
+### Task: Document load_data_live.py (COMPLETE)
+
+**Decision rationale:** Most critical undocumented production module:
+- CRITICAL priority in plan/18-production-modules.md
+- Foundation for all production workflows (live data loading)
+- Zero documentation - complete knowledge gap for operational continuity
+- Other prod_*.py modules depend on this for live data
+
+**Work completed:**
+- Added comprehensive 40+ line module docstring
+- Documented load_live_file() function with full context
+- Added inline documentation for all configuration constants
+- Documented commented-out IBES database functions (25+ line explanation)
+- Updated plan/18-production-modules.md progress
+
+**Module purpose:**
+- Live/production data loading vs. loaddata.py (backtesting)
+- Loads real-time bid/ask price data from CSV
+- Calculates mid-price (close_i) for execution pricing
+- Infrastructure for IBES analyst data (ratings, targets, estimates) - currently inactive
+
+**Key discoveries:**
+- Single active function: load_live_file() - loads CSV, calculates mid-price
+- Extensive commented infrastructure for IBES database integration
+- UNBIAS=3 hours for production timestamp adjustment
+- All base directories empty - requires prod environment configuration
+- Commented functions complete and tested, ready for activation
+
+**Production context:**
+- Called by prod_sal.py, prod_eps.py, prod_rtg.py for signal generation
+- Uses same util.py/calc.py as backtesting but different data sources
+- Simpler than loaddata.py - relies on pre-filtered universe
