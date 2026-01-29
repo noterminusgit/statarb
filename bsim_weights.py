@@ -1,4 +1,96 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Dynamic Weight Optimization Backtester (bsim_weights.py)
+
+This simulator extends the standard daily backtester (bsim.py) with dynamic alpha
+weight adjustment based on recent strategy performance. Weights are automatically
+increased for strategies with positive recent returns and decreased for strategies
+with negative recent returns, creating a momentum-based meta-strategy.
+
+Key Features:
+- Dynamic weight adjustment based on rolling 5-day returns
+- Increases winning strategy weights by 1.2x (capped at 0.9)
+- Decreases losing strategy weights by 0.8x (floored at 0.1)
+- Reads return history from <dir>/rets.txt files
+- Saves optimization results to ./opt/ directory
+
+Usage:
+    python bsim_weights.py --start=20130101 --end=20130630 \\
+        --fcast=hl:1:0.5,bd:0.8:0.3 --kappa=2e-8 --maxnot=200e6
+
+Weight Adjustment Logic:
+    For each alpha strategy on each day:
+    1. Calculate rolling 5-day return (from rets.txt)
+    2. If rolling return > 0: weight *= 1.2 (max 0.9)
+    3. If rolling return <= 0: weight *= 0.8 (min 0.1)
+    4. Exception: 'htb' strategy always uses weight 0.5
+
+CLI Arguments:
+    --start: Start date (YYYYMMDD)
+    --end: End date (YYYYMMDD)
+    --fcast: Alpha forecasts (format: "dir:name:mult:weight,dir2:name2:mult2:weight2")
+             Example: "hl:1:0.6,bd:0.8:0.4"
+             - dir: directory containing alpha rets.txt file
+             - name: alpha strategy name
+             - mult: forecast multiplier
+             - weight: initial weight (will be adjusted dynamically)
+    --horizon: Forecast horizon in days (default: 3)
+    --mult: Global alpha multiplier (default: 1.0)
+    --kappa: Risk aversion parameter (default: 2.0e-8)
+    --maxnot: Max total notional ($, default: 200M)
+    --maxdollars: Max notional per position (default: 1M)
+    --maxforecast: Max forecast value after clipping (default: 0.0050)
+    --slipnu: Market impact coefficient (default: 0.18)
+    --slipbeta: Market impact exponent (default: 0.6)
+    --maxiter: Max optimization iterations (default: 1500)
+    --locates: Use locate constraints for shorting (default: True)
+    --earnings: Days buffer around earnings (stops new positions, default: None)
+    --nonegutil: Skip trades with negative expected utility (default: True)
+    --exclude: Exclude condition (e.g., "mkt_cap_y:1e9", default: None)
+    --vwap: Use VWAP pricing (default: False)
+    --fast: Fast mode - skip some timestamps (default: False)
+
+Output:
+    Creates ./opt/opt.<alpha-names>.<YYYYMMDD>_<HHMMSS>.csv files with:
+    - target: Optimized target positions ($)
+    - dutil: Expected utility contribution
+    - eslip: Expected slippage cost
+    - dmu: Expected return contribution
+    - dsrisk: Specific risk contribution
+    - dfrisk: Factor risk contribution
+    - costs: Transaction costs
+    - traded: Position change ($)
+    - shares: Position in shares
+    - position: Actual position after constraints ($)
+    - forecast: Combined forecast value
+    - iclose: Execution price
+
+Differences from bsim.py:
+    1. Reads <dir>/rets.txt files with format: "date ret"
+    2. Dynamically adjusts weights based on rolling 5-day returns
+    3. Saves detailed optimization results for each timestamp
+    4. Does not compute full P&L statistics (optimization-focused)
+
+Data Requirements:
+    - Same as bsim.py: price, volume, Barra factors, industry classifications
+    - Additional: <alpha_dir>/rets.txt with daily alpha returns
+
+Performance Considerations:
+    - Uses garbage collection to manage memory during long simulations
+    - Saves results incrementally by timestamp
+    - Memory-efficient for multi-alpha combinations
+
+Example Workflow:
+    1. Run alpha strategies and generate rets.txt files
+    2. Run bsim_weights.py with multiple alphas
+    3. Weight adjustment adapts to changing market conditions
+    4. Review ./opt/ results to see weight evolution
+
+Notes:
+    - Weight adjustment creates implicit momentum strategy
+    - Can amplify both winning and losing streaks
+    - Consider using with lower initial weights vs. fixed-weight bsim.py
+    - HTB strategy ('htb') always uses weight 0.5 regardless of performance
+"""
 
 from util import *
 from regress import *
@@ -12,6 +104,20 @@ from collections import defaultdict
 import argparse
 
 def pnl_sum(group):
+    """Calculate cumulative P&L for a group of positions.
+
+    Computes P&L by comparing log returns between two time points
+    and applying to position sizes.
+
+    Args:
+        group: DataFrame group with columns:
+            - cum_log_ret_i_now: Current cumulative log return
+            - cum_log_ret_i_then: Previous cumulative log return
+            - position_then: Position size at previous time
+
+    Returns:
+        float: Sum of P&L across all positions in group
+    """
     cum_pnl = ((np.exp(group['cum_log_ret_i_now' ] - group['cum_log_ret_i_then']) - 1) * group['position_then']).fillna(0).sum()
     return cum_pnl
 
