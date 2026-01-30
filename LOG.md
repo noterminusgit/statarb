@@ -257,3 +257,41 @@
 2. Calculates SAL signals (normalized estimate changes)
 3. Fits or applies regression coefficients
 4. Outputs via dump_prod_alpha() for portfolio optimization
+
+---
+
+## 2026-01-30
+
+### Task: Document regress.py (COMPLETE)
+
+**Decision rationale:** Chose regress.py based on own analysis:
+- HIGH priority core infrastructure module
+- Critical for ALL alpha strategies (fits factors to forward returns)
+- 242 lines with 8 undocumented functions
+- Module docstring existed, but 0 function docstrings
+- More impactful than remaining production modules (prod_eps, prod_rtg similar to prod_sal)
+
+**Work completed:**
+- Added comprehensive docstrings to all 8 functions in regress.py
+- Each docstring includes: purpose, args, returns, methodology, examples
+- Updated plan/04-core-infrastructure-regress.md to COMPLETE status
+
+**Functions documented:**
+- `plot_fit()`: Visualize coefficient decay across horizons with error bars
+- `extract_results()`: Convert statsmodels output to standardized DataFrame
+- `get_intercept()`: Extract intercepts for time-series drift analysis
+- `regress_alpha()`: Main dispatcher with 3-fold out-of-sample validation
+- `regress_alpha_daily()`: Cross-sectional WLS (mdvp^0.5 weighted, winsorized)
+- `regress_alpha_intra_eod()`: Intraday alpha vs EOD returns (6 hourly timeslices)
+- `regress_alpha_intra()`: Intraday forward-looking regression (6 timeslices × horizon bars)
+- `regress_alpha_dow()`: Day-of-week stratified regression (5 separate fits)
+
+**Key technical insights:**
+- WLS weighting: mdvp^0.5 balances small/large cap influence
+- Winsorization applied to both returns (by date) and alpha factors
+- Log returns converted to simple: exp(log_ret) - 1 before regression
+- Median mode: 3-fold split for out-of-sample coefficient validation
+- Regression types: daily (cross-sectional), intraday (time-slice), dow (calendar effects)
+- Intercept analysis detects systematic drift not explained by alpha
+- Horizon encoding for dow: horizon*10 + day (e.g., 31 = 3-day Tuesday)
+- Uses statsmodels.api.WLS for robust regression with proper standard errors

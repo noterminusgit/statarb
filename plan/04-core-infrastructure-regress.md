@@ -1,7 +1,7 @@
 # Documentation Plan: regress.py
 
 ## Priority: HIGH
-## Status: Pending
+## Status: COMPLETE
 ## Estimated Scope: Medium (242 lines)
 
 ## Overview
@@ -14,29 +14,36 @@
 ## Documentation Tasks
 
 ### 1. Module-Level Documentation
-- [ ] Add module docstring explaining regression methodology
-- [ ] Document the WLS approach and rationale
-- [ ] Add mathematical formulation
+- [x] Module docstring already exists (comprehensive)
+- [x] Documents WLS approach and rationale
+- [x] Includes mathematical formulation notes
 
 ### 2. Function Documentation
-- [ ] `fit_wls()` - WLS regression fitting
-- [ ] `estimate_coefficients()` - Coefficient estimation
-- [ ] `calc_statistics()` - Statistical metric calculation
-- [ ] Document all public functions
+- [x] `plot_fit()` - Visualize coefficient decay across horizons
+- [x] `extract_results()` - Extract statistics from regression results
+- [x] `get_intercept()` - Extract intercepts for time-series analysis
+- [x] `regress_alpha()` - Main regression dispatcher with median option
+- [x] `regress_alpha_daily()` - Cross-sectional daily regression
+- [x] `regress_alpha_intra_eod()` - Intraday EOD prediction regression
+- [x] `regress_alpha_intra()` - Intraday forward-looking regression
+- [x] `regress_alpha_dow()` - Day-of-week stratified regression
 
 ### 3. Mathematical Documentation
-- [ ] Document WLS weight specification
-- [ ] Document coefficient interpretation
-- [ ] Document t-statistics and p-values
+- [x] WLS weight specification documented (mdvp^0.5)
+- [x] Coefficient interpretation explained in each function
+- [x] T-statistics and standard errors extraction documented
 
 ### 4. Usage Examples
-- [ ] Add example of fitting alpha factors to returns
-- [ ] Document expected input format
+- [x] Examples added to daily and dow regression docstrings
+- [x] Input format expectations documented in each function
 
 ## Dependencies
 - numpy, scipy
-- statsmodels (if used)
+- statsmodels (for WLS regression)
 
-## Notes
-- Critical for alpha generation
-- Statistical accuracy is essential
+## Completion Notes
+- Completed 2026-01-30
+- All 8 functions now have comprehensive docstrings
+- Module docstring was already comprehensive
+- Documented all regression types: daily, intraday, day-of-week
+- Explained WLS weighting methodology (mdvp^0.5 for market cap balance)
