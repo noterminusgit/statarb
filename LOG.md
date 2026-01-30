@@ -295,3 +295,57 @@
 - Intercept analysis detects systematic drift not explained by alpha
 - Horizon encoding for dow: horizon*10 + day (e.g., 31 = 3-day Tuesday)
 - Uses statsmodels.api.WLS for robust regression with proper standard errors
+
+---
+
+### Task: Document opt.py Functions (COMPLETE)
+
+**Decision rationale:** Chose opt.py function documentation based on own analysis:
+- HIGH priority optimization module (plan/09-optimization-opt.md)
+- Excellent module docstring already exists, but 0 function docstrings
+- 434 lines, 14 functions + 1 class - all undocumented
+- Most mathematically complex module in codebase
+- Critical for ALL simulations (bsim, osim, qsim, ssim)
+- More impactful than pca.py or bsim.py at this stage
+
+**Work completed:**
+- Added comprehensive docstrings to all 14 functions and 1 class in opt.py
+- Each docstring includes: purpose, args, returns, mathematical formulas, usage notes
+- Updated plan/09-optimization-opt.md progress
+
+**Functions/class documented:**
+- `Terminator`: Custom OpenOpt callback for convergence monitoring
+- `printinfo()`: Portfolio summary (current vs. target positions)
+- `__printpointinfo()`: Detailed utility decomposition
+- `slippageFuncAdv()`: Nonlinear market impact cost (2-component model)
+- `slippageFunc_grad()`: Gradient of slippage function
+- `costsFunc()`: Execution fees + borrow costs (borrow currently disabled)
+- `costsFunc_grad()`: Gradient of costs function
+- `objective()`: Main utility function to maximize
+- `objective_detail()`: Utility with component breakdown (mu, risk, slip, costs)
+- `objective_grad()`: Analytical gradient for RALG solver
+- `constrain_by_capital()`: Total notional limit (|positions| <= max_sumnot)
+- `constrain_by_capital_grad()`: Capital constraint gradient
+- `constrain_by_trdnot()`: Turnover limit (UNUSED - defined but not activated)
+- `setupProblem()`: Configure OpenOpt NLP with constraints and callbacks
+- `optimize()`: Main entry point - partition tradeable/untradeable, solve NLP, compute marginals
+- `init()`: Allocate global arrays (g_positions, g_mu, g_rvar, etc.)
+- `getUntradeable()`: Partition securities by bound tightness (<$10 gap = untradeable)
+
+**Key technical insights:**
+- Objective: U = μ·x - κ(σ²·x² + x'Fx) - slippage(Δx) - costs(Δx)
+- Slippage model: I = γ*vol*(|Δx|/advp)*(mktcap/advp)^δ; J = I/2 + ν*vol*(|Δx|/advpt)^β
+- Risk components: specific (σ²·x²) + factor (x'Fx) where F=loadings, x=positions
+- Constraints: box (lb/ub), linear (factor exposures Ax<=b), nonlinear (capital)
+- Solver: OpenOpt RALG with analytical gradient, ftol=1e-6, 500 min/max iters
+- Early stopping: Terminator callback (50-iter lookback, threshold=10 improvement)
+- Untradeable handling: Fixed positions contribute to risk but not optimized
+- Per-security marginals: Computed via perturbation for diagnostic output
+- Hard limit buffer: 1.02x on capital/exposure constraints for stability
+- Borrow costs: Implemented but disabled pending data availability
+
+**Documentation impact:**
+- opt.py now fully documented at module and function level
+- Mathematical formulations clear for all cost/risk components
+- Gradient derivations explicit for optimization transparency
+- Usage patterns documented (global variable workflow, init→optimize flow)
