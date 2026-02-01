@@ -1,12 +1,12 @@
 # Documentation Plan: High-Low Mean Reversion Strategies
 
 ## Priority: MEDIUM
-## Status: In Progress (1/6 complete)
+## Status: In Progress (2/6 complete)
 ## Estimated Scope: 6 files
 
 ## Files Covered
 1. `hl.py` - Daily high-low mean reversion [✓ COMPLETE]
-2. `hl_intra.py` - Intraday high-low
+2. `hl_intra.py` - Intraday high-low [✓ COMPLETE]
 3. `qhl_intra.py` - Quote-based intraday high-low
 4. `qhl_multi.py` - Multiple timeframe high-low
 5. `qhl_both.py` - Combined high-low approach
@@ -35,11 +35,15 @@ High-low strategies implement mean reversion based on:
 - [✓] Document all 4 functions with detailed docstrings
 - [✓] Document usage examples and integration patterns
 
-#### hl_intra.py [PENDING]
-- [ ] Add module docstring with strategy description
-- [ ] Document signal calculation formula
-- [ ] Document parameters and tuning options
-- [ ] Document expected signal characteristics
+#### hl_intra.py [COMPLETE]
+- [✓] Add module docstring with strategy description
+- [✓] Document signal calculation formula (hlC = iclose/sqrt(dhigh*dlow))
+- [✓] Document parameters and tuning options (horizon, sector_name)
+- [✓] Document expected signal characteristics (range, turnover, mean reversion)
+- [✓] Document all 3 functions with detailed docstrings
+- [✓] Document key differences from daily hl.py strategy
+- [✓] Document intraday-specific aspects (timing, updates, use case)
+- [✓] Document bug on line 46 (undefined lag variable)
 
 #### qhl_intra.py [PENDING]
 - [ ] Add module docstring with strategy description
