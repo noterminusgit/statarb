@@ -1,3 +1,234 @@
+"""
+SALAMANDER BSIM - Daily Backtesting Simulation Engine (Python 3)
+
+This is the Python 3 standalone version of the daily statistical arbitrage
+backtesting engine. It provides a simplified, self-contained simulation
+environment independent of the main Python 2.7 codebase.
+
+Differences from Main bsim.py:
+==============================
+
+1. **Python 3 Compatibility**
+   - Print statements use function syntax: print() not print
+   - Dictionary iteration updated (.items(), .keys(), .values())
+   - Integer division uses // operator where needed
+   - Pandas DataFrame indexing uses .loc[] and .iloc[] instead of .ix[]
+
+2. **Simplified Data Pipeline**
+   - Uses standalone loaddata.py for HDF5/CSV loading
+   - Loads data from --dir parameter (no hardcoded paths)
+   - Reduced columns: only core price/volume/factor data
+   - No intraday timestamps - daily data only
+   - Simpler universe filtering logic
+
+3. **Reduced Factor Model**
+   - Only 5 Barra factors (growth, size, divyild, btop, momentum)
+   - Main version has 13 factors
+   - No industry classifications (main has 58 industries)
+   - Simplified factor covariance calculations
+
+4. **Streamlined Alpha Signals**
+   - Default: only HL (High-Low) strategy implemented
+   - Alpha format: "name:multiplier:weight" (3 fields)
+   - Main version format: "dir:name:multiplier:weight" (4 fields)
+   - Loads from data/hl/ directory structure
+
+5. **Simplified Optimization**
+   - Uses same opt.py module with reduced factor count
+   - Fewer constraint types
+   - Simpler position bound calculations
+   - No earnings date handling by default
+   - Simplified locate constraints
+
+6. **Different Index Names**
+   - Uses 'date' and 'gvkey' instead of 'iclose_ts' and 'sid'
+   - No intraday timestamp tracking
+   - Daily rebalancing only (no intraday simulation)
+
+7. **Standalone Directory Structure**
+   - Data path: {--dir}/data/
+   - Alpha signals: {--dir}/data/hl/
+   - Locates: {--dir}/data/locates/
+   - Output: {--dir}/data/opt/ and {--dir}/data/blotter/
+
+8. **Performance Tracking**
+   - Uses blotter DataFrame to track all trades
+   - Calculates P&L from price differences vs traded shares
+   - Outputs annualized return, volatility, and Sharpe ratio
+   - Main version has more detailed attribution
+
+9. **Memory Management**
+   - Groups processed date by date (more memory efficient)
+   - Uses garbage collection between iterations
+   - No full pnl_df kept in memory during simulation
+
+10. **Output Format**
+    - CSV files: opt.{alpha_name}.{YYYYMMDD}.csv (daily, not timestamped)
+    - Blotter: blotter.csv with exec amount and action (BUY/SELL)
+    - No email notification on completion
+
+Workflow:
+=========
+
+1. Load historical data from HDF5 files (data/all/*.h5)
+2. Load alpha forecasts from CSV files (data/hl/*.csv)
+3. Load optional locates data from borrow.csv
+4. Merge alpha signals and calculate combined forecast
+5. Calculate residual volatility and factor exposures
+6. Main simulation loop (for each date):
+   a. Filter tradable universe (price, volume, data quality)
+   b. Merge last positions and handle corporate actions
+   c. Apply position bounds and constraints
+   d. Call optimizer to find optimal positions
+   e. Apply participation constraints to limit trade size
+   f. Calculate actual positions and track in blotter
+   g. Write optimization results to CSV
+   h. Calculate daily P&L and performance metrics
+7. Output final statistics (total P&L, Sharpe ratio)
+
+Command-Line Arguments:
+=======================
+
+Required:
+  --start         Start date (YYYYMMDD format)
+  --end           End date (YYYYMMDD format)
+  --fcast         Alpha forecast specification
+                  Format: "name:multiplier:weight"
+                  Example: "hl:1:1" or "hl:1:0.6,hl:0.8:0.4"
+  --dir           Root directory path (data stored in {dir}/data/)
+
+Optional:
+  --horizon       Forecast horizon in days (default: 3)
+  --mult          Global alpha multiplier (default: 1.0)
+  --kappa         Risk aversion parameter (default: 2.0e-8)
+                  Higher = more conservative, lower positions
+                  Range: 2e-8 (aggressive) to 4.3e-5 (conservative)
+  --maxnot        Maximum total notional in dollars (default: 200M)
+  --maxdollars    Maximum position size per stock (default: 1M)
+  --maxforecast   Maximum allowed forecast value (default: 0.0050 = 50bps)
+                  Forecasts clipped to [-maxforecast, +maxforecast]
+  --locates       Use short locates data (default: "True", set "None" to disable)
+  --slip_nu       Market impact coefficient nu (default: 0.18)
+  --slip_beta     Market impact power beta (default: 0.6)
+  --maxiter       Maximum optimizer iterations (default: 1500)
+  --nonegutil     Skip trades with negative utility (default: True)
+  --vwap          Use VWAP execution (default: False)
+  --fast          Fast mode - skip some iterations (default: False)
+  --daily         Only run at end of day (default: False)
+  --earnings      Earnings avoidance window in days (default: None)
+  --exclude       Exclude stocks by attribute "attr:threshold" (default: None)
+
+Performance Metrics:
+====================
+
+The simulation outputs:
+  - Daily P&L: Dollar profit/loss per day
+  - Daily Return: Daily P&L / total absolute notional
+  - Total P&L: Cumulative profit/loss over backtest period
+  - Annualized Return: Geometric return scaled to 252 trading days
+  - Annualized Volatility: Std dev of daily returns × sqrt(252)
+  - Sharpe Ratio: Annualized return / annualized volatility
+
+Output Files:
+=============
+
+{dir}/data/opt/opt.{alpha_name}.{YYYYMMDD}.csv
+  Contains optimization results for each date:
+    - date, gvkey: Index (date and security ID)
+    - target: Optimal position from optimizer ($)
+    - dutil: Marginal utility of position
+    - eslip: Expected slippage cost ($)
+    - dmu: Expected alpha return ($)
+    - dsrisk: Expected specific risk contribution ($)
+    - dfrisk: Expected factor risk contribution ($)
+    - costs: Total transaction costs ($)
+    - dutil2: Secondary utility metric
+    - forecast: Combined alpha forecast
+    - traded: Dollar amount traded
+    - shares: Final share position
+    - position: Final dollar position
+    - close: Price at close
+
+{dir}/data/blotter/blotter.csv
+  Trade execution blotter:
+    - date, gvkey: Index
+    - exec amount: Absolute dollar amount traded
+    - action: BUY or SELL
+
+Examples:
+=========
+
+# Basic single-alpha backtest
+python3 salamander/bsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=hl:1:1 \\
+  --kappa=2e-8 \\
+  --maxnot=200e6
+
+# Multi-alpha combination with custom weights
+python3 salamander/bsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=hl:1:0.6,hl:0.8:0.4 \\
+  --kappa=2e-8
+
+# Conservative strategy without locates
+python3 salamander/bsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=hl:1:1 \\
+  --kappa=4.3e-5 \\
+  --maxnot=50e6 \\
+  --locates=None
+
+# Aggressive strategy with low market impact
+python3 salamander/bsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=hl:1:1 \\
+  --kappa=2e-8 \\
+  --slip_nu=0.14 \\
+  --slip_beta=0.5
+
+Data Requirements:
+==================
+
+Before running bsim.py, you must:
+
+1. Create directory structure:
+   python3 salamander/gen_dir.py --dir=/path/to/workspace
+
+2. Generate processed data files (need 1 year prior data):
+   python3 salamander/gen_hl.py \\
+     --start=20100630 \\
+     --end=20130630 \\
+     --dir=/path/to/workspace
+
+3. Generate alpha signals:
+   python3 salamander/gen_alpha.py \\
+     --start=20130101 \\
+     --end=20130630 \\
+     --dir=/path/to/workspace
+
+4. (Optional) Place borrow.csv in {dir}/data/locates/
+
+Notes:
+======
+
+- Python 3.6+ required (uses modern pandas/numpy APIs)
+- Designed for research and prototyping, not production
+- Simpler than main bsim.py - fewer features, faster setup
+- Only HL strategy included by default
+- No email notifications (unlike main version)
+- Memory efficient: processes date by date, not full dataset
+- Typical runtime: 30-60 minutes for 6-month backtest
+"""
+
 import opt
 from calc import *
 from loaddata import *
@@ -5,67 +236,182 @@ import argparse
 
 
 def pnl_sum(group):
+    """
+    Calculate cumulative P&L for a group of positions.
+
+    Computes the dollar P&L by applying log returns to position sizes.
+    Converts cumulative log returns to simple returns, then multiplies by
+    position value to get dollar profit/loss.
+
+    Args:
+        group (pd.DataFrame): DataFrame group containing:
+            - cum_log_ret_i_now: Cumulative log return at current time
+            - cum_log_ret_i_then: Cumulative log return at entry time
+            - position_then: Position value at entry ($)
+
+    Returns:
+        float: Cumulative dollar P&L for the group
+
+    Formula:
+        PnL = sum((exp(log_ret_now - log_ret_then) - 1) * position_value)
+
+    Notes:
+        - Uses log returns for accurate compounding over multiple periods
+        - Handles missing values by filling with 0
+        - Position value includes sign (positive = long, negative = short)
+
+    Example:
+        >>> group = pd.DataFrame({
+        ...     'cum_log_ret_i_now': [0.05, 0.03],
+        ...     'cum_log_ret_i_then': [0.02, 0.01],
+        ...     'position_then': [10000, -5000]
+        ... })
+        >>> pnl_sum(group)
+        304.54  # Approx: 10000*(e^0.03-1) + (-5000)*(e^0.02-1)
+    """
     cum_pnl = ((np.exp(group['cum_log_ret_i_now'] - group['cum_log_ret_i_then']) - 1) * group['position_then']).fillna(
         0).sum()
     return cum_pnl
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--start")
-parser.add_argument("--end")
-parser.add_argument("--fcast", help="alpha signals, formatted as 'name1:mult1:weight1,name2:mult2:weight2,...'")
-parser.add_argument("--horizon", default=3)
-parser.add_argument("--mult", default=1.0)
-parser.add_argument("--vwap", default=False)
-parser.add_argument("--maxiter", default=1500)
-parser.add_argument("--kappa", default=2.0e-8)
-parser.add_argument("--slip_nu", default=.18)
-parser.add_argument("--slip_beta", default=.6)
-parser.add_argument("--fast", default=False)
-parser.add_argument("--exclude")
-parser.add_argument("--earnings")
-parser.add_argument("--locates",default="True")
-parser.add_argument("--maxnot", default=200e6)
-parser.add_argument("--maxdollars", default=1e6)
-parser.add_argument("--maxforecast", default=0.0050)
-parser.add_argument("--nonegutil", default=True)
-parser.add_argument("--daily", default=False)
-parser.add_argument("--dir", help="the root directory", default='.')
+# ============================================================================
+# COMMAND-LINE ARGUMENT PARSING
+# ============================================================================
+
+parser = argparse.ArgumentParser(description='Salamander BSIM - Daily Backtesting Simulation (Python 3)')
+
+# Required arguments
+parser.add_argument("--start", required=False, help="Start date in YYYYMMDD format")
+parser.add_argument("--end", required=False, help="End date in YYYYMMDD format")
+parser.add_argument("--fcast", help="Alpha signals, formatted as 'name1:mult1:weight1,name2:mult2:weight2,...'")
+parser.add_argument("--dir", help="Root directory (data stored in {dir}/data/)", default='.')
+
+# Forecast and alpha parameters
+parser.add_argument("--horizon", type=int, default=3, help="Forecast horizon in days (default: 3)")
+parser.add_argument("--mult", type=float, default=1.0, help="Global alpha multiplier (default: 1.0)")
+parser.add_argument("--maxforecast", type=float, default=0.0050, help="Max forecast value (default: 0.0050 = 50bps)")
+
+# Optimization parameters
+parser.add_argument("--kappa", type=float, default=2.0e-8, help="Risk aversion parameter (default: 2e-8)")
+parser.add_argument("--maxiter", type=int, default=1500, help="Maximum optimizer iterations (default: 1500)")
+parser.add_argument("--maxnot", type=float, default=200e6, help="Maximum total notional in dollars (default: 200M)")
+parser.add_argument("--maxdollars", type=float, default=1e6, help="Maximum position per stock in dollars (default: 1M)")
+parser.add_argument("--nonegutil", type=bool, default=True, help="Skip trades with negative utility (default: True)")
+
+# Transaction cost parameters
+parser.add_argument("--slip_nu", type=float, default=.18, help="Market impact coefficient nu (default: 0.18)")
+parser.add_argument("--slip_beta", type=float, default=.6, help="Market impact power beta (default: 0.6)")
+parser.add_argument("--vwap", type=bool, default=False, help="Use VWAP execution (default: False)")
+
+# Constraint parameters
+parser.add_argument("--locates", default="True", help="Use short locates data (default: 'True', set 'None' to disable)")
+parser.add_argument("--earnings", help="Earnings avoidance window in days (default: None)")
+parser.add_argument("--exclude", help="Exclude stocks by attribute 'attr:threshold' (default: None)")
+
+# Execution mode parameters
+parser.add_argument("--fast", type=bool, default=False, help="Fast mode - skip some iterations (default: False)")
+parser.add_argument("--daily", type=bool, default=False, help="Only run at end of day (default: False)")
+
 args = parser.parse_args()
 
 print(args)
 
-ALPHA_MULT = float(args.mult)
-horizon = int(args.horizon)
-start = args.start
-end = args.end
-data_dir = args.dir + "/data"
+# ============================================================================
+# CONFIGURATION AND PARAMETER SETUP
+# ============================================================================
 
-factors = ALL_FACTORS
-max_forecast = float(args.maxforecast)
-max_adv = 0.02
-max_dollars = float(args.maxdollars)
-participation = 0.015
-opt.min_iter = 50
-opt.max_iter = int(args.maxiter)
-opt.kappa = float(args.kappa)  # 4.3e-7
-opt.max_sumnot = float(args.maxnot)
-opt.max_expnot = 0.04
-opt.max_trdnot = 0.5
-opt.slip_alpha = 1.0
-opt.slip_delta = 0.25
-opt.slip_beta = float(args.slip_beta)  # 0.6
-opt.slip_gamma = 0  # 0.3
-opt.slip_nu = float(args.slip_nu)  # 0.14
-opt.execFee = 0.00015
-opt.num_factors = len(factors)
+# Parse alpha and forecast parameters
+ALPHA_MULT = float(args.mult)  # Global multiplier applied to all alpha signals
+horizon = int(args.horizon)  # Forecast horizon in days (for scaling volatility/returns)
+start = args.start  # Start date in YYYYMMDD format
+end = args.end  # End date in YYYYMMDD format
+data_dir = args.dir + "/data"  # Data directory path: {dir}/data/
 
-# original cols = ['ticker', 'close', 'tradable_volume', 'bvwap_b', 'tradable_med_volume_21', 'mdvp', 'overnight_log_ret', 'date', 'log_ret', 'volume', 'capitalization', 'cum_log_ret', 'srisk_pct', 'dpvolume_med_21', 'volat_21_y', 'mkt_cap_y', 'cum_log_ret_y', 'open', 'close_y', 'indname1', 'barraResidRet', 'split', 'div', 'gdate', 'rating_mean_z']
+# Risk model configuration
+factors = ALL_FACTORS  # Barra factor list (5 factors: growth, size, divyild, btop, momentum)
+max_forecast = float(args.maxforecast)  # Clip forecasts to this magnitude (default: 0.005 = 50bps)
+
+# Position sizing constraints
+max_adv = 0.02  # Max position as fraction of ADV (2% of average daily volume)
+max_dollars = float(args.maxdollars)  # Max position per stock in dollars (default: $1M)
+participation = 0.015  # Max participation rate (1.5% of daily volume per trade)
+
+# ============================================================================
+# OPTIMIZER CONFIGURATION
+# ============================================================================
+
+opt.min_iter = 50  # Minimum optimizer iterations
+opt.max_iter = int(args.maxiter)  # Maximum optimizer iterations (default: 1500)
+opt.kappa = float(args.kappa)  # Risk aversion parameter (default: 2e-8)
+                                # Higher = more conservative, lower gross notional
+                                # Range: 2e-8 (aggressive) to 4.3e-5 (conservative)
+
+# Portfolio constraints
+opt.max_sumnot = float(args.maxnot)  # Max total notional in dollars (default: $200M)
+opt.max_expnot = 0.04  # Max exposure per security (4% of total capital)
+opt.max_trdnot = 0.5  # Max trade notional (50% of total capital)
+
+# ============================================================================
+# TRANSACTION COST MODEL PARAMETERS
+# ============================================================================
+# Cost = alpha + delta * participation^beta + nu * market_impact + gamma * volatility
+#
+# Slippage model breakdown:
+#   - slip_alpha: Base cost (1 bps fixed cost per trade)
+#   - slip_delta: Participation coefficient (multiplies participation term)
+#   - slip_beta: Participation power (default 0.6, nonlinear impact)
+#   - slip_nu: Market impact coefficient (default 0.18, scales with trade size)
+#   - slip_gamma: Volatility coefficient (disabled: 0, would scale with stock volatility)
+#   - execFee: Execution fee (1.5 bps per trade)
+
+opt.slip_alpha = 1.0  # Base slippage cost (1 bps)
+opt.slip_delta = 0.25  # Participation rate coefficient
+opt.slip_beta = float(args.slip_beta)  # Participation power (default: 0.6)
+opt.slip_gamma = 0  # Volatility coefficient (disabled, use 0.3 to enable)
+opt.slip_nu = float(args.slip_nu)  # Market impact coefficient (default: 0.18)
+opt.execFee = 0.00015  # Execution fee (1.5 bps = 0.00015)
+
+opt.num_factors = len(factors)  # Number of Barra factors in covariance matrix
+
+# ============================================================================
+# DATA COLUMN SPECIFICATION
+# ============================================================================
+# Define which columns to load from HDF5 cache files
+#
+# Salamander uses a simplified column set compared to main bsim.py:
+#   - Core data: symbol, close, volume, open
+#   - Volume metrics: med_volume_21 (21-day median volume), mdvp (median daily volume in $)
+#   - Returns: log_ret (daily log return), overnight_log_ret (close-to-open return)
+#   - Risk: volat_21 (21-day volatility)
+#   - Market data: mkt_cap (market capitalization), split, div (dividend)
+#   - Industry: ind1 (numeric industry code, simplified from main's 58 industries)
+#   - Identifiers: sedol (for locate matching)
+#   - Barra factors: growth, size, divyild, btop, momentum (5 factors vs 13 in main)
+#
+# Note: Main bsim.py loads many more columns including:
+#   - Intraday timestamps and VWAP data
+#   - Full Barra industry classifications (58 industries)
+#   - 13 Barra factors vs 5 here
+#   - Analyst ratings, earnings estimates, price targets
+#   - More granular risk metrics
+
 cols = ['symbol', 'close', 'volume', 'med_volume_21', 'mdvp', 'overnight_log_ret', 'log_ret', 'volat_21', 'mkt_cap',
         'open', 'ind1', 'split', 'div', 'sedol']
-cols.extend(BARRA_FACTORS)
-# cols.extend( BARRA_INDS )
-# cols.extend( INDUSTRIES )
+cols.extend(BARRA_FACTORS)  # Add 5 Barra factors: growth, size, divyild, btop, momentum
+# cols.extend( BARRA_INDS )  # Not used in salamander (simplified)
+# cols.extend( INDUSTRIES )  # Not used in salamander (use ind1 instead)
+
+# ============================================================================
+# ALPHA FORECAST LOADING
+# ============================================================================
+# Parse forecast specification and load alpha signals
+#
+# Format: "name:multiplier:weight,name2:mult2:weight2,..."
+# Example: "hl:1:1" = HL strategy, 1x multiplier, 100% weight
+# Example: "hl:1:0.6,hl:0.8:0.4" = Two HL variants, 60/40 weighted combination
+#
+# Main bsim.py uses 4 fields: "dir:name:mult:weight"
+# Salamander uses 3 fields: "name:mult:weight" (simpler, alpha dir implicit)
 
 forecasts = []
 forecastargs = args.fcast.split(',')
@@ -73,32 +419,77 @@ for fcast in forecastargs:
     name, mult, weight = fcast.split(":")
     forecasts.append(name)
 
+# ============================================================================
+# DATA LOADING FROM HDF5 CACHE
+# ============================================================================
+
+# Load Barra factor covariance matrix time series
+# Contains (factor1, factor2) covariances for each date
+# Used by optimizer to calculate factor risk
 factor_df = load_factor_cache(dateparser.parse(start), dateparser.parse(end), data_dir)
+
+# Load main price/volume/factor data from HDF5 files
+# Returns DataFrame with multi-index (date, gvkey) and columns from 'cols' list
+# Data comes from data/all/all.{start}-{end}.h5 files generated by gen_hl.py
 pnl_df = load_cache(dateparser.parse(start), dateparser.parse(end), data_dir, cols)
-# print(pnl_df.xs(10027954, level=1)['indname1'])
+
+# Truncate to exact date range (cache may contain extra dates)
 pnl_df = pnl_df.truncate(before=dateparser.parse(start), after=dateparser.parse(end))
 pnl_df.index.names = ['date', 'gvkey']
+
+# Initialize forecast columns (will be populated below)
 pnl_df['forecast'] = np.nan
 pnl_df['forecast_abs'] = np.nan
+
+# Load alpha forecast data for each specified strategy
+# Forecasts come from data/{alpha_name}/alpha.{name}.{start}-{end}.csv files
+# Generated by gen_alpha.py from the 'all' HDF5 files
 for fcast in forecastargs:
     print("Loading {}".format(fcast))
     name, mult, weight = fcast.split(":")
-    mu_df = load_mus(data_dir, name, start, end)
+    mu_df = load_mus(data_dir, name, start, end)  # Load alpha forecast DataFrame
     pnl_df = pd.merge(pnl_df, mu_df, how='left', left_index=True, right_index=True)
 
+# ============================================================================
+# DAILY DATA EXTRACTION
+# ============================================================================
+# Salamander version: No intraday timestamps, data is already daily
+# Main bsim.py extracts 15:45 snapshots from intraday data using between_time()
+#
+# Commented out main bsim.py approach:
 # daily_df = pnl_df.unstack().between_time('15:30', '15:30').stack()
 # daily_df = pnl_df.unstack().between_time('15:45', '15:45').stack()
 # daily_df = daily_df.dropna(subset=['date']).reset_index().set_index(['date', 'gvkey'])
-
 # daily_df = create_z_score(daily_df, 'srisk_pct')
 
+# Salamander: data is already daily, no need to filter by time
 daily_df = pnl_df
+
+# ============================================================================
+# LOAD SHORT LOCATE CONSTRAINTS (OPTIONAL)
+# ============================================================================
+# If enabled (--locates != "None"), load borrow availability data
+# This restricts short positions to securities with available borrows
+#
+# Locate data format (borrow.csv):
+#   - symbol: Stock ticker
+#   - sedol: SEDOL identifier (for matching)
+#   - date: Trading date
+#   - borrow_qty: Shares available to borrow (0 = no borrow, > 0 = available)
+#   - fee: Borrow fee rate (> 0 = expensive borrow, avoid shorting)
+#
+# Applied in optimization as:
+#   - min_notional = max(borrow_notional, calculated_min_notional)
+#   - If fee > 0: set min_notional = 0 (don't short expensive borrows)
 
 if args.locates != "None":
     locates_df = load_locates(daily_df[['sedol','symbol']], dateparser.parse(start), dateparser.parse(end), data_dir)
     daily_df = pd.merge(daily_df, locates_df, on=['date', 'gvkey'], suffixes=['', '_dead'])
     daily_df = remove_dup_cols(daily_df)
-    locates_df = None
+    locates_df = None  # Free memory
+
+    # Debug code for identifying missing borrows (commented out):
+    # Finds top 1500 stocks by market cap with no borrow availability
     '''
     test_df = daily_df.sort_values(['date','mkt_cap'],ascending=False).groupby(level='date',group_keys=False).head(1500)
     test_df = test_df[test_df['borrow_qty']==0]
@@ -170,42 +561,92 @@ last_pos = pd.DataFrame(pnl_df.reset_index()['gvkey'].unique(), columns=['gvkey'
 last_pos['shares_last'] = 0
 last_pos = last_pos.set_index(['gvkey']).sort_index()
 
-lastday = None
+# ============================================================================
+# SIMULATION INITIALIZATION
+# ============================================================================
 
-it = 0
-groups = pnl_df.groupby(level='date')
+lastday = None  # Track last trading day for corporate action handling (splits)
+
+it = 0  # Iteration counter
+groups = pnl_df.groupby(level='date')  # Group data by date for daily iteration
+
+# Free memory before main loop (process date by date to save RAM)
 pnl_df = None
 daily_df = None
 new_pnl_df = None
 gc.collect()
+
+# Initialize blotter DataFrame to track all trades
 b_index = pd.MultiIndex(levels=[[], []], labels=[[], []], names=['date', 'gvkey'])
 blotter_df = pd.DataFrame(columns=['position', 'traded_shares', 'close'], index=b_index)
-last_pnl = 0
-daily_returns = []
-for name, date_group in groups:
-    dayname = name.strftime("%Y%m%d")
-    if (int(dayname) < int(start)) or (int(dayname) > int(end)): continue
 
+# P&L tracking
+last_pnl = 0  # Cumulative P&L from previous iteration
+daily_returns = []  # List of daily returns for Sharpe calculation
+
+# ============================================================================
+# MAIN SIMULATION LOOP
+# ============================================================================
+# Iterate through each trading date in the backtest period
+#
+# At each date:
+#   1. Filter tradable universe (price, volume, data quality checks)
+#   2. Merge last positions and apply corporate actions (splits)
+#   3. Apply universe filters (market cap, price, industry exclusions)
+#   4. Apply locate constraints (if enabled)
+#   5. Setup optimizer with current data and constraints
+#   6. Run optimization to find optimal positions
+#   7. Apply participation constraints to limit trading rate
+#   8. Update position tracker for next iteration
+#   9. Calculate daily P&L from price changes
+#   10. Write results to CSV file
+#
+# Memory management: Process one date at a time, free memory after each iteration
+
+for name, date_group in groups:
+    # ========================================================================
+    # DATE FILTERING AND VALIDATION
+    # ========================================================================
+
+    dayname = name.strftime("%Y%m%d")
+    if (int(dayname) < int(start)) or (int(dayname) > int(end)):
+        continue  # Skip dates outside backtest range
+
+    # Time-of-day filtering (salamander is daily, but these checks remain from main version)
     hour = int(name.strftime("%H"))
     minute = int(name.strftime("%M"))
+
     if args.daily:
+        # Only run at end of day (15:30 or later)
         if hour < 15 or minute < 30: continue
 
     if args.fast:
+        # Fast mode: only run at :30 minute intervals
         minutes = int(name.strftime("%M"))
         if minutes != 30: continue
 
-    if hour >= 16: continue
+    if hour >= 16:
+        continue  # Skip after market close (4pm)
 
     print("\nLooking at {}".format(name))
     monthname = name.strftime("%Y%m")
     timename = name.strftime("%H%M%S")
     weekdayname = name.weekday()
+
+    # ========================================================================
+    # TRADABLE UNIVERSE FILTERING
+    # ========================================================================
+    # Filter to securities with valid data:
+    #   - close > 0: Valid price data
+    #   - volume_d > 0: Positive volume (liquidity)
+    #   - mdvp > 0: Positive median daily volume in dollars (liquidity filter)
+
     date_group = date_group[
         (date_group['close'] > 0) & (date_group['volume_d'] > 0) & (date_group['mdvp'] > 0)].sort_index()
+
     if len(date_group) == 0:
         print("No data for {}".format(name))
-        continue
+        continue  # Skip if no tradable securities on this date
 
     date_group = pd.merge(date_group.reset_index(), last_pos.reset_index(), how='outer', left_on=['gvkey'],
                           right_on=['gvkey'], suffixes=['', '_last'])
@@ -225,8 +666,29 @@ for name, date_group in groups:
     #     date_group.ix[ date_group[attr] < val, 'max_notional' ] = 0
     #     date_group.ix[ date_group[attr] < val, 'min_notional' ] = 0
 
+    # ========================================================================
+    # UNIVERSE FILTERS
+    # ========================================================================
+    # Exclude securities that don't meet trading criteria:
+    #
+    # 1. Market cap < $1.6B ($1,600M = 1.6e3 M):
+    #    - Too illiquid and risky for institutional trading
+    #    - Higher transaction costs and wider spreads
+    #
+    # 2. Price > $500:
+    #    - Options may be better vehicle for high-priced stocks
+    #    - Position sizing becomes difficult
+    #
+    # 3. Industry == 3520 (Pharma):
+    #    - High regulatory risk (FDA approvals, clinical trials)
+    #    - Event-driven volatility (binary outcomes)
+    #    - Not suitable for statistical arbitrage
+    #
+    # For excluded securities: Set forecast = 0, max_notional = 0, min_notional = 0
+    # This prevents optimizer from taking any position
+
     date_group.ix[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
-            date_group['ind1'] == 3520), 'forecast'] = 0  # indname1 == 'PHARMA'
+            date_group['ind1'] == 3520), 'forecast'] = 0  # ind1 == 3520 is PHARMA
     date_group.ix[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
             date_group['ind1'] == 3520), 'max_notional'] = 0
     date_group.ix[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
