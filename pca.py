@@ -53,7 +53,62 @@ WINDOW = 30
 cache = dict()
 
 def calc_pca_daily(daily_df, horizon):
+    """
+    Perform daily PCA decomposition on stock returns to extract market-neutral alpha.
 
+    Uses a rolling 30-day window to fit PCA models and calculate residuals as the
+    difference between actual returns and PCA-predicted returns. The residuals represent
+    market-neutral alpha after removing systematic factors.
+
+    Mathematical Approach:
+        1. Winsorize log returns to reduce outlier impact
+        2. For each day t with window [t-30, t]:
+           - Standardize returns (demean each stock's time series)
+           - Fit PCA with 5 components on standardized returns
+           - Transform actual returns to PCA space
+           - Reconstruct predicted returns: predicted = U * components
+           - Calculate residuals: alpha = actual - predicted
+        3. Generate lagged features for horizon-day forecasting
+
+    PCA Decomposition:
+        Let R be the (stocks x days) return matrix over the window.
+        PCA finds orthogonal components C such that:
+            R_predicted = (R * C) * C^T
+
+        Explained variance ratio shows how much return variance each component captures.
+        First component typically explains 20-40% (market factor).
+        Residuals are returns orthogonal to all 5 components.
+
+    Args:
+        daily_df (pd.DataFrame): Daily stock data with MultiIndex (date, sid).
+            Required columns: 'log_ret', 'gdate'
+        horizon (int): Forecast horizon in days. Creates lagged features pca1_B_ma
+            through pca{horizon-1}_B_ma for regression analysis.
+
+    Returns:
+        pd.DataFrame: Input dataframe with added columns:
+            - pca0: Raw residuals (actual - PCA predicted returns)
+            - pca0_B: Winsorized residuals
+            - pca0_B_ma: Market-adjusted residuals (same as pca0_B)
+            - pca1_B_ma through pca{horizon-1}_B_ma: Lagged residuals
+
+    Side Effects:
+        Populates global cache dict with window dataframes keyed by date.
+        This cache is reused by calc_pca_intra() for intraday analysis.
+
+    Example:
+        >>> daily_df = load_daily_data(start, end)
+        >>> daily_df = calc_pca_daily(daily_df, horizon=3)
+        >>> # Use pca0_B_ma as market-neutral alpha signal
+        >>> # Use pca1_B_ma, pca2_B_ma as lagged features in regression
+
+    Notes:
+        - Requires at least 30 days of data to begin generating signals
+        - First 30 days will have pca0 = 0 (insufficient window)
+        - Explained variance printed for each day shows model fit quality
+        - Higher explained variance = stronger systematic factors
+        - Lower explained variance = more idiosyncratic returns
+    """
     print "Caculating daily pca..."
     result_df = filter_expandable(daily_df)
 
@@ -127,6 +182,59 @@ def calc_pca_daily(daily_df, horizon):
     return result_df
 
 def calc_pca_intra(intra_df):
+    """
+    Perform intraday PCA decomposition on 30-minute bar returns.
+
+    Extends the daily PCA methodology to intraday data by combining the 30-day
+    rolling window of daily returns (from cache) with current intraday returns
+    for each 30-minute time slice. This allows capture of time-of-day specific
+    patterns in market-neutral returns.
+
+    Mathematical Approach:
+        1. Calculate intraday return: overnight_ret + log(iclose/dopen)
+        2. For each (date, timeslice) combination:
+           - Retrieve 30-day window from cache (populated by calc_pca_daily)
+           - Replace last column with current timeslice returns
+           - Standardize the augmented window (demean each stock)
+           - Fit PCA with 5 components
+           - Calculate residuals for current timeslice
+        3. Winsorize residuals by timeslice to create pcaC_B_ma
+
+    Time-Slice Adaptation:
+        Unlike daily PCA which uses a single model per day, intraday PCA
+        fits a separate model for each 30-minute bar. This captures:
+        - Opening volatility (9:30-10:30 higher variance)
+        - Midday patterns (lunch hour effects)
+        - Closing dynamics (15:30-16:00 increased trading)
+
+    Args:
+        intra_df (pd.DataFrame): Intraday bar data with MultiIndex (timestamp, sid).
+            Required columns: 'overnight_log_ret', 'iclose', 'dopen', 'gdate',
+            'giclose_ts'
+
+    Returns:
+        pd.DataFrame: Input dataframe with added columns:
+            - dret: Total return from prior close to current bar close
+            - pcaC: Raw intraday PCA residuals
+            - pcaC_B: Winsorized residuals by timeslice
+            - pcaC_B_ma: Market-adjusted intraday residuals
+
+    Side Effects:
+        Requires global cache dict to be populated by calc_pca_daily().
+        Will only process dates present in cache.
+
+    Example:
+        >>> daily_df = calc_pca_daily(daily_df, horizon=3)  # Populates cache
+        >>> intra_df = calc_pca_intra(intra_df)
+        >>> # Use pcaC_B_ma as intraday market-neutral signal
+        >>> # Combine with daily pca0_B_ma for multi-timeframe analysis
+
+    Notes:
+        - Depends on calc_pca_daily() being called first to populate cache
+        - Each timeslice gets a separate PCA fit (adaptive to intraday patterns)
+        - Residuals winsorized by timeslice to handle time-varying volatility
+        - Silent on explained variance (too many prints for all timeslices)
+    """
     print "Calculating pca intra..."
     result_df = filter_expandable(intra_df)
 
@@ -189,6 +297,65 @@ def calc_pca_intra(intra_df):
 
 
 def pca_fits(daily_df, intra_df, horizon, name, middate):
+    """
+    Fit regression models on PCA residuals and generate forecasts.
+
+    Performs in-sample regression of PCA residuals against forward returns,
+    then applies fitted coefficients to out-of-sample data to generate
+    forecast signals. Handles both intraday (pcaC) and daily (pca0) residuals
+    with horizon-specific and time-of-day specific coefficients.
+
+    Regression Methodology:
+        1. Intraday (pcaC_B_ma):
+           - Regress pcaC_B_ma against forward returns by timeslice and horizon
+           - Each 30-min window (9:30-10:30, 10:30-11:30, etc.) gets separate coef
+           - Captures time-of-day patterns in alpha predictability
+
+        2. Daily (pca0_B_ma):
+           - Regress pca0_B_ma against forward returns for each lag 1..horizon
+           - Calculate incremental coefficients: coef_lag = coef_h - coef_lag
+           - Combines lagged daily signals with intraday signal
+
+    Forecast Construction:
+        forecast = pcaC_B_ma * pcaC_coef + sum(pca_lag_B_ma * pca_lag_coef)
+
+        Where:
+        - pcaC_coef varies by time-of-day (6 timeslices)
+        - pca_lag_coef captures multi-day persistence
+
+    Args:
+        daily_df (pd.DataFrame): Daily data with pca0_B_ma, pca1_B_ma, etc.
+        intra_df (pd.DataFrame): Intraday data with pcaC_B_ma
+        horizon (int): Forecast horizon in days (typically 3)
+        name (str): Name suffix for plot files (e.g., sector name or "")
+        middate (datetime): Split date for in-sample vs out-of-sample.
+            If None, uses entire dataset for both fit and forecast.
+
+    Returns:
+        pd.DataFrame: Out-of-sample intraday dataframe with added columns:
+            - pcaC_B_ma_coef: Time-of-day specific coefficient for intraday residual
+            - pca1_B_ma_coef through pca{horizon-1}_B_ma_coef: Daily lag coefficients
+            - pca: Combined forecast signal (weighted sum of residuals)
+
+    Side Effects:
+        Creates regression diagnostic plots:
+        - pca_intra_{name}_{dates}.png: Intraday fit quality by timeslice/horizon
+        - pca_daily_{name}_{dates}.png: Daily fit quality by lag
+
+    Example:
+        >>> # Train on first half, forecast on second half
+        >>> mid = datetime(2013, 6, 30)
+        >>> forecast_df = pca_fits(daily_df, intra_df, horizon=3,
+        ...                         name="tech", middate=mid)
+        >>> # Use forecast_df['pca'] as final alpha signal
+        >>> # Positive pca = expect outperformance, negative = underperformance
+
+    Notes:
+        - If middate is None, overfits by using same data for fit and forecast
+        - Intraday coefficients: 6 values for 30-min windows from 9:30 to 16:00
+        - Daily coefficients: horizon-1 values for lags
+        - Incremental daily coefficients prevent double-counting persistence
+    """
     insample_intra_df = intra_df
     insample_daily_df = daily_df
     outsample_intra_df = intra_df
@@ -240,6 +407,44 @@ def pca_fits(daily_df, intra_df, horizon, name, middate):
     return outsample_intra_df
 
 def calc_pca_forecast(daily_df, intra_df, horizon, middate):
+    """
+    Generate PCA-based alpha forecasts across entire universe.
+
+    Wrapper function that applies pca_fits() to generate market-neutral
+    alpha forecasts. Can optionally partition by sector for sector-specific
+    PCA decomposition (currently disabled).
+
+    Workflow:
+        1. Call pca_fits() on full universe (sector partitioning commented out)
+        2. Returns intraday dataframe with 'pca' forecast column
+
+    Args:
+        daily_df (pd.DataFrame): Daily stock data with PCA residuals
+            (pca0_B_ma, pca1_B_ma, etc.)
+        intra_df (pd.DataFrame): Intraday bar data with PCA residuals
+            (pcaC_B_ma)
+        horizon (int): Forecast horizon in days
+        middate (datetime): Split date for in-sample/out-of-sample,
+            or None to use full dataset
+
+    Returns:
+        pd.DataFrame: Intraday dataframe with 'pca' forecast column containing
+            combined alpha signal from daily and intraday residuals
+
+    Example:
+        >>> daily_df = calc_pca_daily(daily_df, horizon=3)
+        >>> intra_df = calc_pca_intra(intra_df)
+        >>> intra_df = merge_intra_data(daily_df, intra_df)
+        >>> forecast_df = calc_pca_forecast(daily_df, intra_df,
+        ...                                  horizon=3, middate=None)
+        >>> # Use forecast_df['pca'] in portfolio optimization
+
+    Notes:
+        - Sector-specific PCA is commented out but available for activation
+        - Sector PCA would fit separate models per sector (e.g., tech, finance)
+        - Currently uses single universe-wide PCA for all stocks
+        - Returns intraday granularity for compatibility with qsim/osim
+    """
     daily_results_df = daily_df
     intra_results_df = intra_df
 

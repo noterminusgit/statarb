@@ -1,7 +1,7 @@
 # Documentation Plan: pca.py
 
 ## Priority: HIGH
-## Status: Pending
+## Status: COMPLETE
 ## Estimated Scope: Medium (307 lines)
 
 ## Overview
@@ -14,25 +14,27 @@
 ## Documentation Tasks
 
 ### 1. Module-Level Documentation
-- [ ] Enhance existing docstring with PCA methodology
-- [ ] Document statistical approach
-- [ ] Document component interpretation
+- [x] Enhance existing docstring with PCA methodology
+- [x] Document statistical approach
+- [x] Document component interpretation
 
 ### 2. Function Documentation
-- [ ] `fit_pca()` - PCA model fitting
-- [ ] `extract_components()` - Component extraction
-- [ ] `calc_residuals()` - Residual calculation
-- [ ] Document all public functions
+- [x] `calc_pca_daily()` - Daily PCA model fitting with rolling windows
+- [x] `calc_pca_intra()` - Intraday PCA decomposition for 30-min bars
+- [x] `pca_fits()` - Regression fitting and forecast generation
+- [x] `calc_pca_forecast()` - Universe-wide forecast wrapper
+- [x] Document all public functions
 
 ### 3. Mathematical Documentation
-- [ ] Document eigenvalue decomposition
-- [ ] Document variance explained metrics
-- [ ] Document number of components selection
+- [x] Document eigenvalue decomposition methodology
+- [x] Document variance explained metrics and interpretation
+- [x] Document 5 components configuration and rolling window approach
+- [x] Document residual calculation (actual - predicted returns)
 
 ### 4. Usage Documentation
-- [ ] Document as alpha signal generator
-- [ ] Document integration with other strategies
-- [ ] Add examples
+- [x] Document as alpha signal generator with examples
+- [x] Document integration with regression and simulation engines
+- [x] Add comprehensive usage examples in all function docstrings
 
 ## Dependencies
 - numpy, scipy
