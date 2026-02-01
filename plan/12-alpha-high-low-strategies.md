@@ -1,7 +1,7 @@
 # Documentation Plan: High-Low Mean Reversion Strategies
 
 ## Priority: MEDIUM
-## Status: In Progress (5/6 complete)
+## Status: COMPLETE (6/6 complete)
 ## Estimated Scope: 6 files
 
 ## Files Covered
@@ -9,8 +9,8 @@
 2. `hl_intra.py` - Intraday high-low [✓ COMPLETE]
 3. `qhl_intra.py` - Quote-based intraday high-low [✓ COMPLETE]
 4. `qhl_both_i.py` - High-low with time-varying intraday coefficients [✓ COMPLETE]
-5. `qhl_multi.py` - Multiple timeframe high-low
-6. `qhl_both.py` - Combined high-low approach
+5. `qhl_multi.py` - Multiple timeframe high-low [✓ COMPLETE]
+6. `qhl_both.py` - Combined high-low approach [✓ COMPLETE]
 
 ## Overview
 
@@ -55,11 +55,15 @@ High-low strategies implement mean reversion based on:
 - [✓] Document time-of-day coefficient structure (6 hourly periods)
 - [✓] Document sector-specific modeling (Energy vs non-Energy)
 
-#### qhl_multi.py [PENDING]
-- [ ] Add module docstring with strategy description
-- [ ] Document signal calculation formula
-- [ ] Document parameters and tuning options
-- [ ] Document expected signal characteristics
+#### qhl_multi.py [COMPLETE]
+- [✓] Add module docstring with strategy description
+- [✓] Document signal calculation formula (qhl_m = sum of weighted multi-timeframe signals)
+- [✓] Document parameters and tuning options (horizon, outsample, lookback)
+- [✓] Document expected signal characteristics (multi-day mean reversion composite)
+- [✓] Document all 4 functions with detailed docstrings
+- [✓] Document multi-timeframe methodology (incremental coefficient weighting)
+- [✓] Document sector-specific modeling (Energy vs non-Energy)
+- [✓] Document incremental coefficient calculation (beta_H - beta_j)
 
 #### qhl_both.py [COMPLETE]
 - [✓] Add module docstring with strategy description
