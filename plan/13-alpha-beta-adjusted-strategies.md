@@ -1,11 +1,11 @@
 # Documentation Plan: Beta-Adjusted Order Flow Strategies
 
 ## Priority: MEDIUM
-## Status: Pending
+## Status: In Progress (1/9 complete)
 ## Estimated Scope: 9 files
 
 ## Files Covered
-1. `bd.py` (195 lines) - Beta-adjusted order flow
+1. `bd.py` (195 lines) - Beta-adjusted order flow ✓ COMPLETE
 2. `bd1.py` - Simplified BD variant
 3. `bd_intra.py` - Intraday BD
 4. `badj_multi.py` - Multi-period beta-adjusted
@@ -30,10 +30,11 @@ Beta-adjusted strategies implement:
 - [ ] Document market neutrality approach
 
 ### 2. Per-File Documentation (for each file)
-- [ ] Add module docstring with strategy description
-- [ ] Document signal calculation formula
-- [ ] Document beta calculation/source
-- [ ] Document parameters and tuning options
+- [x] bd.py: Add module docstring with strategy description
+- [x] bd.py: Document signal calculation formula
+- [x] bd.py: Document beta calculation/source
+- [x] bd.py: Document parameters and tuning options
+- [ ] Remaining 8 files: Add documentation
 
 ### 3. Variant Documentation
 - [ ] Document `bd` vs `badj` naming distinction
