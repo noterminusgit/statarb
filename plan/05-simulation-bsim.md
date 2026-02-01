@@ -1,7 +1,7 @@
 # Documentation Plan: bsim.py
 
 ## Priority: HIGH
-## Status: Pending
+## Status: COMPLETE
 ## Estimated Scope: Medium (388 lines)
 
 ## Overview
@@ -14,27 +14,28 @@
 ## Documentation Tasks
 
 ### 1. Module-Level Documentation
-- [ ] Enhance existing docstring with detailed workflow
-- [ ] Document simulation loop architecture
-- [ ] Add example command-line usage
+- [x] Enhance existing docstring with detailed workflow
+- [x] Document simulation loop architecture
+- [x] Add example command-line usage
 
 ### 2. CLI Parameters Documentation
-- [ ] `--start/--end` - Date range specification
-- [ ] `--fcast` - Forecast specification format (name:multiplier:weight)
-- [ ] `--kappa` - Risk aversion parameter
-- [ ] `--maxnot` - Maximum notional constraints
-- [ ] All other CLI parameters
+- [x] `--start/--end` - Date range specification
+- [x] `--fcast` - Forecast specification format (dir:name:multiplier:weight)
+- [x] `--kappa` - Risk aversion parameter
+- [x] `--maxnot` - Maximum notional constraints
+- [x] All other CLI parameters (horizon, mult, vwap, locates, earnings, slipnu, slipbeta, fast, exclude, maxforecast, nonegutil, daily, maxiter, maxdollars)
 
 ### 3. Function Documentation
-- [ ] `run_simulation()` - Main simulation loop
-- [ ] `calculate_positions()` - Position calculation
-- [ ] `track_performance()` - P&L tracking
-- [ ] All helper functions
+- [x] `pnl_sum()` - Cumulative P&L calculation from log returns
+- [x] Main simulation loop - Comprehensive inline comments throughout
+- [x] Data loading section - Comments on cache loading and forecast merging
+- [x] Optimization section - Comments on optimizer setup and execution
+- [x] Position calculation - Comments on participation constraints
 
 ### 4. Output Documentation
-- [ ] Document output metrics (Sharpe, returns, drawdown)
-- [ ] Document log file format
-- [ ] Document position output format
+- [x] Document output CSV columns (target, dutil, eslip, dmu, dsrisk, dfrisk, costs, etc.)
+- [x] Document output file naming convention
+- [x] Document performance metrics tracked
 
 ## Dependencies
 - opt.py for optimization
