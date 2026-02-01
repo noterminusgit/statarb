@@ -1,7 +1,7 @@
 # Documentation Plan: High-Low Mean Reversion Strategies
 
 ## Priority: MEDIUM
-## Status: In Progress (4/6 complete)
+## Status: In Progress (5/6 complete)
 ## Estimated Scope: 6 files
 
 ## Files Covered
