@@ -61,12 +61,17 @@ High-low strategies implement mean reversion based on:
 - [ ] Document parameters and tuning options
 - [ ] Document expected signal characteristics
 
-#### qhl_both.py [PENDING]
-- [ ] Add module docstring with strategy description
-- [ ] Document signal calculation formula
-- [ ] Document parameters and tuning options
-- [ ] Document expected signal characteristics
+#### qhl_both.py [COMPLETE]
+- [✓] Add module docstring with strategy description
+- [✓] Document signal calculation formula
+- [✓] Document parameters and tuning options
+- [✓] Document expected signal characteristics
 
+- [✓] Document all 4 functions with detailed docstrings
+- [✓] Document "both" concept (daily lagged + intraday real-time signals)
+- [✓] Document coefficient fitting methodology (regression-based weights)
+- [✓] Document sector-specific modeling (Energy vs non-Energy)
+- [✓] Document differential coefficient weighting structure
 #### qhl_both_i.py [COMPLETE]
 - [✓] Add module docstring with strategy description
 - [✓] Document signal calculation formula (qhl_b with time-varying intraday coef)
