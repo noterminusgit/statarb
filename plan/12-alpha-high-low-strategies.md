@@ -1,16 +1,16 @@
 # Documentation Plan: High-Low Mean Reversion Strategies
 
 ## Priority: MEDIUM
-## Status: In Progress (2/6 complete)
+## Status: In Progress (4/6 complete)
 ## Estimated Scope: 6 files
 
 ## Files Covered
 1. `hl.py` - Daily high-low mean reversion [✓ COMPLETE]
 2. `hl_intra.py` - Intraday high-low [✓ COMPLETE]
-3. `qhl_intra.py` - Quote-based intraday high-low
-4. `qhl_multi.py` - Multiple timeframe high-low
-5. `qhl_both.py` - Combined high-low approach
-6. `qhl_both_i.py` - High-low with additional metrics
+3. `qhl_intra.py` - Quote-based intraday high-low [✓ COMPLETE]
+4. `qhl_both_i.py` - High-low with time-varying intraday coefficients [✓ COMPLETE]
+5. `qhl_multi.py` - Multiple timeframe high-low
+6. `qhl_both.py` - Combined high-low approach
 
 ## Overview
 
@@ -45,11 +45,15 @@ High-low strategies implement mean reversion based on:
 - [✓] Document intraday-specific aspects (timing, updates, use case)
 - [✓] Document bug on line 46 (undefined lag variable)
 
-#### qhl_intra.py [PENDING]
-- [ ] Add module docstring with strategy description
-- [ ] Document signal calculation formula
-- [ ] Document parameters and tuning options
-- [ ] Document expected signal characteristics
+#### qhl_intra.py [COMPLETE]
+- [✓] Add module docstring with strategy description
+- [✓] Document signal calculation formula (qhlC = iclose/sqrt(qhigh*qlow))
+- [✓] Document parameters and tuning options (horizon, freq, middate, sector_name)
+- [✓] Document expected signal characteristics (quote-based vs trade-based)
+- [✓] Document all 3 functions with detailed docstrings
+- [✓] Document quote-based data distinction (qhigh/qlow vs dhigh/dlow)
+- [✓] Document time-of-day coefficient structure (6 hourly periods)
+- [✓] Document sector-specific modeling (Energy vs non-Energy)
 
 #### qhl_multi.py [PENDING]
 - [ ] Add module docstring with strategy description
@@ -63,11 +67,15 @@ High-low strategies implement mean reversion based on:
 - [ ] Document parameters and tuning options
 - [ ] Document expected signal characteristics
 
-#### qhl_both_i.py [PENDING]
-- [ ] Add module docstring with strategy description
-- [ ] Document signal calculation formula
-- [ ] Document parameters and tuning options
-- [ ] Document expected signal characteristics
+#### qhl_both_i.py [COMPLETE]
+- [✓] Add module docstring with strategy description
+- [✓] Document signal calculation formula (qhl_b with time-varying intraday coef)
+- [✓] Document parameters and tuning options (horizon, middate, freq, sector_name)
+- [✓] Document expected signal characteristics (time-of-day specific mean reversion)
+- [✓] Document all 4 functions with detailed docstrings
+- [✓] Document key difference from qhl_both.py (time-varying vs constant intraday coef)
+- [✓] Document time bucket structure (6 hourly periods: 09:30-15:59)
+- [✓] Document sector-specific modeling (Energy vs non-Energy separate fits)
 
 ### 3. Relationship Documentation
 - [ ] Document when to use each variant
