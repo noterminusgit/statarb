@@ -1,4 +1,75 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+Production EPS Alpha Generator
+
+Generates alpha signals based on sell-side analyst EPS (Earnings Per Share) estimate
+revisions for production trading. The strategy exploits the information content in
+analyst estimate changes, particularly when analyst confidence is increasing.
+
+Strategy Logic:
+--------------
+The core signal is based on the change in mean analyst EPS estimates normalized by
+the median EPS estimate:
+
+    eps0 = EPS_diff_mean / EPS_median
+
+Where EPS_diff_mean is only used when analyst confidence is increasing (std_diff > 0).
+The strategy uses lagged versions of this signal with regression-fitted coefficients
+to optimize the forecast horizon.
+
+Operating Modes:
+---------------
+1. **Fit Mode** (--fit=True):
+   - Uses 720-day lookback window
+   - Loads historical universe via get_uni()
+   - Runs regression analysis to determine optimal coefficients
+   - Saves coefficients to: <coeffile>/<asof>.eps.csv
+   - Does NOT generate alpha forecasts
+
+2. **Production Mode** (--fit=False):
+   - Uses horizon+5 day lookback window
+   - Loads live data from --inputfile
+   - Applies pre-fitted coefficients from --coeffile
+   - Generates alpha forecasts and writes to --outputfile
+   - Output format: ticker, date, alpha value
+
+Data Requirements:
+-----------------
+- Barra factors: ind1 (industry), pbeta (predicted beta)
+- Price data: close prices
+- Analyst estimates: EPS estimate history with mean, median, std
+
+CLI Usage:
+---------
+Fit coefficients (backtest mode):
+    python prod_eps.py --asof=20130630 --coeffile=./coefs --fit=True
+
+Generate production alpha:
+    python prod_eps.py --asof=20130630 --inputfile=live_data.csv \\
+                       --outputfile=eps_alpha.csv --coeffile=./coefs/20130630.eps.csv
+
+Parameters:
+    --asof: Date for production run (YYYYMMDD format)
+    --inputfile: Live data CSV file (production mode only)
+    --outputfile: Alpha output file (production mode only)
+    --coeffile: Coefficient file path (production) or directory (fit mode)
+    --fit: Enable fit mode (default: False)
+
+Related Modules:
+---------------
+- prod_sal.py: Similar pattern for analyst estimate revision strategies
+- prod_rtg.py: Analyst rating-based production alpha
+- eps.py: Backtest version of EPS strategy
+- load_data_live.py: Live data loading infrastructure
+- regress.py: Regression fitting framework
+
+Output:
+------
+Production mode writes alpha forecasts via dump_prod_alpha() with:
+- ticker: Stock identifier
+- gdate: Forecast date
+- eps: Alpha signal value (winsorized, demeaned)
+"""
 
 from regress import *
 from load_data_live import *
@@ -8,6 +79,22 @@ from util import *
 from pandas.stats.moments import ewma
 
 def wavg(group):
+    """
+    Calculate market-cap-weighted average return scaled by beta.
+
+    Computes the beta-adjusted market return for a group (typically a date).
+    Used for calculating beta-adjusted returns in the strategy.
+
+    Args:
+        group: DataFrame group with columns:
+            - pbeta: Predicted beta values
+            - log_ret: Log returns
+            - mkt_cap_y: Market capitalization
+            - gdate: Group date (for logging)
+
+    Returns:
+        Series: Beta values scaled by market-cap-weighted average return
+    """
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -17,6 +104,31 @@ def wavg(group):
 
 
 def calc_eps_daily(daily_df, horizon):
+    """
+    Calculate daily EPS revision signals with lagged features.
+
+    Generates the core EPS alpha signal based on analyst estimate revisions.
+    The signal is only active when analyst confidence is increasing (std_diff > 0).
+    Creates lagged versions (eps1_ma through eps<horizon>_ma) for regression fitting.
+
+    Signal Logic:
+        - std_diff = change in EPS estimate standard deviation
+        - If std_diff <= 0 or null: set EPS_diff_mean = 0 (ignore low-confidence revisions)
+        - eps0 = EPS_diff_mean / EPS_median (normalized revision)
+        - eps0_ma = eps0 (current implementation, historical versions tested other transforms)
+
+    Args:
+        daily_df: DataFrame with columns:
+            - EPS_std: Standard deviation of analyst EPS estimates
+            - EPS_diff_mean: Change in mean analyst EPS estimates
+            - EPS_median: Median analyst EPS estimate
+        horizon: Forecast horizon in days (determines number of lags to create)
+
+    Returns:
+        DataFrame: Input df with added columns:
+            - eps0_ma: Current EPS revision signal
+            - eps1_ma through eps<horizon>_ma: Lagged signals for regression
+    """
     print "Caculating daily eps..."
     result_df = filter_expandable(daily_df)
 
@@ -62,6 +174,31 @@ def calc_eps_daily(daily_df, horizon):
     return result_df
 
 def generate_coefs(daily_df, horizon, name, coeffile=None):
+    """
+    Fit regression coefficients for EPS alpha signal.
+
+    Runs WLS regression for each horizon (1 to horizon) to determine optimal
+    coefficients for combining lagged eps signals. Uses incremental coefficient
+    approach where lag coefficients are computed as differences from the base
+    coefficient.
+
+    Coefficient Logic:
+        - coef0 = regression coefficient for eps0_ma at full horizon
+        - coef[lag] = coef0 - regression_coef[lag] (incremental adjustment)
+
+    Args:
+        daily_df: DataFrame with eps signals and forward returns
+        horizon: Maximum forecast horizon in days
+        name: Strategy name (for logging, currently unused)
+        coeffile: Output CSV path for coefficient file
+
+    Returns:
+        None (writes coefficients to CSV file)
+
+    Output CSV Format:
+        Columns: name, coef
+        Rows: eps0_ma_coef, eps1_ma_coef, ..., eps<horizon-1>_ma_coef
+    """
     insample_daily_df = daily_df
 
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
@@ -85,6 +222,23 @@ def generate_coefs(daily_df, horizon, name, coeffile=None):
     return 
 
 def eps_alpha(daily_df, horizon, name, coeffile):
+    """
+    Generate EPS alpha forecast using pre-fitted coefficients.
+
+    Applies learned regression coefficients to EPS revision signals to produce
+    final alpha forecast. This is the production-mode function that uses
+    coefficients fitted during backtest/calibration runs.
+
+    Args:
+        daily_df: DataFrame with eps0_ma through eps<horizon-1>_ma columns
+        horizon: Forecast horizon (must match coefficient file)
+        name: Strategy name (for logging, currently unused)
+        coeffile: Path to CSV coefficient file from generate_coefs()
+
+    Returns:
+        DataFrame: Input df with added 'eps' column containing alpha forecast
+            eps = sum(eps[i]_ma * coef[i]) for i in 0 to horizon-1
+    """
     print "Loading coeffile: {}".format(coeffile)
     coef_df = pd.read_csv(coeffile, header=0, index_col=['name'])
     outsample_daily_df = daily_df
@@ -106,6 +260,26 @@ def eps_alpha(daily_df, horizon, name, coeffile):
     return outsample_daily_df
 
 def calc_eps_forecast(daily_df, horizon, coeffile, fit):
+    """
+    Main orchestrator for EPS alpha generation.
+
+    Coordinates the full workflow for either fitting coefficients (backtest mode)
+    or generating production alpha forecasts (production mode).
+
+    Workflow:
+        1. Calculate daily EPS signals via calc_eps_daily()
+        2a. If fit=True: Add forward returns, fit coefficients, save to file, return None
+        2b. If fit=False: Apply coefficients via eps_alpha(), return forecast DataFrame
+
+    Args:
+        daily_df: Base DataFrame with price, Barra, and analyst estimate data
+        horizon: Forecast horizon in days (typically 10)
+        coeffile: Coefficient file path (input for prod, output for fit)
+        fit: Boolean - True for fitting mode, False for production mode
+
+    Returns:
+        DataFrame with 'eps' column (production mode) or None (fit mode)
+    """
     daily_results_df = calc_eps_daily(daily_df, horizon) 
 
 

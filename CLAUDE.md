@@ -6,6 +6,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Statistical arbitrage trading system for US equities. Legacy Python 2.7 codebase that implements alpha generation, portfolio optimization, and backtesting across ~1,400 stocks.
 
+## Task Execution Strategy
+
+**IMPORTANT: Use subagents for individual tasks. Keep the main session for oversight and coordination.**
+
+When the user requests work on this codebase:
+
+1. **Main session role**: Act as coordinator/overseer only
+   - Break down user requests into discrete tasks
+   - Spawn subagents for each task
+   - Monitor subagent progress and results
+   - Synthesize results and report back to user
+   - Do NOT perform implementation work directly
+
+2. **Spawn subagents for**:
+   - **Code exploration**: Use `Task` tool with `subagent_type=Explore` to understand codebase structure, find implementations, trace dependencies
+   - **Implementation work**: Use `Task` tool with `subagent_type=general-purpose` for writing/editing code, fixing bugs, adding features
+   - **Running backtests**: Use `Task` tool with `subagent_type=Bash` for executing simulation commands and analyzing outputs
+   - **Documentation**: Use `Task` tool with `subagent_type=general-purpose` for documenting modules or generating reports
+   - **Analysis**: Use `Task` tool with `subagent_type=general-purpose` for analyzing simulation results, performance metrics, or code patterns
+
+3. **Examples**:
+   - User: "Add a new alpha strategy" → Spawn explore agent to understand strategy structure, then spawn implementation agent to write code
+   - User: "Run a backtest with these parameters" → Spawn bash agent to execute and monitor the simulation
+   - User: "Optimize the regression module" → Spawn explore agent to understand current implementation, then spawn implementation agent for optimization
+   - User: "How does the portfolio optimization work?" → Spawn explore agent to trace through opt.py and related modules
+
+4. **Benefits**:
+   - Parallel execution of independent tasks
+   - Better context management (each agent focused on one task)
+   - Main session maintains high-level view
+   - Easier to track progress across multiple workstreams
+
 ## Commands
 
 ### Installation

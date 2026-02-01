@@ -349,3 +349,51 @@
 - Mathematical formulations clear for all cost/risk components
 - Gradient derivations explicit for optimization transparency
 - Usage patterns documented (global variable workflow, init→optimize flow)
+
+---
+
+## 2026-02-01
+
+### Task: Document prod_eps.py (COMPLETE)
+
+**Decision rationale:** Most critical undocumented production module remaining:
+- CRITICAL priority in plan/18-production-modules.md (1 of 2 remaining)
+- Production code without documentation is highest operational risk
+- EPS (Earnings Per Share) production more fundamental than RTG (ratings)
+- Zero documentation on live trading signal generation
+
+**Work completed:**
+- Added comprehensive 70+ line module docstring covering:
+  - Strategy logic (analyst EPS estimate revisions)
+  - Operating modes (fitting vs. production)
+  - Signal construction (normalized revisions with confidence filter)
+  - Data requirements and CLI usage examples
+  - Output formats and workflow
+- Documented all 5 functions:
+  - wavg(): Market-cap weighted beta-adjusted returns
+  - calc_eps_daily(): Daily EPS revision signal with confidence filter
+  - generate_coefs(): WLS regression coefficient fitting
+  - eps_alpha(): Apply fitted coefficients for production forecasts
+  - calc_eps_forecast(): Main orchestrator (fit or predict mode)
+- Updated plan/18-production-modules.md progress (3/4 complete)
+
+**Module purpose - EPS estimate revision alpha:**
+- Tracks changes in analyst consensus EPS estimates (EPS_diff_mean)
+- Only uses revisions when analyst confidence is increasing (std_diff > 0)
+- Normalizes by median EPS estimate: eps0 = EPS_diff_mean / EPS_median
+- Fits multi-lag coefficients via regression for optimal horizon weighting
+
+**Operating modes:**
+- Fit mode (--fit): 720-day lookback, calibrates coefficients, saves to CSV
+- Production mode: horizon+5 days, applies coefficients, outputs alpha signals
+
+**Key parameters:**
+- horizon: 10 days (forecast period, shorter than SAL's 20 days)
+- lookback: 720 days (fit) or horizon+5 (production)
+- Signal only active when std_diff > 0 (confidence filter)
+
+**Production status:**
+- 3/4 production modules now documented (prod_sal, prod_eps, load_data_live)
+- Only prod_rtg.py remains undocumented (CRITICAL priority)
+
+---
