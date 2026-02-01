@@ -1,16 +1,16 @@
 # Documentation Plan: Production/Deployment Modules
 
 ## Priority: CRITICAL
-## Status: In Progress (3/4 complete)
+## Status: COMPLETE (4/4 complete)
 ## Estimated Scope: 4 files
 
 ## Files Covered
 1. `prod_sal.py` (213 lines) - SAL analyst estimate production - **COMPLETE**
 2. `prod_eps.py` (190 lines) - EPS production - **COMPLETE**
-3. `prod_rtg.py` (190 lines) - Rating production - **PENDING**
+3. `prod_rtg.py` (190 lines) - Rating production - **COMPLETE**
 4. `load_data_live.py` (206 lines) - Live data loading - **COMPLETE**
 
-**1/4 FILES STILL HAS NO DOCSTRINGS - CRITICAL PRIORITY**
+**ALL PRODUCTION FILES NOW DOCUMENTED**
 
 ## Overview
 
@@ -44,9 +44,14 @@ Production modules handle live/deployment workflows:
 - [x] Document operating modes (fit vs. production)
 
 ### 4. prod_rtg.py Documentation
-- [ ] Add module docstring for rating production
-- [ ] Document rating data pipeline
-- [ ] Document output format and destinations
+- [x] Add module docstring for rating production
+- [x] Document rating data pipeline
+- [x] Document output format and destinations
+- [x] Document all 4 functions (wavg, calc_rtg_daily, generate_coefs, rtg_alpha, calc_rtg_forecast)
+- [x] Document strategy logic (rating revisions with cubed amplification)
+- [x] Document operating modes (fit vs. production)
+- [x] Document CLI parameters and mode-specific behavior
+- [x] Document key differences from prod_sal.py and prod_eps.py
 
 ### 5. load_data_live.py Documentation
 - [x] Add module docstring for live data loading
