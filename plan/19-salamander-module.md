@@ -51,9 +51,9 @@ of the core trading system. It provides:
 ## Documentation Tasks
 
 ### 1. Module-Level Documentation
-- [ ] Add README.md for salamander directory
-- [ ] Document Python 3 requirements
-- [ ] Document standalone usage instructions
+- [x] Add README.md for salamander directory
+- [x] Document Python 3 requirements
+- [x] Document standalone usage instructions
 
 ### 2. Core Simulation Documentation
 - [ ] Document simulation.py base class
