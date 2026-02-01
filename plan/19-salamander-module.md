@@ -25,7 +25,7 @@ of the core trading system. It provides:
 6. `salamander/loaddata.py` (117 lines) - Data loading
 7. `salamander/loaddata_sql.py` (284 lines) - SQL data loader
 8. `salamander/calc.py` (407 lines) - Calculation module ✓
-9. `salamander/opt.py` (480 lines) - Optimization module
+9. `salamander/opt.py` (480 lines) - Optimization module ✓
 10. `salamander/regress.py` (250 lines) - Regression module ✓
 11. `salamander/util.py` (260 lines) - Utility functions
 
