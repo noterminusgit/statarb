@@ -472,3 +472,82 @@
 3. Salamander utilities (13 files) - Many small utility scripts
 
 **Spawning 3 new subagents...**
+2026-02-03 - Documented specialized alpha strategies (7 files)
+
+**Specialized Alpha Strategies:**
+
+1. c2o.py (217 lines) - Close-to-open gap trading strategy
+   - Beta-adjusted overnight returns for gap detection
+   - Filters gaps < 2% absolute, industry-demeaned
+   - Sector-specific regressions for gap reversal dynamics
+   - Intraday signals vary by time-of-day (6 hourly buckets)
+   - Combines current gap with lagged gaps (multi-day signal)
+   - Formula: badjret = overnight_ret - beta * market_ret
+   - Output: 'c2o' intraday forecast
+   - CLI: --start, --end, --mid, --horizon, --freq
+
+2. pca_generator.py (80 lines) - Intraday PCA residual extraction
+   - Rolling 10-period correlation matrices
+   - 4-component PCA decomposition
+   - Residuals = stock-specific noise for mean reversion
+   - Note: Residual calculation commented out (incomplete)
+   - Output: 'pcaC_B_ma' signal (needs uncomment for full implementation)
+   - CLI: --start, --end, --freq (default 5Min)
+
+3. pca_generator_daily.py (81 lines) - Daily PCA with exp-weighted correlation
+   - Combines overnight + previous day returns (2-day signal)
+   - Exponentially-weighted correlation (5-day halflife)
+   - More adaptive to regime changes than simple rolling
+   - Note: Analysis/diagnostic code, residuals commented out
+   - Prints explained variance and average correlation
+   - CLI: --start, --end
+
+4. mom_year.py (92 lines) - Annual momentum (232-day lag strategy)
+   - 20-day cumulative return, industry-demeaned
+   - 232-day lag (approx 1 year) for long-term reversal
+   - Avoids short-term reversal and medium-term continuation zones
+   - Based on momentum/reversal academic literature
+   - Output: 'mom' daily forecast
+   - CLI: --start, --end, --mid
+
+5. ebs.py (221 lines) - Analyst estimate revision signals (not equity borrow!)
+   - Uses SAL estimate data (mean, std, median)
+   - Filters for increasing dispersion (std_diff > 0)
+   - Signal = estimate_diff_mean / estimate_median
+   - Separate up/down regressions for asymmetry
+   - Captures analyst upgrade/downgrade dynamics
+   - Output: 'sal' daily forecast
+   - CLI: --start, --end, --mid, --lag (default 20)
+   - Note: Misleading filename, should be sal.py
+
+6. htb.py (116 lines) - Hard-to-borrow fee rate strategy
+   - Uses fee_rate from stock loan market
+   - High fees indicate crowded shorts → potential squeeze
+   - Winsorized with 5-day lag features
+   - Intraday forecasts from daily fee rate changes
+   - Output: 'htb' intraday forecast
+   - CLI: --start, --end, --mid, --freq (default 30Min)
+
+7. rrb.py (157 lines) - Barra residual return betting
+   - Barra factor model residuals (barraResidRet)
+   - Idiosyncratic return mean reversion
+   - Requires calc_factors() and calc_intra_factors()
+   - Excludes Energy sector (commodity-driven dynamics)
+   - Combines intraday residual with lagged daily residuals
+   - Output: 'rrb' intraday forecast
+   - CLI: --start, --end, --mid, --horizon (default 3)
+
+**Documentation Coverage:**
+- Module docstrings explaining strategy logic and academic basis
+- Function docstrings with formulas, parameters, return values
+- Data requirements and configuration details
+- Relationships to other modules in codebase
+- Usage examples and CLI parameter documentation
+
+**Key Findings:**
+- ebs.py is analyst estimates, not equity borrow (filename misleading)
+- rrb.py = Barra residual mean reversion (Residual Return Betting)
+- mom_year.py = 232-day lagged momentum (not simple annual momentum)
+- PCA generators have incomplete implementations (residuals commented out)
+- c2o.py has sophisticated sector-specific and time-of-day modeling
+
