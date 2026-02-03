@@ -1,4 +1,123 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Multi-Period Beta-Adjusted Returns Strategy (badj_multi)
+
+IMPORTANT: Despite the filename "badj", this strategy does NOT use order flow.
+Instead, it implements a simple beta-division approach on returns, creating
+a "beta-adjusted" signal by dividing log returns by predicted beta.
+
+This is fundamentally different from bd.py which uses order flow imbalance.
+
+Naming Convention:
+-----------------
+- Internal signal names: "o2c" (overnight-to-close)
+- Output forecast name: "badj_m" (beta-adjusted multi-period)
+- The "o2c" naming suggests focus on overnight-to-close returns
+
+Methodology:
+-----------
+1. Beta Adjustment (Simple Division):
+   o2c0 = log_ret / pbeta
+
+   This creates a "beta-normalized" return by dividing out systematic risk.
+   Stocks with high beta have their returns scaled down, low beta scaled up.
+
+2. Winsorization and Industry Demeaning:
+   - Winsorize by date to control outliers
+   - Industry demean for sector neutrality
+   - Creates o2c0_B_ma signal
+
+3. Multi-Period Lags:
+   - Computes lagged versions (o2c1, o2c2, ..., o2c{horizon})
+   - Enables multi-period momentum/mean reversion capture
+
+4. Regression:
+   - Fits o2c0_B_ma at multiple lags against forward returns
+   - Computes residual coefficients for each lag
+   - Combines intraday (o2cC) + daily lags (o2c1, o2c2, ...)
+
+Differences from bd.py Order Flow Strategy:
+------------------------------------------
+1. Signal Source:
+   - bd.py: Order flow imbalance (askHit - bidHit) / total
+   - badj_multi.py: Simple return / beta ratio
+   - Completely different alpha source
+
+2. Beta Adjustment:
+   - bd.py: Subtracts beta * market_return from returns
+   - badj_multi.py: Divides returns by beta
+   - Different normalization approaches
+
+3. Data Requirements:
+   - bd.py: Requires order book data (askHitDollars, bidHitDollars, etc.)
+   - badj_multi.py: Only needs returns and beta
+   - Much simpler data requirements
+
+Signal Formula:
+--------------
+Daily:
+    o2c0 = log_ret / pbeta
+    o2c0_B = winsorize(o2c0)
+    o2c0_B_ma = industry_demean(o2c0_B)
+
+Intraday:
+    o2cC = (overnight_log_ret + log(iclose/dopen)) / pbeta
+    o2cC_B = winsorize(o2cC)
+    o2cC_B_ma = industry_demean(o2cC_B)
+
+Forecast:
+    badj_m = o2cC_B_ma * coef0 +
+             sum_{lag=1}^{horizon-1} (o2c{lag}_B_ma * residual_coef[lag])
+
+Sector Splitting:
+----------------
+- Fits separate regressions for Energy sector vs all others
+- Allows sector-specific coefficient optimization
+- Two separate regression outputs: "in" (Energy) and "ex" (ex-Energy)
+
+Use Case:
+--------
+- Simpler alternative to order flow strategies
+- Tests pure beta-adjusted return momentum/reversal
+- Lower data requirements (no order book needed)
+- Captures systematic risk-adjusted return patterns
+
+Data Requirements:
+-----------------
+- Price data: log_ret (daily returns)
+- Barra factors: pbeta (predicted beta), ind1 (industry)
+- Intraday: overnight_log_ret, dopen, iclose
+- Universe: Expandable stocks (liquid, tradeable)
+
+CLI Usage:
+---------
+Run backtest with optional in-sample/out-of-sample split:
+    python badj_multi.py --start=20130101 --end=20130630 --os=True
+
+Arguments:
+    --start: Start date (YYYYMMDD)
+    --end: End date (YYYYMMDD)
+    --os: Enable out-of-sample split (default: False)
+
+Output:
+------
+- Regression plots: badj_daily_in_{dates}.png, badj_daily_ex_{dates}.png
+- HDF5 cache: badj_m{start}.{end}_daily.h5, badj_m{start}.{end}_intra.h5
+- Alpha forecast: 'badj_m' column written via dump_alpha()
+
+Related Modules:
+---------------
+- bd.py: Order flow based strategy (different alpha source)
+- badj_intra.py: Intraday-only version of this strategy
+- badj_both.py: Combined daily+intraday beta-adjusted
+- badj2_multi.py: Alternative implementation with market-weighted beta
+
+Notes:
+-----
+- Horizon fixed at 3 in __main__
+- Uses daybars (full-day aggregated) not intraday bars
+- Energy sector treated separately for robustness
+- o2cC_B_ma_coef always set to 0 (line 87) - effectively drops intraday component
+"""
 
 from alphacalc import *
 
@@ -6,6 +125,49 @@ from dateutil import parser as dateparser
 import argparse
 
 def calc_o2c(daily_df, horizon):
+    """
+    Calculate daily beta-adjusted returns (o2c) with multiple lags.
+
+    Computes the core "o2c" (overnight-to-close / beta-adjusted) signal
+    by simply dividing log returns by predicted beta. This creates a
+    beta-normalized return series.
+
+    Process:
+    1. Filter to expandable (tradeable, liquid) universe
+    2. Divide log returns by beta (simple beta adjustment)
+    3. Winsorize by date to control outliers
+    4. Industry demean for sector neutrality
+    5. Create lagged versions (o2c1, o2c2, ..., o2c{horizon})
+
+    Args:
+        daily_df (pd.DataFrame): Daily data with MultiIndex (date, sid) containing:
+            - log_ret: Daily log returns
+            - pbeta: Predicted beta from Barra
+            - ind1: Industry classification (for demeaning)
+            - sid: Security identifier
+            - expandable: Boolean filter for tradeable stocks
+
+        horizon (int): Number of lagged signals to create (typically 3)
+
+    Returns:
+        pd.DataFrame: Input dataframe augmented with:
+            - o2c0: Raw beta-adjusted return (log_ret / pbeta)
+            - o2c0_B: Winsorized beta-adjusted return
+            - o2c0_B_ma: Industry-demeaned signal (main daily signal)
+            - o2c{1..horizon}_B_ma: Lagged versions of o2c0_B_ma
+
+    Signal Formula:
+        o2c0 = log_ret / pbeta
+        o2c0_B = winsorize_by_group(o2c0, groupby='date')
+        o2c0_B_ma = industry_demean(o2c0_B)
+
+    Notes:
+        - Simple division by beta (not subtraction like bd.py)
+        - No order flow data required
+        - Industry demeaning ensures sector neutrality
+        - Lagged signals enable multi-horizon regression fitting
+        - "o2c" naming historically meant "overnight-to-close"
+    """
     print "Caculating daily o2c..."
 
     result_df = daily_df.reset_index()
@@ -31,6 +193,51 @@ def calc_o2c(daily_df, horizon):
     return result_df
 
 def calc_o2c_intra(intra_df, daily_df):
+    """
+    Calculate intraday beta-adjusted returns (o2cC) from daybar data.
+
+    Computes the intraday version of the beta-adjusted signal using
+    overnight return plus day's price change, normalized by beta.
+
+    This uses full-day aggregate data (daybars) not intraday bars,
+    calculating the cumulative return from prior close to current bar.
+
+    Process:
+    1. Filter to expandable universe (using daily_df reference)
+    2. Calculate total return: overnight + day's move
+    3. Divide by beta for normalization
+    4. Winsorize by timestamp
+    5. Industry demean within (timestamp, industry) groups
+
+    Args:
+        intra_df (pd.DataFrame): Intraday bar data with MultiIndex (iclose_ts, sid):
+            - iclose: Intraday bar close price
+            - dopen: Day open price
+            - overnight_log_ret: Overnight return (prior close to open)
+            - pbeta: Predicted beta
+            - ind1: Industry classification
+            - expandable: Boolean filter
+
+        daily_df (pd.DataFrame): Daily reference data for expandable filter
+
+    Returns:
+        pd.DataFrame: Input dataframe augmented with:
+            - o2cC: Beta-adjusted intraday return
+            - o2cC_B: Winsorized beta-adjusted return
+            - o2cC_B_ma: Industry-demeaned signal (main intraday signal)
+
+    Signal Formula:
+        o2cC = (overnight_log_ret + log(iclose/dopen)) / pbeta
+        o2cC_B = winsorize_by_group(o2cC, groupby='iclose_ts')
+        o2cC_B_ma = industry_demean(o2cC_B)
+
+    Notes:
+        - Combines overnight + intraday returns for total return
+        - Simple division by beta (same as daily)
+        - filter_expandable_intra() uses daily_df to determine universe
+        - Date column deleted before merge to avoid timestamp conflicts
+        - Winsorization by timestamp ensures cross-sectional outlier control
+    """
     print "Calculating o2c intra..."
 
     result_df = filter_expandable_intra(intra_df, daily_df)
@@ -58,6 +265,53 @@ def calc_o2c_intra(intra_df, daily_df):
     return result_df
 
 def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
+    """
+    Fit regression coefficients and generate beta-adjusted forecast.
+
+    Fits regressions for the beta-adjusted return strategy using daily lags
+    of o2c0_B_ma. Computes residual coefficients to capture incremental
+    information at each lag.
+
+    The intraday component (o2cC_B_ma) coefficient is set to 0 (line 87),
+    effectively making this a daily-only strategy despite having intraday data.
+
+    Args:
+        daily_df (pd.DataFrame): Daily data with o2c signals
+        intra_df (pd.DataFrame): Intraday data with o2cC signals (not used for coef)
+        full_df (pd.DataFrame): Full merged dataset for forecast storage
+        horizon (int): Forecast horizon in days (typically 3)
+        name (str): Name suffix for output plots (e.g., "in", "ex")
+        middate (datetime): Split date for in-sample vs out-of-sample
+                           If None, uses entire dataset
+
+    Returns:
+        pd.DataFrame: full_df augmented with:
+            - o2cC_B_ma_coef: Intraday coefficient (always 0)
+            - o2c{1..horizon-1}_B_ma_coef: Coefficients for lagged daily signals
+            - badj_m: Combined forecast (main output)
+
+    Regression Strategy:
+    -------------------
+    - Fits o2c0_B_ma at multiple lags (1 to horizon) against forward returns
+    - Uses daily regression mode
+    - Extracts coefficient at full horizon (coef0)
+    - Computes residual coefficients: coef[lag] = coef0 - fitted_coef[lag]
+    - This captures incremental predictive power of recent lags
+
+    Final Forecast:
+        badj_m = o2cC_B_ma * 0 +  # Intraday component disabled
+                 sum_{lag=1}^{horizon-1} (o2c{lag}_B_ma * residual_coef[lag])
+
+    Output Files:
+        - badj_daily_{name}_{dates}.png: Daily regression plot
+
+    Notes:
+        - Intraday coefficient hardcoded to 0 (line 87)
+        - Only daily lags contribute to forecast
+        - Sector-specific fitting (Energy vs others)
+        - All coefficients printed to console
+        - Creates forecast columns if they don't exist
+    """
     if 'badj_m' not in full_df.columns:
         print "Creating forecast columns..."
         full_df['badj_m'] = np.nan
@@ -98,6 +352,47 @@ def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
     return full_df
 
 def calc_o2c_forecast(daily_df, intra_df, horizon, outsample):
+    """
+    Main entry point: compute multi-period beta-adjusted forecast with sector split.
+
+    Orchestrates the full pipeline from raw data to final forecasts, with
+    separate regression fitting for Energy sector vs all other sectors.
+
+    The sector split allows sector-specific coefficient optimization,
+    accounting for different dynamics in the Energy sector.
+
+    Args:
+        daily_df (pd.DataFrame): Daily price/factor data with MultiIndex (date, sid)
+        intra_df (pd.DataFrame): Intraday bar data with MultiIndex (iclose_ts, sid)
+        horizon (int): Forecast horizon in days (typically 3)
+        outsample (bool): If True, split data in-sample/out-of-sample at midpoint
+
+    Returns:
+        tuple: (full_df, outsample_df)
+            - full_df: Complete dataset with forecasts
+            - outsample_df: Only out-of-sample data (if outsample=True)
+                           or full dataset (if outsample=False)
+
+    Pipeline Flow:
+        daily_df → calc_o2c() → daily_results with lags
+        intra_df → calc_o2c_intra() → intra_results
+        [merge daily + intra]
+        → o2c_fits(Energy sector) → partial forecasts
+        → o2c_fits(ex-Energy) → complete forecasts
+        → combine and return
+
+    Sector Processing:
+        1. Energy sector: Fit separate regression for Energy stocks
+        2. Ex-Energy: Fit regression for all non-Energy stocks
+        3. Results combined into full_df
+
+    Notes:
+        - middate computed as midpoint if outsample=True
+        - Energy sector handled separately for robustness
+        - Uses module 'sector_name' column from data
+        - Final forecast in 'badj_m' column
+        - Both full and outsample dataframes returned
+    """
     daily_df = calc_o2c(daily_df, horizon) 
     intra_df = calc_o2c_intra(intra_df, daily_df)
     full_df = merge_intra_data(daily_df, intra_df)
