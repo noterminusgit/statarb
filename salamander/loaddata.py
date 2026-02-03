@@ -1,3 +1,109 @@
+"""
+Salamander Data Loading Module (File-Based)
+
+This module provides simplified, file-based data loading functions for the
+salamander standalone backtesting system. Unlike the main loaddata.py which
+loads from CSV files with complex universe filtering and multiple data sources,
+this module is designed for rapid prototyping and testing with pre-processed data.
+
+Key Differences from Main loaddata.py:
+    - File-based only: Loads from pre-generated CSV/HDF5 files (no direct database access)
+    - Simplified interface: Fewer configuration parameters and dependencies
+    - Python 3 compatible: Uses modern pandas patterns (concat vs append)
+    - Pre-computed data: Expects alpha signals and cached data to already exist
+    - Minimal filtering: Assumes universe filtering happened during data generation
+
+Functions:
+    load_mus(mdir, fcast, start, end):
+        Load alpha forecast signals from CSV files.
+
+        Searches for files matching pattern: {mdir}/{fcast}/alpha.{fcast}.{d1}-{d2}.csv
+        Files must have columns: date (datetime), gvkey (string), and signal columns
+        Returns DataFrame indexed by (date, gvkey) with forecast signals.
+
+        Args:
+            mdir: Base directory containing alpha signal subdirectories
+            fcast: Forecast/alpha name (e.g., "hl", "bd", "combined")
+            start: Start date string in YYYYMMDD format
+            end: End date string in YYYYMMDD format
+
+        Returns:
+            DataFrame indexed by (date, gvkey) with alpha signal columns
+
+    load_cache(start, end, data_dir, cols=None):
+        Load cached market data from HDF5 files.
+
+        Searches for files matching pattern: {data_dir}/all/all.{d1}-{d2}.h5
+        Each HDF5 file contains a 'full_df' table with OHLCV prices, returns,
+        volume metrics, and other pre-calculated features.
+
+        Args:
+            start: datetime, start date for data range
+            end: datetime, end date for data range
+            data_dir: Base directory containing cached HDF5 files
+            cols: Optional list of column names to load (default: all columns)
+
+        Returns:
+            DataFrame indexed by (date, gvkey) with market data columns
+
+    load_factor_cache(start, end, data_dir):
+        Load cached factor/alpha signals from HDF5 files.
+
+        Similar to load_cache but:
+        - Indexes by (date, factor) instead of (date, gvkey)
+        - Includes 30-day buffer before start date for lookback calculations
+        - Used for loading pre-computed factor returns or exposures
+
+        Args:
+            start: datetime, start date for data range
+            end: datetime, end date for data range
+            data_dir: Base directory containing factor HDF5 files
+
+        Returns:
+            DataFrame indexed by (date, factor) with factor values
+
+    load_locates(uni_df, start, end, locates_dir):
+        Load short borrow availability data from CSV.
+
+        Loads locate/borrow data from {locates_dir}/locates/borrow.csv
+        Merges with universe using both symbol and SEDOL identifiers.
+        Forward-fills missing data within available date range.
+        Sets borrow_qty=-inf and fee=-0 outside available data range.
+
+        File format: CSV with columns [symbol, sedol, date, shares, fee]
+        Separator: pipe (|)
+
+        Args:
+            uni_df: Universe DataFrame with columns [gvkey, symbol, sedol, date]
+            start: datetime, start date
+            end: datetime, end date
+            locates_dir: Base directory containing locates subdirectory
+
+        Returns:
+            DataFrame indexed by (date, gvkey) with columns [borrow_qty, fee]
+
+Data File Patterns:
+    Alpha signals: {mdir}/{fcast}/alpha.{fcast}.YYYYMMDD-YYYYMMDD.csv
+    Cached data: {data_dir}/all/all.YYYYMMDD-YYYYMMDD.h5
+    Borrow data: {locates_dir}/locates/borrow.csv
+
+Usage Example:
+    # Load high-low strategy signals
+    alpha_df = load_mus('/data/signals', 'hl', '20130101', '20130630')
+
+    # Load cached market data
+    market_df = load_cache(datetime(2013,1,1), datetime(2013,6,30), '/data/cache')
+
+    # Load specific columns only
+    price_df = load_cache(start, end, '/data/cache', cols=['close', 'volume'])
+
+Notes:
+    - Requires pre-generated data files (use gen_*.py scripts to create)
+    - HDF5 files must contain 'full_df' table
+    - Date ranges in filenames are inclusive: start-end covers [start, end]
+    - gvkey is string type (6-digit Compustat identifier)
+"""
+
 import sys
 import glob
 import re

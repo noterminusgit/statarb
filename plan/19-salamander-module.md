@@ -63,9 +63,9 @@ of the core trading system. It provides:
 - [ ] Document ssim.py differences
 
 ### 3. Data Module Documentation
-- [ ] Document loaddata.py vs main version
-- [ ] Document loaddata_sql.py SQL integration
-- [ ] Document data format requirements
+- [x] Document loaddata.py vs main version
+- [x] Document loaddata_sql.py SQL integration
+- [x] Document data format requirements
 
 ### 4. Generator Documentation
 - [ ] Document gen_dir.py directory structure

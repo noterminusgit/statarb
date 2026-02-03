@@ -1,3 +1,160 @@
+"""
+Salamander SQL Data Loading Module
+
+This module provides direct SQL database access for loading market data into the
+salamander backtesting system. It queries Capital IQ (via ODBC) and proprietary
+factor databases (via MySQL) to build stock universes and load historical data.
+
+Key Differences from Main loaddata.py:
+    - Direct SQL queries: Accesses Capital IQ and factor databases in real-time
+    - Integrated calculations: Computes returns, volatility, and volume metrics
+    - Universe construction: Builds universe from scratch using SQL filters
+    - Python 3 compatible: Modern pandas and SQL connector patterns
+    - Output to CSV: Saves results as pipe-delimited CSV files for later use
+
+Database Connections:
+    Capital IQ (ODBC):
+        Server: dbDevCapIq
+        Database: xpressfeed
+        Driver: ODBC Driver 17 for SQL Server
+        Tables: ciqTradingItem, ciqPriceEquity2, ciqMarketCap, ciqGvKeyIID
+
+    Factor Database (MySQL):
+        Host: jv-research
+        Port: 3306
+        User: mek_limited
+        Database: factors
+        Tables: stock_info_v6c, loadings_v6c_xmkt
+
+Functions:
+    get_uni(start, end, lookback, uni_size=1400):
+        Build stock universe from Capital IQ and factor databases.
+
+        Applies filters in sequence:
+        1. Country: United States only
+        2. Currency: US Dollar only
+        3. Security type: Common stock (securitySubTypeId=1)
+        4. Price range: $2.00 - $500.00
+        5. Liquidity: Median 21-day ADV > $1M
+        6. Sector filter: Exclude biotech (GICS group 3520)
+        7. Market cap ranking: Top N stocks (default 1400)
+
+        Args:
+            start: datetime, simulation start date
+            end: datetime, simulation end date
+            lookback: int, trading days before start to determine universe
+            uni_size: int, maximum stocks to include (default 1400)
+
+        Returns:
+            DataFrame indexed by gvkey with columns:
+                - symbol: Ticker symbol
+                - sector: GICS sector code
+                - tid: Trading item ID (Capital IQ identifier)
+
+        Output:
+            Saves to: ./{end_YYYYMMDD}/uni_df.csv (pipe-delimited)
+
+    load_barra(uni_df, start, end):
+        Load Barra risk factors and industry classifications from MySQL.
+
+        Retrieves factor loadings (momentum, book-to-price, dividend yield,
+        size, growth) and GICS industry group for each stock/date.
+
+        Factor columns (from loadings_v6c_xmkt):
+            - momentum: MO1_4 (1-month to 4-month momentum)
+            - btop: BP (book-to-price ratio)
+            - divyild: DYLD (dividend yield)
+            - size: SIZE (log market cap)
+            - growth: EP (earnings-to-price)
+
+        Args:
+            uni_df: Universe DataFrame from get_uni() with gvkey index
+            start: datetime, start date for factor history
+            end: datetime, end date (queries up to end - 1 trading day)
+
+        Returns:
+            DataFrame indexed by (date, gvkey) with factor loadings and ind1
+
+        Output:
+            Saves to: ./{end_YYYYMMDD}/barra_df.csv (pipe-delimited)
+
+    load_price(uni_df, start, end):
+        Load daily OHLCV prices and calculate returns/volatility metrics.
+
+        Queries Capital IQ for:
+        - Daily: open, high, low, close, volume
+        - Corporate actions: splits, dividends
+        - Market cap
+        - Historical data for lookback calculations (60 trading days)
+
+        Calculated metrics:
+            - ret: Simple daily return
+            - log_ret: Log daily return
+            - overnight_log_ret: Log return from prev close to open
+            - today_log_ret: Log return from open to close
+            - med_volume_21: Median volume over trailing 21 days
+            - med_volume_60: Median volume over trailing 60 days
+            - volat_21: Daily return volatility (21-day)
+            - volat_60: Daily return volatility (60-day)
+            - overnight_volat_21: Overnight return volatility (21-day)
+            - today_volat_21: Intraday return volatility (21-day)
+            - mdvp: Median dollar volume (med_volume_21 * close)
+
+        Args:
+            uni_df: Universe DataFrame with columns [gvkey, tid]
+            start: datetime, start date for price data
+            end: datetime, end date (queries up to end - 1 trading day)
+
+        Returns:
+            DataFrame indexed by (date, gvkey) with prices and metrics
+
+        Output:
+            Saves to: ./{end_YYYYMMDD}/price_df.csv (pipe-delimited)
+
+Helper Functions:
+    ret(df): Calculate simple returns (close/prev_close - 1)
+    overnight_ret(df): Calculate overnight returns (open/prev_close - 1)
+    today_ret(df): Calculate intraday returns (close/open - 1)
+    log_ret(df): Calculate log returns
+    overnight_log_ret(df): Calculate log overnight returns
+    today_log_ret(df): Calculate log intraday returns
+    med_volume(df, days): Calculate rolling median volume
+    volat(df, days): Calculate rolling return volatility
+    overnight_volat(df, days): Calculate rolling overnight volatility
+    today_volat(df, days): Calculate rolling intraday volatility
+
+Data Format Requirements:
+    - All dates must be datetime objects
+    - gvkey is string (6-digit Compustat identifier, no checksum)
+    - tid is integer (Capital IQ trading item ID)
+    - Symbol and SEDOL are uppercase strings
+    - GICS codes are integers (sector: 2-digit, group: 4-digit, industry: 6-digit)
+
+Usage Example:
+    from datetime import datetime
+    from mktcalendar import TDay
+
+    # Build universe for backtest starting 2013-01-01
+    start = datetime(2013, 1, 1)
+    end = datetime(2013, 6, 30)
+    uni_df = get_uni(start, end, lookback=10, uni_size=1400)
+
+    # Load Barra factors
+    barra_df = load_barra(uni_df, start, end)
+
+    # Load prices with calculated metrics
+    price_df = load_price(uni_df, start, end)
+
+Notes:
+    - Requires database credentials and network access
+    - Queries can be slow for large date ranges (use caching)
+    - Output CSVs use pipe (|) separator for compatibility
+    - TDay from mktcalendar.py is a trading day offset (1 TDay = 1 business day)
+    - Universe date is computed as: start - (lookback * TDay)
+    - All trailing calculations use shift(1) to avoid look-ahead bias
+    - Factor database gvkeys include 3-character suffix (e.g., "001234IQ") - removed in code
+"""
+
 import pandas as pd
 import time
 from datetime import datetime
