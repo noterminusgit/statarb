@@ -1,10 +1,102 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Volume-Adjusted Intraday-Only Strategy (vadj_intra)
+
+This module implements an intraday-only volume-adjusted strategy that focuses
+exclusively on intraday volume patterns. It differs from vadj.py by removing
+the daily signal component entirely and using only the intraday vadjC signal.
+
+Key Differences from vadj.py:
+-----------------------------
+1. **Intraday-only signals**: No daily vadj0 component
+2. **Hourly coefficients**: Fits separate coefficients for each trading hour
+3. **Simpler pipeline**: No multi-lag daily signals to combine
+4. **End-of-day focus**: Uses 'intra_eod' regression mode
+
+Strategy Overview:
+-----------------
+The intraday-only approach captures volume-driven mean reversion within the
+trading day. By fitting separate coefficients for different hours, the model
+can account for different liquidity patterns and price discovery processes
+throughout the trading session.
+
+Signal Formula:
+--------------
+Intraday signal (vadjC):
+  cur_ret = overnight_ret + log(iclose/dopen)
+  bret_i = beta * mkt_cap_weighted_intraday_return
+  badjret_i = cur_ret - bret_i
+  rv_i = (dvolume * dvwap) / dpvolume_med_21
+  vadjC = rv_i * sign(badjret_i)
+  vadjC_B_ma = industry_demeaned(winsorize(vadjC))
+
+Final forecast:
+  vadj_i = vadjC_B_ma * coef_hour
+  where coef_hour varies by time of day (6 hourly periods)
+
+Hourly Period Coefficients:
+--------------------------
+The model fits separate coefficients for six intraday periods:
+  1. 09:30-10:30 (Market open, high volatility)
+  2. 10:30-11:30 (Morning session)
+  3. 11:30-12:30 (Mid-day, typically lower volume)
+  4. 12:30-13:30 (Afternoon start)
+  5. 13:30-14:30 (Late afternoon)
+  6. 14:30-16:00 (Market close, high volume)
+
+Rationale:
+---------
+Different trading hours have different characteristics:
+- Open: Large order imbalances from overnight news
+- Mid-day: Lower volume, less efficient pricing
+- Close: Portfolio rebalancing, index fund flows
+
+Parameters:
+----------
+horizon : int
+    Forward return horizon for fitting (default: 0)
+    Note: Only used for forward return calculation, not for lags
+freq : str
+    Intraday bar frequency (default: '15Min')
+
+Market Impact:
+-------------
+- Intraday signals can capture short-term liquidity imbalances
+- Hourly coefficients adapt to time-varying market microstructure
+- Sign-based signals prevent over-trading on small moves
+- Industry neutralization maintains sector balance
+
+Data Requirements:
+-----------------
+Daily data: overnight_log_ret, tradable_volume, tradable_med_volume_21,
+            pbeta, mkt_cap_y, ind1, sector_name
+Intraday data: dopen, iclose (dclose), dvolume, dvwap, dpvolume_med_21
+
+Usage:
+------
+  python vadj_intra.py --start=20130101 --end=20130630 --mid=20130315 --freq=15Min
+
+Output:
+-------
+Creates alpha forecast file: vadj_i.h5
+Creates fit diagnostic plot: vadj_intra_*.png
+"""
 
 from regress import *
 from loaddata import *
 from util import *
 
 def wavg(group):
+    """Calculate market cap-weighted beta-adjusted returns for a date group.
+
+    Args:
+        group: DataFrame group for a single date containing:
+            - pbeta: predicted beta from Barra model
+            - log_ret: log return for the day
+            - mkt_cap_y: market capitalization (lagged)
+
+    Returns:
+        Series: Beta * market_return for each stock in the group
+    """
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -25,6 +117,30 @@ def wavg_ind(group):
     return res
 
 def calc_vadj_intra(intra_df):
+    """Calculate intraday-only volume-adjusted signals.
+
+    This is the core signal calculation for the intraday-only strategy. It
+    computes volume-adjusted signals using intraday returns and volume patterns.
+
+    Signal Construction:
+    1. Calculate current return: overnight_ret + log(iclose/dopen)
+    2. Calculate beta-adjusted return using intraday market returns
+    3. Calculate relative dollar volume: rv_i = dollar_volume / median
+    4. Combine: vadjC = rv_i * sign(badjret_i)
+    5. Winsorize and industry-neutralize
+
+    Key differences from vadj.py's calc_vadj_intra:
+    - Uses giclose_ts for grouping (not date)
+    - Industry demeans by (giclose_ts, ind1) not (date, ind1)
+
+    Args:
+        intra_df: DataFrame with intraday bar data, indexed by (timestamp, ticker)
+            Required columns: overnight_log_ret, iclose, dopen, pbeta, mkt_cap_y,
+                             dvolume, dvwap, dpvolume_med_21, giclose_ts, ind1
+
+    Returns:
+        DataFrame: Original data plus vadjC_B_ma column
+    """
     print "Calculating vadj intra..."
     result_df = filter_expandable(intra_df)
 
@@ -46,6 +162,29 @@ def calc_vadj_intra(intra_df):
     return result_df
 
 def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
+    """Fit intraday volume-adjusted model with hourly coefficients.
+
+    This simplified version:
+    - Only fits intraday signals (no daily component)
+    - Fits separate coefficients for 6 trading hour periods
+    - Uses 'intra_eod' regression mode for end-of-day returns
+
+    The hourly coefficients allow the model to capture different volume-return
+    relationships at different times of day:
+    - Morning: Large imbalances from overnight news
+    - Mid-day: Lower liquidity, potentially stronger mean reversion
+    - Close: Institutional rebalancing flows
+
+    Args:
+        daily_df: DataFrame with daily data (unused, kept for API compatibility)
+        intra_df: DataFrame with intraday vadjC signals
+        horizon: Forward return horizon for fitting
+        name: Name suffix for plot files
+        middate: Split date for in-sample/out-sample. If None, use all data
+
+    Returns:
+        DataFrame: out-sample intraday data with vadj_i forecast column
+    """
     insample_intra_df = intra_df
     outsample_intra_df = intra_df
     if middate is not None:
@@ -77,6 +216,27 @@ def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
     return outsample_intra_df
 
 def calc_vadj_forecast(daily_df, intra_df, horizon, middate):
+    """Calculate intraday-only volume-adjusted forecasts with sector models.
+
+    Main pipeline for vadj_intra strategy:
+    1. Calculate forward returns (for regression fitting)
+    2. Calculate intraday vadjC signals
+    3. Merge daily context data (beta, market cap, industry) onto intraday data
+    4. Fit separate models for Energy vs. other sectors
+    5. Combine forecasts
+
+    The sector-specific models account for different volume-price dynamics
+    in the Energy sector vs. other sectors.
+
+    Args:
+        daily_df: DataFrame with daily data for context
+        intra_df: DataFrame with intraday bar data
+        horizon: Forward return horizon for fitting
+        middate: Date to split in-sample (fitting) and out-sample (forecasting)
+
+    Returns:
+        DataFrame: Intraday data with vadj_i forecast column for all stocks
+    """
     daily_results_df = daily_df
     forwards_df = calc_forward_returns(daily_df, horizon)
     daily_results_df = pd.concat( [daily_results_df, forwards_df], axis=1)

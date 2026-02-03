@@ -1,3 +1,64 @@
+2026-02-03 - Documented volume-adjusted strategy family (5 files)
+
+**Files Documented:**
+1. vadj.py (226 lines) - Base volume-adjusted strategy with daily + intraday signals
+   - Comprehensive module docstring explaining volume-return interaction
+   - Market-adjusted volume normalization methodology
+   - Beta-adjusted returns using market cap weighting
+   - Hourly coefficient fitting for intraday signals
+   - Multi-lag daily signal combination
+   - Industry neutralization process
+   - Sector-specific models (Energy vs others)
+
+2. vadj_multi.py (204 lines) - Simplified daily-only multi-period strategy
+   - Daily-only signals without intraday component
+   - Raw relative volume (no market adjustment)
+   - Direct beta adjustment without sign()
+   - Multi-lag forecasting focus
+   - Lower computational overhead
+
+3. vadj_intra.py (146 lines) - Intraday-only volume strategy
+   - Intraday signals only (no daily component)
+   - Hourly coefficient fitting (6 trading periods)
+   - End-of-day regression mode
+   - Time-of-day liquidity patterns
+   - Sector-specific models
+
+4. vadj_pos.py (197 lines) - Position sizing emphasis strategy
+   - Sign-based directional signals
+   - Liquidity-aware position sizing
+   - Cleaner entry/exit decisions
+   - Full daily + intraday model
+   - Forecast distribution diagnostics
+
+5. vadj_old.py (155 lines) - Legacy implementation (deprecated)
+   - Historical reference version
+   - Uses log(volume/median) formulation
+   - Simple beta division instead of market adjustment
+   - Different data pipeline (alphacalc)
+   - Explains why it was superseded
+
+**Plan Updates:**
+- Marked all tasks complete in plan/16-alpha-volume-adjusted.md
+- Deleted plan file after completion
+
+**Key Concepts Documented:**
+- Volume normalization: relative volume vs median
+- Market-wide volume adjustment to isolate stock-specific patterns
+- Beta-adjusted returns: removing market component
+- Industry neutralization: demeaning within sectors
+- Multi-horizon forecasting: combining current and lagged signals
+- Hourly coefficients: adapting to intraday liquidity patterns
+- Position sizing: liquidity-aware signal magnitude
+- Sign-based signals: directional trades with volume confirmation
+
+**Strategy Variants Explained:**
+- vadj.py: Full model for maximum signal capture
+- vadj_multi.py: Daily-only for simpler implementation
+- vadj_intra.py: Intraday-only for short-term trading
+- vadj_pos.py: Position sizing for execution quality
+- vadj_old.py: Legacy for historical reference
+
 2026-02-03 - Documented salamander simulation engines (osim, qsim, ssim)
 
 **Files Documented:**

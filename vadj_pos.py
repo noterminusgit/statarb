@@ -1,10 +1,116 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""Volume-Adjusted Position Sizing Strategy (vadj_pos)
+
+This module implements a volume-adjusted strategy with position sizing emphasis.
+It combines daily and intraday signals similar to vadj.py but uses sign-based
+directional signals for cleaner position entry/exit.
+
+Key Differences from vadj.py:
+-----------------------------
+1. **Sign-based signals**: Uses sign(badjret) for both daily and intraday
+2. **Cleaner directional signals**: Reduces noise from small price moves
+3. **Position sizing focus**: Signal magnitude controlled by volume only
+4. **Full model combination**: Includes both intraday and daily components
+
+Strategy Overview:
+-----------------
+The position sizing approach prioritizes liquidity-aware position management.
+By using sign() instead of the raw beta-adjusted return, the signal becomes
+purely directional (buy/sell) with magnitude determined by relative volume.
+
+This is particularly useful for:
+- Reducing false signals from small random price moves
+- Focusing on significant direction changes with volume confirmation
+- Cleaner integration with portfolio optimization constraints
+
+Signal Formulas:
+---------------
+Daily signal:
+  rv = tradable_volume / tradable_med_volume_21_y
+  bret = beta * mkt_cap_weighted_market_return
+  badjret = log_ret - bret
+  vadj0 = rv * sign(badjret)  # Direction only, magnitude from volume
+  vadj0_B_ma = industry_demeaned(winsorize(vadj0))
+
+Intraday signal:
+  rv_i = (dvolume * dvwap) / dpvolume_med_21
+  cur_ret = overnight_ret + log(iclose/dopen)
+  badjret_i = cur_ret - beta * mkt_cap_weighted_intraday_return
+  vadjC = rv_i * sign(badjret_i)  # Direction only, magnitude from volume
+  vadjC_B_ma = industry_demeaned(winsorize(vadjC))
+
+Final forecast:
+  vadj_b = vadjC_B_ma * coef_intra +
+           sum(vadj{lag}_B_ma * coef_lag for lag in 1..horizon-1)
+
+Key Insight:
+-----------
+By using sign(badjret) instead of badjret:
+- Signal is +1/-1 for direction, scaled by relative volume
+- High volume + up move = high positive signal (likely overbought)
+- High volume + down move = high negative signal (likely oversold)
+- Low volume moves have small signals regardless of return magnitude
+
+This creates liquidity-aware position sizing where:
+- Larger positions when liquidity is high (rv > 1)
+- Smaller positions when liquidity is low (rv < 1)
+- Zero positions when volume is at median and no clear direction
+
+Parameters:
+----------
+horizon : int
+    Number of daily lags to use (default: 3)
+    Typical range: 2-5 days
+freq : str
+    Intraday bar frequency (default: '30Min')
+    30-minute bars provide good balance of signal and data quality
+
+Market Impact Considerations:
+----------------------------
+- Position sizing naturally adapts to available liquidity
+- Sign-based signals reduce excessive turnover
+- Industry neutralization prevents sector concentration
+- Multiple lags provide diversification across reversion horizons
+
+Fit Methodology:
+---------------
+Similar to vadj.py, fits separate models for:
+1. Intraday: 6 hourly coefficient periods
+2. Daily: Multiple lag coefficients using incremental approach
+
+Data Requirements:
+-----------------
+Daily data: close, log_ret, pbeta, tradable_volume, tradable_med_volume_21_y,
+            tradable_med_volume_21, mkt_cap_y, ind1, sector_name
+Intraday data: close, dopen, dvolume, dvwap, dpvolume_med_21, overnight_log_ret
+
+Usage:
+------
+  python vadj_pos.py --start=20130101 --end=20130630 --mid=20130315 --horizon=3 --freq=30Min
+
+Output:
+-------
+Creates alpha forecast file: vadj_b.h5
+Creates fit diagnostic plots: vadj_daily_*.png, vadj_intra_*.png
+Prints forecast distribution statistics
+"""
 
 from regress import *
 from loaddata import *
 from util import *
 
 def wavg(group):
+    """Calculate market cap-weighted beta-adjusted returns for a date group.
+
+    Args:
+        group: DataFrame group for a single date containing:
+            - pbeta: predicted beta from Barra model
+            - log_ret: log return for the day
+            - mkt_cap_y: market capitalization (lagged)
+
+    Returns:
+        Series: Beta * market_return for each stock in the group
+    """
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -25,6 +131,35 @@ def wavg_ind(group):
     return res
 
 def calc_vadj_daily(daily_df, horizon):
+    """Calculate volume-adjusted position sizing signals from daily data.
+
+    This version emphasizes position sizing by using sign-based directional
+    signals. The signal magnitude comes purely from relative volume, with
+    direction determined by the sign of beta-adjusted returns.
+
+    Signal Construction:
+    1. Calculate relative volume: rv = volume / median_volume
+    2. Calculate beta-adjusted returns: badjret = log_ret - beta*mkt_return
+    3. Combine: vadj0 = rv * sign(badjret)
+       - Positive: High volume + up move (potential overbought)
+       - Negative: High volume + down move (potential oversold)
+    4. Winsorize and industry-neutralize
+    5. Create lagged signals for multi-period forecasting
+
+    The sign() operation creates cleaner directional signals:
+    - Filters out noise from small random price moves
+    - Signal magnitude reflects available liquidity (rv)
+    - Direction reflects market sentiment (sign of badjret)
+
+    Args:
+        daily_df: DataFrame with daily data, indexed by (date, ticker)
+            Required columns: tradable_volume, tradable_med_volume_21_y,
+                             log_ret, pbeta, mkt_cap_y, gdate, ind1
+        horizon: Number of lags to create
+
+    Returns:
+        DataFrame: Original data plus vadj0_B_ma and vadj{1..horizon}_B_ma columns
+    """
     print "Caculating daily vadj..."
     result_df = filter_expandable(daily_df)
 
@@ -54,6 +189,31 @@ def calc_vadj_daily(daily_df, horizon):
     return result_df
 
 def calc_vadj_intra(intra_df):
+    """Calculate intraday volume-adjusted position sizing signals.
+
+    Similar to daily signals, uses sign-based directional signals for cleaner
+    position entry/exit decisions at the intraday level.
+
+    Signal Construction:
+    1. Calculate current return: overnight_ret + log(iclose/dopen)
+    2. Calculate beta-adjusted return using intraday market returns
+    3. Calculate relative dollar volume: rv_i = dollar_volume / median
+    4. Combine: vadjC = rv_i * sign(badjret_i)
+    5. Winsorize and industry-neutralize
+
+    The sign-based approach at the intraday level:
+    - Focuses on clear directional moves confirmed by volume
+    - Reduces noise from intraday volatility
+    - Provides liquidity-aware signal magnitude
+
+    Args:
+        intra_df: DataFrame with intraday bar data, indexed by (timestamp, ticker)
+            Required columns: overnight_log_ret, iclose, dopen, pbeta, mkt_cap_y,
+                             dvolume, dvwap, dpvolume_med_21, giclose_ts, ind1
+
+    Returns:
+        DataFrame: Original data plus vadjC_B_ma column
+    """
     print "Calculating vadj intra..."
     result_df = filter_expandable(intra_df)
 
@@ -75,6 +235,30 @@ def calc_vadj_intra(intra_df):
     return result_df
 
 def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
+    """Fit volume-adjusted position sizing model and generate forecasts.
+
+    Fits both intraday and daily components:
+    1. Intraday: 6 hourly coefficients for vadjC signal
+    2. Daily: Multiple lag coefficients using incremental approach
+
+    The full model combines:
+      vadj_b = vadjC_B_ma * coef_hour +
+               sum(vadj{lag}_B_ma * (coef_horizon - coef_lag))
+
+    Includes diagnostic output:
+    - Prints "Forecasts {name} Dist:" followed by describe() statistics
+    - Helps monitor signal distribution and identify outliers
+
+    Args:
+        daily_df: DataFrame with daily vadj signals and forward returns
+        intra_df: DataFrame with intraday vadjC signals
+        horizon: Number of daily lags to use in forecast
+        name: Name suffix for plot files ("in" or "ex" for sector splits)
+        middate: Split date for in-sample/out-sample. If None, use all data
+
+    Returns:
+        DataFrame: out-sample intraday data with vadj_b forecast column
+    """
     insample_intra_df = intra_df
     insample_daily_df = daily_df
     outsample_intra_df = intra_df
@@ -130,7 +314,32 @@ def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
     return outsample_intra_df
 
 def calc_vadj_forecast(daily_df, intra_df, horizon, middate):
-    daily_results_df = calc_vadj_daily(daily_df, horizon) 
+    """Calculate volume-adjusted position sizing forecasts with sector models.
+
+    Main pipeline for vadj_pos strategy:
+    1. Calculate daily vadj signals with sign-based position sizing
+    2. Calculate forward returns for regression
+    3. Calculate intraday vadjC signals with sign-based position sizing
+    4. Merge daily and intraday data
+    5. Fit separate models for Energy sector and all other sectors
+    6. Combine forecasts
+
+    The strategy produces liquidity-aware position sizes:
+    - Large positions in high-volume, clear-direction moves
+    - Small positions in low-volume or unclear moves
+    - Sector-neutral through industry demeaning
+    - Multi-horizon through lag combination
+
+    Args:
+        daily_df: DataFrame with daily data indexed by (date, ticker)
+        intra_df: DataFrame with intraday data indexed by (timestamp, ticker)
+        horizon: Number of daily lags to use in forecasting
+        middate: Date to split in-sample (fitting) and out-sample (forecasting)
+
+    Returns:
+        DataFrame: Intraday data with vadj_b forecast column for all stocks
+    """
+    daily_results_df = calc_vadj_daily(daily_df, horizon)
     forwards_df = calc_forward_returns(daily_df, horizon)
     daily_results_df = pd.concat( [daily_results_df, forwards_df], axis=1)
     intra_results_df = calc_vadj_intra(intra_df)
