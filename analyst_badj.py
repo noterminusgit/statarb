@@ -1,4 +1,66 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+Beta-Adjusted Analyst Rating Strategy
+
+This module implements an alpha signal that combines analyst rating levels
+with beta-adjusted stock returns, filtering positions based on rating stability.
+
+Strategy Logic:
+    The strategy integrates fundamental analyst ratings with technical beta-adjusted returns:
+
+    1. Load analyst rating history from IBES (rating_diff_mean field)
+    2. Calculate beta-adjusted returns: log_ret / pbeta (predicted beta from Barra)
+    3. Compute market beta-adjusted return using cap-weighted average
+    4. Filter signals by rating stability (std_diff > 0 indicates coverage change)
+    5. Combine rating levels with beta-adjusted returns: rtg0_B * rating
+    6. Demean by industry (ind1) for market neutrality
+    7. Fit multi-lag regression with decay weights
+
+    The key insight: stocks with stable analyst coverage and strong rating
+    signals (positive or negative) combined with beta-adjusted price moves
+    tend to mean-revert.
+
+Data Requirements:
+    - Analyst rating history from ESTIMATES_BASE_DIR/ibes.db
+        * rating_diff_mean: Average rating change (from load_ratings_hist)
+        * Fields: mean, median, std, count from analyst consensus
+    - Barra risk model data:
+        * pbeta: Predicted beta for beta adjustment
+        * ind1: Industry classification for demeaning
+    - Daily price data:
+        * log_ret: Daily log returns
+        * mkt_cap_y: Market capitalization for weighting
+
+Parameters:
+    --start: Start date (YYYYMMDD format)
+    --end: End date (YYYYMMDD format)
+    --mid: Middate for in-sample/out-of-sample split
+    --lag: Horizon for forward returns (default: 4 days, shorter than analyst.py)
+
+Signal Calculation:
+    rtg0_B = winsorize(log_ret / pbeta)          # Beta-adjusted return
+    rating = -1 * rating_diff_mean                # Invert sign
+    ret_rating = rtg0_B * rating                  # Interaction term
+    rtg0_B_ma = rtg0_B - industry_mean(rtg0_B)   # Industry-neutral
+
+    Multi-lag weighted signal:
+    alpha = sum(w[i] * rtg[i]_B_ma * coef[i]) for i in [0, horizon)
+    where w[i] = (horizon - i) / horizon          # Linear decay
+
+Output:
+    Writes HDF5 file with 'rtg' alpha column, consumable by bsim.py via:
+        --fcast=rtg:1:1  (multiplier=1, weight=1)
+
+Example:
+    python analyst_badj.py --start=20130101 --end=20130630 --mid=20130315 --lag=4
+
+Notes:
+    - Shorter horizon (4 days) vs analyst.py (20 days) due to beta adjustment
+    - Sector-specific handling shown in commented code (Energy separate)
+    - Uses multi-lag regression with decay to capture persistence
+    - rating_diff_mean is inverted (-1 *) so positive values indicate upgrades
+    - Legacy Python 2.7 codebase
+"""
 
 from regress import *
 from loaddata import *
@@ -7,6 +69,29 @@ from util import *
 from pandas.stats.moments import ewma
 
 def wavg(group):
+    """
+    Calculate market-cap weighted average beta-adjusted return.
+
+    Computes the market return contribution to each stock's beta-adjusted return,
+    used for debugging and understanding market-wide moves.
+
+    Args:
+        group: DataFrame group (typically grouped by date)
+               Must contain: pbeta, log_ret, mkt_cap_y, gdate
+
+    Returns:
+        Series: Beta times market cap-weighted return (b * market_ret)
+
+    Formula:
+        market_return = sum(log_ret * weight) / sum(weight)
+        where weight = mkt_cap_y / 1e6
+        result = pbeta * market_return
+
+    Notes:
+        - Prints market return for each date for monitoring
+        - Used to verify beta adjustment is removing market exposure
+        - Divides mkt_cap by 1e6 to prevent numerical overflow
+    """
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -15,6 +100,44 @@ def wavg(group):
     return res
 
 def calc_rtg_daily(daily_df, horizon):
+    """
+    Calculate beta-adjusted analyst rating signals with multi-lag structure.
+
+    Combines beta-adjusted returns with analyst rating levels, creating
+    a series of lagged signals for multi-horizon regression.
+
+    Args:
+        daily_df: DataFrame with price, Barra, and analyst data
+                  Required columns: log_ret, pbeta, mkt_cap_y, rating_diff_mean,
+                                   gdate, ind1
+        horizon: int, number of lags to create (default: 4)
+
+    Returns:
+        DataFrame with additional columns:
+            bret: Market beta-adjusted return (for monitoring)
+            rtg0_B: Winsorized beta-adjusted return (log_ret / pbeta)
+            rating: Inverted rating_diff_mean (-1 * rating_diff_mean)
+            ret_rating: Interaction term (rtg0_B * rating)
+            rtg0_B_ma: Industry-demeaned beta-adjusted return
+            rtg{i}_B_ma: Lagged versions for i=1 to horizon
+
+    Methodology:
+        1. Filter to expandable universe (tradable stocks)
+        2. Compute market beta-adjusted return via wavg() for monitoring
+        3. Calculate individual stock beta-adjusted returns (log_ret / pbeta)
+        4. Winsorize to limit outlier influence
+        5. Extract rating signal from rating_diff_mean (inverted sign)
+        6. Create interaction term (ret_rating) for sector analysis
+        7. Demean by industry (ind1) for market neutrality
+        8. Generate lagged versions for multi-horizon regression
+
+    Notes:
+        - Beta adjustment removes market exposure before applying ratings
+        - Winsorization prevents extreme values from dominating
+        - Industry demeaning ensures market-neutral positions
+        - Commented code shows alternative formulations
+        - ret_rating interaction enables sector-specific analysis (Energy vs others)
+    """
     print "Caculating daily rtg..."
     result_df = filter_expandable(daily_df)
 
@@ -42,6 +165,32 @@ def calc_rtg_daily(daily_df, horizon):
     return result_df
 
 def calc_rtg_intra(intra_df):
+    """
+    Calculate intraday beta-adjusted rating signals (experimental).
+
+    Extends the beta-adjusted rating approach to intraday bars,
+    combining overnight and intraday returns normalized by beta.
+
+    Args:
+        intra_df: DataFrame with intraday bar data
+                  Required columns: overnight_log_ret, iclose, dopen, pbeta,
+                                   giclose_ts, ind1
+
+    Returns:
+        DataFrame with columns:
+            rtgC: Beta-adjusted cumulative return (overnight + intraday)
+            rtgC_B: Winsorized rtgC
+            rtgC_B_ma: Industry-demeaned rtgC_B
+
+    Formula:
+        rtgC = (overnight_ret + log(iclose/dopen)) / pbeta
+
+    Notes:
+        - Experimental feature, not used in main strategy
+        - Combines overnight gap with intraday move
+        - Industry demeaning by timestamp (giclose_ts) instead of date
+        - Requires intraday bar data from BAR_BASE_DIR
+    """
     print "Calculating rtg intra..."
     result_df = filter_expandable(intra_df)
 
@@ -58,6 +207,48 @@ def calc_rtg_intra(intra_df):
     return result_df
 
 def rtg_fits(daily_df, intra_df, horizon, name, middate=None, intercepts=None):
+    """
+    Fit multi-lag regression for beta-adjusted rating signals.
+
+    Performs regression with multiple lags and decay weighting to capture
+    signal persistence over several days.
+
+    Args:
+        daily_df: DataFrame with signals and forward returns
+        intra_df: DataFrame with intraday signals (unused in current implementation)
+        horizon: int, maximum lag for regression (default: 4)
+        name: str, name suffix for plot files
+        middate: datetime, in-sample/out-of-sample split date
+        intercepts: dict, intercept adjustments by horizon (unused)
+
+    Returns:
+        DataFrame (out-of-sample) with columns:
+            rtg0_B_ma_coef: Coefficient for current signal
+            rtg{i}_B_ma_coef: Coefficients for lagged signals (i=1 to horizon-1)
+            rtg: Final alpha = sum of weighted lagged signals
+
+    Methodology:
+        1. Split at middate into in-sample and out-of-sample
+        2. Regress rtg0_B_ma against forward returns at each lag
+        3. Plot regression diagnostics
+        4. Extract coefficient at target horizon
+        5. Compute incremental coefficients: coef[i] = coef[0] - coef[lag_i]
+        6. Apply multi-lag weighting to out-of-sample data
+
+    Weighting:
+        - Base coefficient applied to current signal (lag 0)
+        - Incremental coefficients for lags 1 to horizon-1
+        - Each lag contributes: rtg[i]_B_ma * coef[i]
+
+    Outputs:
+        - Plot: rtg_daily_{name}_{dates}.png
+        - Console: Coefficient values for each lag
+
+    Notes:
+        - Multi-lag structure captures signal decay/persistence
+        - intra_df parameter exists but is unused (legacy)
+        - Sector-specific fitting shown in commented code
+    """
     insample_intra_df = intra_df
     insample_daily_df = daily_df
     outsample_intra_df = intra_df
@@ -95,6 +286,39 @@ def rtg_fits(daily_df, intra_df, horizon, name, middate=None, intercepts=None):
 
 
 def calc_rtg_forecast(daily_df, horizon, middate):
+    """
+    Generate beta-adjusted analyst rating forecast.
+
+    Main pipeline orchestrating signal calculation, regression, and forecast
+    generation for the beta-adjusted analyst strategy.
+
+    Args:
+        daily_df: DataFrame with price, Barra, and analyst data merged
+        horizon: int, forward return horizon (default: 4 days)
+        middate: datetime, in-sample/out-of-sample split
+
+    Returns:
+        DataFrame with 'rtg' column containing final alpha predictions
+
+    Pipeline:
+        1. Calculate beta-adjusted signals via calc_rtg_daily()
+        2. Calculate forward returns for regression targets
+        3. Merge signals with forward returns
+        4. Compute intercept adjustments via get_intercept()
+        5. Filter by sector and rating interaction (commented code)
+        6. Fit regression and generate predictions via rtg_fits()
+
+    Sector Handling (in commented code):
+        - Energy sector: treated separately due to different dynamics
+        - Other sectors: combined regression
+        - Splits by ret_rating sign: positive (upgrade), zero (neutral), negative (downgrade)
+
+    Notes:
+        - Current implementation uses single global regression (res5)
+        - Sector-specific code is commented out but shows intended design
+        - intercept_d provides baseline drift adjustment
+        - Results concatenated and sorted by index
+    """
     daily_results_df = calc_rtg_daily(daily_df, horizon) 
     forwards_df = calc_forward_returns(daily_df, horizon)
     daily_results_df = pd.concat( [daily_results_df, forwards_df], axis=1)
