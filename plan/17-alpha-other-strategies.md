@@ -1,7 +1,7 @@
 # Documentation Plan: Other Specialized Strategies
 
 ## Priority: MEDIUM
-## Status: Pending
+## Status: COMPLETED
 ## Estimated Scope: 7 files
 
 ## Files Covered
@@ -16,29 +16,29 @@
 ## Documentation Tasks
 
 ### 1. Close-to-Open Strategy (c2o.py)
-- [ ] Document gap trading methodology
-- [ ] Document overnight return handling
-- [ ] Document signal generation
+- [x] Document gap trading methodology
+- [x] Document overnight return handling
+- [x] Document signal generation
 
 ### 2. PCA Generators
-- [ ] Document PCA signal generation process
-- [ ] Document daily vs. general approach
-- [ ] Document integration with pca.py
+- [x] Document PCA signal generation process
+- [x] Document daily vs. general approach
+- [x] Document integration with pca.py
 
 ### 3. Momentum Strategy (mom_year.py)
-- [ ] Document annual momentum calculation
-- [ ] Document lookback period
-- [ ] Document academic basis
+- [x] Document annual momentum calculation
+- [x] Document lookback period (232-day lag, 20-day rolling)
+- [x] Document academic basis
 
 ### 4. Borrow/Locate Strategies
-- [ ] Document equity borrow signals (ebs.py)
-- [ ] Document hard-to-borrow indicators (htb.py)
-- [ ] Document short availability impact
+- [x] Document equity borrow signals (ebs.py - actually analyst estimates)
+- [x] Document hard-to-borrow indicators (htb.py - fee rates)
+- [x] Document short availability impact
 
-### 5. Unknown Strategy (rrb.py)
-- [ ] **INVESTIGATE** purpose and methodology
-- [ ] Document findings
-- [ ] Add appropriate docstring
+### 5. Residual Return Strategy (rrb.py)
+- [x] **INVESTIGATED** Barra factor model residual mean reversion
+- [x] Document findings and methodology
+- [x] Add comprehensive docstrings
 
 ## Dependencies
 - LOCATES_BASE_DIR for borrow data

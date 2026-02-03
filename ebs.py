@@ -1,4 +1,45 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+Analyst Estimate Signal (SAL) Alpha Strategy
+
+Note: Despite the filename "ebs.py" (suggesting equity borrow signals), this module
+actually implements an analyst estimate revision strategy using the "SAL" estimate
+data source.
+
+Strategy Logic:
+    1. Track changes in analyst estimate statistics (mean, std, median)
+    2. Filter for stocks with increasing estimate dispersion (std_diff > 0)
+    3. Calculate signal = estimate_diff_mean / estimate_median (normalized revision)
+    4. Beta-adjust returns to isolate stock-specific component
+    5. Run separate regressions for positive and negative estimate revisions
+    6. Combine current signal with lagged signals for multi-day forecast
+
+The intuition is that changes in analyst consensus (mean) relative to the estimate
+level (median) predict future returns, especially when accompanied by increasing
+dispersion (uncertainty).
+
+Separate up/down regressions capture asymmetry: positive estimate revisions may
+have different predictive power than negative revisions.
+
+Data Requirements:
+    - Daily close prices and log returns
+    - Beta factors for market adjustment
+    - Analyst estimate data (SAL_diff_mean, SAL_std, SAL_median) from ESTIMATES_BASE_DIR
+    - Sufficient estimate coverage (stocks without estimates get zero signal)
+
+Parameters:
+    horizon: Number of days to include lagged signals (default 20)
+    ESTIMATE: Data source identifier (default "SAL")
+
+Output:
+    'sal' column with analyst estimate-based forward return forecast
+
+Note: The variable name "ebs" in the filename is misleading. This is not related
+to equity borrow or short availability. Use sal.py or rename this file for clarity.
+
+Usage:
+    python ebs.py --start=20130101 --end=20130630 --mid=20130401 --lag=20
+"""
 
 from regress import *
 from loaddata import *
@@ -9,6 +50,18 @@ from pandas.stats.moments import ewma
 ESTIMATE = "SAL"
 
 def wavg(group):
+    """
+    Calculate market-cap weighted market return multiplied by beta.
+
+    Used to compute the market component that should be removed from returns
+    to isolate stock-specific alpha.
+
+    Args:
+        group: DataFrame group with columns pbeta, log_ret, mkt_cap_y, gdate
+
+    Returns:
+        Beta-weighted market return for the group
+    """
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -18,10 +71,36 @@ def wavg(group):
 
 
 def calc_sal_daily(daily_df, horizon):
+    """
+    Calculate analyst estimate revision signals.
+
+    Formula:
+        1. bret = cap_weighted_avg(log_ret * beta) by date
+        2. badjret = log_ret - bret (beta-adjusted return)
+        3. std_diff = change in analyst estimate std dev
+        4. Filter: If std_diff <= 0, set estimate_diff_mean to 0
+        5. sal0 = estimate_diff_mean / estimate_median (normalized revision)
+        6. Create lagged features for horizons 1 to horizon
+
+    The key insight is filtering for increasing dispersion (std_diff > 0).
+    When analyst disagreement increases, their consensus revisions become
+    more informative predictors of future returns.
+
+    Normalization by estimate median makes the signal comparable across
+    stocks with different price levels and estimate magnitudes.
+
+    Args:
+        daily_df: DataFrame with columns log_ret, pbeta, mkt_cap_y,
+                  SAL_diff_mean, SAL_std, SAL_median
+        horizon: Number of lag days to create (default 20)
+
+    Returns:
+        DataFrame with sal0_ma and sal{lag}_ma columns for each lag
+    """
     print "Caculating daily sal..."
     result_df = filter_expandable(daily_df)
 
-    print "Calculating sal0..."    
+    print "Calculating sal0..."
     halflife = horizon / 2
 #    result_df['dk'] = np.exp( -1.0 * halflife *  (result_df['gdate'] - result_df['last']).astype('timedelta64[D]').astype(int) )
 
@@ -37,11 +116,11 @@ def calc_sal_daily(daily_df, horizon):
     result_df['sal0'] = result_df[ESTIMATE + '_diff_mean'] / result_df[ESTIMATE + '_median']
 
     # print result_df.columns
-    # result_df['sum'] = result_df['SAL_median'] 
+    # result_df['sum'] = result_df['SAL_median']
     # result_df['det_diff'] = (result_df['sum'].diff())
     # result_df['det_diff_sum'] = pd.rolling_sum( result_df['det_diff'], window=2)
-    # #result_df['det_diff_dk'] = ewma(result_df['det_diff'], halflife=horizon )   
-    # result_df['sal0'] = result_df['det_diff'] 
+    # #result_df['det_diff_dk'] = ewma(result_df['det_diff'], halflife=horizon )
+    # result_df['sal0'] = result_df['det_diff']
 
     # result_df['median'] = -1.0 * (result_df['median'] - 3)
     # result_df['med_diff'] = result_df['median'].unstack().diff().stack()
@@ -66,6 +145,31 @@ def calc_sal_daily(daily_df, horizon):
     return result_df
 
 def sal_fits(daily_df, horizon, name, middate=None, intercepts=None):
+    """
+    Fit separate regression models for positive and negative estimate revisions.
+
+    Runs two independent WLS regressions:
+    1. Positive revisions (estimate_diff_mean > 0): Captures upgrade dynamics
+    2. Negative revisions (estimate_diff_mean <= 0): Captures downgrade dynamics
+
+    Each regression fits sal0_ma against forward returns at multiple horizons.
+    Intercepts are adjusted by subtracting baseline intercepts to remove
+    systematic bias in forward returns.
+
+    The separate up/down regressions capture asymmetry in market response:
+    - Upgrades may trigger momentum as investors chase good news
+    - Downgrades may trigger reversal as overreaction to bad news
+
+    Args:
+        daily_df: Daily DataFrame with sal signals and forward returns
+        horizon: Maximum lag to include in regressions
+        name: String identifier for plot filenames
+        middate: Split date between in-sample and out-of-sample
+        intercepts: Dict mapping horizon -> intercept adjustment values
+
+    Returns:
+        DataFrame with 'sal' forecast column combining all lagged signals
+    """
     insample_daily_df = daily_df
     if middate is not None:
         insample_daily_df = daily_df[ daily_df.index.get_level_values('date') < middate ]
@@ -126,7 +230,28 @@ def sal_fits(daily_df, horizon, name, middate=None, intercepts=None):
     return outsample_daily_df
 
 def calc_sal_forecast(daily_df, horizon, middate):
-    daily_results_df = calc_sal_daily(daily_df, horizon) 
+    """
+    Master function to calculate analyst estimate-based forecasts.
+
+    Runs the full pipeline:
+    1. Calculate sal signals from analyst estimate revisions
+    2. Calculate forward returns for regression fitting
+    3. Calculate intercept adjustments to remove systematic bias
+    4. Fit separate up/down regressions and generate forecasts
+
+    The intercept adjustment (via get_intercept) removes the baseline expected
+    return at each horizon, ensuring the sal signal captures incremental alpha
+    rather than just market drift.
+
+    Args:
+        daily_df: Daily price, factor, and analyst estimate data
+        horizon: Number of lag days for signals (default 20)
+        middate: Split date between in-sample and out-of-sample
+
+    Returns:
+        DataFrame with 'sal' forecast column
+    """
+    daily_results_df = calc_sal_daily(daily_df, horizon)
     forwards_df = calc_forward_returns(daily_df, horizon)
     daily_results_df = pd.concat( [daily_results_df, forwards_df], axis=1)
 

@@ -1,10 +1,61 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+Close-to-Open (C2O) Gap Trading Alpha Strategy
+
+This module implements a mean reversion strategy based on overnight gap returns.
+The strategy exploits the tendency for large overnight gaps to partially reverse
+during the subsequent trading day.
+
+Strategy Logic:
+    1. Calculate overnight return: log(open/previous_close)
+    2. Beta-adjust overnight returns to remove market component
+    3. Filter out small gaps (< 2% absolute)
+    4. Demean within industries for market-neutral positioning
+    5. Combine current gap with lagged gaps for multi-day signal
+    6. Separate regressions for intraday and daily components
+
+The strategy runs sector-by-sector regressions to capture sector-specific
+gap reversal dynamics. Intraday signals vary by time-of-day (6 hourly buckets),
+reflecting stronger mean reversion early in the trading session.
+
+Data Requirements:
+    - Daily: close prices, overnight returns, market cap, beta, industry codes
+    - Intraday: 15-min or 30-min bars with open and close prices
+    - Universe: Expandable stocks only (sufficient liquidity)
+
+Parameters:
+    horizon: Number of days to include lagged gap signals (default 1)
+    middate: Split date between in-sample fitting and out-of-sample prediction
+    freq: Intraday bar frequency (default '15Min')
+
+Output:
+    'c2o' column with predicted forward returns based on gap signals
+
+Academic Basis:
+    Related to overnight return anomaly and gap fade strategies commonly
+    used by intraday market makers and statistical arbitrage funds.
+
+Usage:
+    python c2o.py --start=20130101 --end=20130630 --mid=20130401 --horizon=1
+"""
 
 from regress import *
 from loaddata import *
 from util import *
 
 def wavg(group):
+    """
+    Calculate market-cap weighted average return multiplied by beta.
+
+    Used to compute the market component of overnight returns that should
+    be removed to isolate stock-specific gap signals.
+
+    Args:
+        group: DataFrame group with columns pbeta, overnight_log_ret, mkt_cap_y
+
+    Returns:
+        Beta-weighted market return for the group
+    """
     b = group['pbeta']
     d = group['overnight_log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -12,6 +63,17 @@ def wavg(group):
     return res
 
 def wavg2(group):
+    """
+    Calculate market-cap weighted overnight return multiplied by beta (intraday version).
+
+    Identical to wavg() but used in intraday context for consistency.
+
+    Args:
+        group: DataFrame group with columns pbeta, overnight_log_ret, mkt_cap_y
+
+    Returns:
+        Beta-weighted market return for the group
+    """
     b = group['pbeta']
     d = group['overnight_log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -19,6 +81,17 @@ def wavg2(group):
     return res
 
 def wavg3(group):
+    """
+    Calculate market-cap weighted current return multiplied by beta.
+
+    Used for intraday current-to-open return calculations.
+
+    Args:
+        group: DataFrame group with columns pbeta, cur_log_ret, mkt_cap_y
+
+    Returns:
+        Beta-weighted market return for the current period
+    """
     b = group['pbeta']
     d = group['cur_log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -27,6 +100,24 @@ def wavg3(group):
 
 
 def calc_c2o_daily(daily_df, horizon):
+    """
+    Calculate daily close-to-open gap signals with beta adjustment.
+
+    Formula:
+        1. bret = cap_weighted_avg(overnight_ret * beta) by date
+        2. badjret = overnight_ret - bret  (beta-adjusted gap)
+        3. Filter: Set gaps < 2% absolute to zero
+        4. Winsorize by date
+        5. Demean within (date, industry) groups for market neutrality
+        6. Create lagged features for horizons 1 to horizon
+
+    Args:
+        daily_df: DataFrame with columns overnight_log_ret, pbeta, mkt_cap_y, ind1
+        horizon: Number of lag days to create (default 1)
+
+    Returns:
+        DataFrame with c2o0_B_ma and c2o{lag}_B_ma columns for each lag
+    """
     print "Caculating daily c2o..."
     result_df = filter_expandable(daily_df)
 
@@ -45,15 +136,37 @@ def calc_c2o_daily(daily_df, horizon):
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['c2o0_B', 'gdate', 'ind1']].groupby(['gdate', 'ind1'], sort=False).transform(demean)
     result_df['c2o0_B_ma'] = indgroups['c2o0_B']
-    
+
     print "Calulating lags..."
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['c2o' + str(lag) + '_B_ma'] = shift_df['c2o0_B_ma']
-    
+
     return result_df
 
 def calc_c2o_intra(intra_df):
+    """
+    Calculate intraday close-to-open gap signals with beta adjustment.
+
+    Uses the overnight gap return (prior close to today's open) as the
+    primary signal, with beta adjustment to isolate stock-specific component.
+
+    Formula:
+        1. cur_log_ret = log(current_close / today_open)
+        2. bretC = cap_weighted_avg(cur_log_ret * beta) by timestamp
+        3. bret = cap_weighted_avg(overnight_ret * beta) by timestamp
+        4. badjret = overnight_ret - bret (beta-adjusted gap)
+        5. Filter: Set gaps < 2% absolute to zero
+        6. Winsorize by timestamp
+        7. Demean within (timestamp, industry) groups
+
+    Args:
+        intra_df: Intraday DataFrame with columns iclose, dopen, overnight_log_ret,
+                  pbeta, mkt_cap_y, ind1
+
+    Returns:
+        DataFrame with c2oC_B_ma column containing intraday gap signal
+    """
     print "Calculating c2o intra..."
     result_df = filter_expandable(intra_df)
 
@@ -65,7 +178,7 @@ def calc_c2o_intra(intra_df):
     result_df['bret'] = result_df[['overnight_log_ret', 'pbeta', 'mkt_cap_y', 'giclose_ts']].groupby(['giclose_ts'], sort=False).apply(wavg2).reset_index(level=0)['pbeta']
     result_df['badjret'] = result_df['overnight_log_ret'] - result_df['bret']
 
-#    result_df['c2oC_B'] = result_df['badjretC'] * (1 + np.abs(result_df['badjret'])) ** 3 
+#    result_df['c2oC_B'] = result_df['badjretC'] * (1 + np.abs(result_df['badjret'])) ** 3
     result_df['c2oC'] = result_df['badjret']
     result_df.ix[ np.abs(result_df['c2oC']) < .02 , 'c2oC'] = 0
     result_df['c2oC_B'] = winsorize_by_ts(result_df['c2oC'])
@@ -79,6 +192,30 @@ def calc_c2o_intra(intra_df):
     return result_df
 
 def c2o_fits(daily_df, intra_df, horizon, name, middate):
+    """
+    Fit c2o alpha model and generate forecasts.
+
+    Performs two separate regressions:
+    1. Intraday regression: Regresses c2oC_B_ma against forward returns for
+       6 different time-of-day buckets (09:30-10:30, 10:30-11:30, etc.)
+    2. Daily regression: Regresses lagged c2o0_B_ma signals against forward returns
+
+    The intraday signal varies by time of day, capturing the intraday pattern
+    of gap mean reversion. Daily lagged signals capture multi-day reversal.
+
+    Final forecast combines:
+        c2o = c2oC_B_ma * coef[time_bucket] + sum(c2o{lag}_B_ma * coef{lag})
+
+    Args:
+        daily_df: Daily DataFrame with c2o signals and forward returns
+        intra_df: Intraday DataFrame with c2oC signals
+        horizon: Maximum lag to include in daily regressions
+        name: String identifier for plot filenames
+        middate: Split date between in-sample and out-of-sample
+
+    Returns:
+        DataFrame with 'c2o' forecast column
+    """
     # daily_df['dow'] = daily_df['gdate'].apply(lambda x: x.weekday())
     # daily_df['dow'] = daily_df['dow'].clip(0,1)
     # intra_df['dow'] = intra_df['date'].apply(lambda x: x.weekday())
@@ -146,8 +283,31 @@ def c2o_fits(daily_df, intra_df, horizon, name, middate):
     return outsample_intra_df
 
 def calc_c2o_forecast(daily_df, intra_df, horizon, middate):
-    daily_results_df = calc_c2o_daily(daily_df, horizon) 
-    forwards_df = calc_forward_returns(daily_df, horizon)    
+    """
+    Master function to calculate c2o forecasts with sector-specific regressions.
+
+    Runs the full pipeline:
+    1. Calculate daily c2o signals
+    2. Calculate forward returns for regression fitting
+    3. Calculate intraday c2o signals
+    4. Merge daily and intraday data
+    5. Run sector-by-sector regressions
+    6. Combine results across all sectors
+
+    Running separate regressions by sector captures sector-specific patterns
+    in gap reversal dynamics (e.g., Tech gaps may behave differently than Energy).
+
+    Args:
+        daily_df: Daily price and factor data
+        intra_df: Intraday bar data
+        horizon: Number of lag days for daily signals
+        middate: Split date between in-sample and out-of-sample
+
+    Returns:
+        Intraday DataFrame with 'c2o' forecast column
+    """
+    daily_results_df = calc_c2o_daily(daily_df, horizon)
+    forwards_df = calc_forward_returns(daily_df, horizon)
     daily_results_df = pd.concat( [daily_results_df, forwards_df], axis=1)
     intra_results_df = calc_c2o_intra(intra_df)
     intra_results_df = merge_intra_data(daily_results_df, intra_results_df)
@@ -168,7 +328,7 @@ def calc_c2o_forecast(daily_df, intra_df, horizon, middate):
     # sector_df = daily_results_df[ daily_results_df['sector_name'] != sector_name ]
     # sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] != sector_name ]
     # result2_df = c2o_fits(sector_df, sector_intra_results_df, horizon, "ex", middate)
-  
+
     result_df = pd.concat(results, verify_integrity=True)
     return result_df
 
