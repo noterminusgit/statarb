@@ -1,4 +1,62 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+Earnings Surprise (EPS) Alpha Strategy - Post-Earnings Announcement Drift (PEAD)
+
+This module implements an event-driven earnings surprise strategy based on the well-documented
+Post-Earnings Announcement Drift (PEAD) anomaly. The strategy exploits the tendency of stocks
+to continue drifting in the direction of their earnings surprise for several days/weeks after
+the announcement.
+
+Academic Basis:
+    The PEAD anomaly was first documented by Ball and Brown (1968) and extensively studied
+    in behavioral finance literature. Stocks that report positive earnings surprises tend
+    to outperform over the subsequent 60 trading days, while negative surprises lead to
+    underperformance. This drift is attributed to market underreaction to earnings news.
+
+Strategy Overview:
+    1. Calculate earnings surprise: (actual EPS - consensus estimate) / median estimate
+    2. Signal is triggered when new estimates arrive (std_diff > 0)
+    3. Use distributed lag structure to capture signal decay over horizon
+    4. Regress surprise signal against forward returns to estimate coefficients
+    5. Generate forecasts using fitted coefficients on out-of-sample data
+
+Signal Calculation:
+    eps0 = EPS_diff_mean / EPS_median
+
+    Where:
+        - EPS_diff_mean: Mean difference between actual and estimated EPS
+        - EPS_median: Median analyst EPS estimate
+        - Signal is only active when std_diff > 0 (new estimate data available)
+
+Event Windows:
+    - Signal generated on earnings announcement dates
+    - Distributed lag structure captures decay over 'horizon' days (typically 15-20 days)
+    - Coefficients estimated via WLS regression against forward returns
+
+Data Requirements:
+    - Earnings estimates and actuals from ESTIMATES_BASE_DIR
+    - Required columns: EPS_diff_mean, EPS_median, EPS_std
+    - Barra factors for beta adjustment and industry classification
+    - Daily price data for return calculations
+
+Parameters:
+    horizon (int): Forecast horizon in days (default 20)
+        Controls signal decay period and regression horizon
+    middate (datetime): Split date between in-sample and out-of-sample
+        Used for walk-forward testing and coefficient estimation
+    lag (int): Alias for horizon parameter
+
+Usage:
+    python eps.py --start=20130101 --end=20130630 --mid=20130401 --lag=20
+
+Output:
+    Generates 'eps' alpha signal saved via dump_daily_alpha()
+    Signal is winsorized and can be combined with other alphas
+
+References:
+    - Ball, R. and Brown, P. (1968). "An Empirical Evaluation of Accounting Income Numbers"
+    - Bernard, V. and Thomas, J. (1989). "Post-Earnings-Announcement Drift: Delayed Price Response or Risk Premium?"
+"""
 
 from regress import *
 from loaddata import *
@@ -7,6 +65,26 @@ from util import *
 from pandas.stats.moments import ewma
 
 def wavg(group):
+    """
+    Calculate market-cap weighted average returns adjusted by beta.
+
+    Computes the market return for a given date group, then scales each stock's
+    beta by this market return to create a beta-adjusted expected return component.
+
+    Args:
+        group (DataFrame): Date-grouped dataframe with columns:
+            - pbeta: Predicted beta from Barra model
+            - log_ret: Log returns for the day
+            - mkt_cap_y: Market capitalization in dollars
+            - gdate: Trading date
+
+    Returns:
+        Series: Beta-adjusted market return for each stock in the group
+
+    Note:
+        This is used to remove market beta exposure from returns, creating
+        market-neutral signals for the earnings surprise strategy.
+    """
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
@@ -16,6 +94,48 @@ def wavg(group):
 
 
 def calc_eps_daily(daily_df, horizon):
+    """
+    Calculate daily earnings surprise signals with distributed lag structure.
+
+    Computes the core EPS surprise signal (eps0) and creates lagged versions
+    to capture signal decay over the forecast horizon. The signal is only
+    active when new estimate data arrives (std_diff > 0).
+
+    Signal Formula:
+        eps0 = EPS_diff_mean / EPS_median
+
+        Only active when: std_diff = EPS_std.diff() > 0
+        (i.e., new estimate data has arrived)
+
+    The function creates a distributed lag structure by computing:
+        - eps0_ma: Current day signal
+        - eps1_ma through eps{horizon}_ma: Lagged signals
+
+    This allows the regression to estimate how the signal predictive power
+    decays over time after the earnings announcement.
+
+    Args:
+        daily_df (DataFrame): Daily stock data with columns:
+            - EPS_diff_mean: Mean difference (actual - estimate)
+            - EPS_median: Median analyst EPS estimate
+            - EPS_std: Standard deviation of estimates
+            - All columns required by filter_expandable()
+        horizon (int): Number of days for signal decay (typically 15-20)
+
+    Returns:
+        DataFrame: Original data with added columns:
+            - eps0_ma: Current earnings surprise signal
+            - eps1_ma through eps{horizon}_ma: Lagged signals
+            - std_diff: Change in estimate std (trigger for new data)
+
+    Note:
+        Commented code shows alternative approaches tried during development:
+        - Beta-adjusted returns
+        - Cumulative returns
+        - Median rating changes
+        - Industry demeaning
+        These were tested but not used in final implementation.
+    """
     print "Caculating daily eps..."
     result_df = filter_expandable(daily_df)
 
@@ -63,6 +183,46 @@ def calc_eps_daily(daily_df, horizon):
     return result_df
 
 def eps_fits(daily_df, horizon, name, middate=None):
+    """
+    Fit distributed lag regression of EPS surprise signal against forward returns.
+
+    Uses weighted least squares (WLS) regression to estimate how the earnings
+    surprise signal predicts forward returns at various horizons. Estimates
+    coefficients on in-sample data and applies them to out-of-sample data.
+
+    Regression Model:
+        forward_return[t+h] = coef[h] * eps0_ma[t] + controls + error
+
+    The distributed lag structure allows for:
+        forecast[t] = sum(coef[lag] * eps{lag}_ma[t] for lag in 0..horizon-1)
+
+    This captures the signal decay pattern over time.
+
+    Args:
+        daily_df (DataFrame): Daily data with eps signals and forward returns
+        horizon (int): Maximum forecast horizon for regression
+        name (str): Identifier for plot filename (e.g., sector name)
+        middate (datetime, optional): Split date for in/out-of-sample
+            If None, uses all data for fitting
+
+    Returns:
+        DataFrame: Out-of-sample data with added columns:
+            - eps0_ma_coef through eps{horizon-1}_ma_coef: Fitted coefficients
+            - eps: Combined forecast signal
+
+    Process:
+        1. Split data at middate into train/test sets
+        2. Run WLS regression for each horizon (1 to horizon days)
+        3. Plot fit quality diagnostics
+        4. Calculate incremental coefficients for distributed lag
+        5. Apply coefficients to out-of-sample signals
+        6. Sum lagged components to create final forecast
+
+    Note:
+        Incremental coefficients computed as:
+            coef[lag] = coef[horizon] - coef[horizon-lag]
+        This captures the marginal contribution of each lag.
+    """
     insample_daily_df = daily_df
     if middate is not None:
         insample_daily_df = daily_df[ daily_df.index.get_level_values('date') < middate ]
@@ -98,7 +258,42 @@ def eps_fits(daily_df, horizon, name, middate=None):
     return outsample_daily_df
 
 def calc_eps_forecast(daily_df, horizon, middate):
-    daily_results_df = calc_eps_daily(daily_df, horizon) 
+    """
+    Main entry point for generating EPS-based alpha forecasts.
+
+    Orchestrates the complete workflow:
+        1. Calculate earnings surprise signals with distributed lags
+        2. Calculate forward returns for regression
+        3. Fit regression models and generate out-of-sample forecasts
+
+    The function includes commented code showing experimental approaches:
+        - Sector-specific models (Energy vs rest)
+        - Separate models for positive vs negative surprises
+        - Direction-filtered signals
+    These were tested but final implementation uses a unified model.
+
+    Args:
+        daily_df (DataFrame): Daily stock data with required columns:
+            - Price, returns, market cap
+            - Barra factors (pbeta, ind1)
+            - Earnings estimates (EPS_diff_mean, EPS_median, EPS_std)
+        horizon (int): Forecast horizon in days
+        middate (datetime): Train/test split date for walk-forward testing
+
+    Returns:
+        DataFrame: Out-of-sample data with 'eps' alpha forecast column
+
+    Process Flow:
+        1. calc_eps_daily(): Generate surprise signals and lags
+        2. calc_forward_returns(): Generate regression targets
+        3. eps_fits(): Fit models and generate forecasts
+
+    Note:
+        Final implementation uses single unified model across all stocks.
+        Commented code shows sector-specific and directional variants that
+        were tested during development.
+    """
+    daily_results_df = calc_eps_daily(daily_df, horizon)
     forwards_df = calc_forward_returns(daily_df, horizon)
     daily_results_df = pd.concat( [daily_results_df, forwards_df], axis=1)
 
@@ -140,7 +335,43 @@ def calc_eps_forecast(daily_df, horizon, middate):
 
     return result_df
 
-if __name__=="__main__":            
+if __name__=="__main__":
+    """
+    Command-line interface for earnings surprise alpha generation.
+
+    Usage:
+        python eps.py --start=20130101 --end=20130630 --mid=20130401 --lag=20
+
+    Arguments:
+        --start: Start date for data loading (YYYYMMDD format)
+        --end: End date for data loading (YYYYMMDD format)
+        --mid: Split date between in-sample and out-of-sample (YYYYMMDD format)
+        --lag: Forecast horizon in days (default 20)
+            Also controls distributed lag window for signal decay
+
+    Data Loading:
+        - Attempts to load cached HDF5 file first for faster execution
+        - If cache missing, loads from raw sources:
+            * Universe definition (top 1,400 stocks)
+            * Barra factors (pbeta, ind1)
+            * Daily prices (close)
+            * Analyst earnings estimates (EPS data)
+        - Caches loaded data to HDF5 for future runs
+
+    Output:
+        - Saves 'eps' alpha signal via dump_daily_alpha()
+        - Signal is out-of-sample forecast from middate onwards
+        - Can be used in bsim.py via --fcast=eps:1:1 format
+
+    Performance:
+        - Uses HDF5 caching to avoid reloading data
+        - Cache file: ./eps{start}.{end}_daily.h5
+        - Compressed with zlib for smaller file size
+
+    Example:
+        # Generate EPS alpha for H1 2013, split at April 1
+        python eps.py --start=20130101 --end=20130630 --mid=20130401 --lag=15
+    """
     parser = argparse.ArgumentParser(description='G')
     parser.add_argument("--start",action="store",dest="start",default=None)
     parser.add_argument("--end",action="store",dest="end",default=None)

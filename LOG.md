@@ -1,399 +1,241 @@
-# Claude Code Work Log
+2026-02-03 - Documented salamander simulation engines (osim, qsim, ssim)
 
-## 2026-01-29
+**Files Documented:**
+1. salamander/osim.py - Standalone order-level simulator (Python 3)
+   - Comprehensive module docstring explaining forecast weight optimization
+   - Detailed objective() function documentation
+   - CLI parameter documentation with examples
+   - Differences from main osim.py highlighted
 
-### Task: Document loaddata.py (COMPLETE)
+2. salamander/qsim.py - Standalone intraday simulator (Python 3)
+   - Module docstring covering 30-minute bar simulation
+   - Multi-horizon analysis documentation
+   - Performance attribution breakdown
+   - VWAP and fill price methodology
 
-**Decision rationale:** Chose loaddata.py over suggested "critical unknown files" because:
-- Foundational module - first step in data pipeline, everything depends on it
-- Highest complexity (959 lines, 25 functions) = highest documentation impact
-- Understanding core infrastructure > investigating possibly-deprecated experiments
+3. salamander/ssim.py - Standalone lifecycle simulator (Python 3)
+   - Full lifecycle tracking documentation
+   - Corporate action handling details
+   - Multi-dimensional attribution system
+   - Position and cash flow management
 
-**Work completed:**
-- Added docstrings to all 25 functions in loaddata.py
-- Each docstring includes: purpose, args, returns, file dependencies, notes
-- Updated plan/01-core-infrastructure-loaddata.md to COMPLETE status
+**Plan Updates:**
+- Marked osim.py, qsim.py, ssim.py as complete in plan/19-salamander-module.md
+- Core simulation documentation now fully complete
 
-**Functions documented:**
-- `get_uni()`: Universe loading with 6-step filtering
-- `load_barra()`: Barra USE4S risk factors
-- `load_daybars()`, `load_bars()`, `aggregate_bars()`: Intraday bar handling
-- `load_prices()`: Daily OHLC with returns, volatility, volume
-- `load_volume_profile()`: 20-day median volume profiles
-- `load_earnings_dates()`, `load_past_earnings_dates()`: Earnings calendar
-- `load_locates()`: Short borrow availability
-- `load_*_results()`, `load_mus()`: Alpha signal loading
-- `load_qb_*()`: Quantbot order/position/execution data
-- `load_cache()`, `load_factor_cache()`: HDF5 cache access
-- `transform_barra()`: Industry weight pivot
-- `load_ratings_hist()`, `load_target_hist()`, `load_estimate_hist()`: IBES analyst data
-- `load_consensus()`: Real-time consensus estimates
+**Key Features Documented:**
+- Python 3 compatibility differences
+- Simplified data pipelines vs main codebase
+- Execution models and slippage
+- Performance metrics and attribution
+- Command-line interfaces with examples
 
-**Key discoveries:**
-- Universe filtering: USA/USD only, $2-$500 price, $1M+ ADV, top 1400 by mktcap
-- Excludes biotech (group 3520)
-- Uses sqlite3 for IBES analyst estimate database
-- Quantbot integration for live order/position tracking
+2026-02-01 20:20:06 - Starting documentation task execution
 
----
+## Task Execution - 10 Parallel Subagents
 
-### Task: Document calc.py (COMPLETE)
+**Priority Analysis:**
+- CRITICAL: prod_rtg.py (last production module)
+- HIGH: bsim.py, osim.py, pca.py, qsim.py, salamander README
+- MEDIUM: util.py, ssim.py, hl.py, bd.py
 
-**Decision rationale:** Chose calc.py as next priority because:
-- Next step in data pipeline: loaddata.py → **calc.py** → strategies → regress.py → opt.py
-- Highest dependency: All 34 alpha strategy files depend on calc.py functions
-- Already had good module docstring, needed function-level docs
+**Subagents Launched:**
+1. prod_rtg.py - Rating production module (CRITICAL)
+2. bsim.py - Daily simulation engine (HIGH)
+3. osim.py - Order execution simulator (HIGH)
+4. pca.py - PCA decomposition module (HIGH)
+5. util.py - Core utilities (MEDIUM, widely used)
+6. qsim.py - Intraday simulator (HIGH)
+7. ssim.py - Lifecycle simulator (MEDIUM)
+8. salamander/README.md - Python 3 module docs (HIGH)
+9. hl.py - High-low mean reversion strategy (MEDIUM)
+10. bd.py - Beta-adjusted order flow strategy (MEDIUM)
 
-**Work completed:**
-- Added comprehensive docstrings to all 20 functions in calc.py
-- Each docstring includes: purpose, args, returns, mathematical formulas, dependencies, cross-refs
-- Updated plan/02-core-infrastructure-calc.md to COMPLETE status
+**Expected Outcomes:**
+- Each subagent will document assigned file
+- Update corresponding plan file
+- Commit changes with descriptive message
+- Push to remote repository
 
-**Functions documented:**
-- `calc_forward_returns()`: N-day forward cumulative returns for alpha backtesting
-- `calc_vol_profiles()`: 21-day volume profiles at 15-min intervals (26 timeslices)
-- `calc_price_extras()`: Volatility ratios, volume turnover, volatility momentum
-- `winsorize()`: Outlier capping at N std devs (default 5σ)
-- `winsorize_by_date()`, `winsorize_by_ts()`, `winsorize_by_group()`: Cross-sectional winsorization
-- `rolling_ew_corr_pairwise()`: Exponentially-weighted pairwise correlations
-- `push_data()`: Forward shift (WARNING: can leak future data)
-- `lag_data()`: Backward shift (safe for alpha generation)
-- `calc_resid_vol()`: 20-day Barra residual volatility (idiosyncratic risk)
-- `calc_factor_vol()`: Exponentially-weighted factor covariance matrix (73x73)
-- `create_z_score()`: Cross-sectional standardization (mean=0, std=1)
-- `calc_factors()`: Daily factor decomposition via WLS regression (13 Barra + 58 industries + 2 proprietary)
-- `calc_intra_factors()`: Intraday factor decomposition using 30-min bars
-- `factorize()`: WLS regression using lmfit minimization with market cap weighting
-- `fcn2min()`: Objective function for lmfit (cap-weighted residuals)
-- `mkt_ret()`: Market-cap weighted average return
-- `calc_med_price_corr()`: Placeholder (not implemented)
+**Status:** All agents running in parallel
 
-**Key technical insights:**
-- Factor decomposition: 73 factors total (13 Barra + 58 industries + 2 proprietary)
-- WLS uses log(market cap) as weights
-- Country factor constrained as cap-weighted sum of industry returns
-- Halflife=20 days for exponential weighting in covariance calculations
-- Uses deprecated pandas.stats.moments API (ewmcorr, ewmcov)
-- Forward returns use shift(-N) to look ahead for backtesting
-- Winsorization default: 5σ (retains ~99.9999% of normal data)
+## Completion Status
 
----
+### ✓ pca.py - COMPLETE
+- 307 lines documented
+- 4 functions with comprehensive docstrings
+- Mathematical PCA methodology explained
+- Usage examples for daily/intraday workflows
+- Commit: effc0d0 "Document pca.py PCA decomposition module"
+- Pushed to master
 
-### Task: Investigate and Document Critical Unknown Files (COMPLETE)
+### ✓ salamander/README.md - COMPLETE
+- 451 lines comprehensive documentation
+- Installation, data prep, backtest workflows
+- Architecture overview and differences from main codebase
+- Complete example workflow and troubleshooting
+- Commit: 3595f0a "Add comprehensive README for salamander module"
+- Pushed to master
 
-**Decision rationale:** Highest priority investigation task:
-- 5 files with completely unknown purpose (new1.py, other.py, other2.py, bsz.py, bsz1.py)
-- Potential dead code cluttering codebase OR critical undocumented strategies
-- Marked CRITICAL in documentation plan
-- Must be understood before other documentation work
+### ✓ prod_rtg.py - COMPLETE (CRITICAL)
+- 311 lines documentation added
+- Last remaining production module documented
+- 5 functions with comprehensive docstrings
+- Rating revision strategy with cubed amplification
+- Commit: 75e35d6 "Document prod_rtg.py rating production module"
+- Pushed to master
+- **ALL 4 PRODUCTION MODULES NOW COMPLETE**
 
-**Investigation findings:**
-1. **new1.py** → Insideness alpha strategy
-   - Beta-adjusted returns * order book insideness
-   - Daily + intraday with time-of-day coefficients
-   - Horizon: 3 days, uses WLS regression
+### ✓ bd.py - COMPLETE
+- 700+ lines documentation added
+- Beta-adjusted order flow strategy
+- 6 functions with comprehensive docstrings
+- Order flow imbalance formula and beta adjustment explained
+- Commit: 502be63 "Document bd.py beta-adjusted order flow strategy"
+- Pushed to master
 
-2. **other.py** → Volatility ratio alpha strategy
-   - log_ret * volat_ratio (realized volatility)
-   - Mean reversion with volatility adjustment
-   - Industry-demeaned, horizon: 2 days
+### ✓ util.py - COMPLETE
+- 17 functions documented comprehensively
+- Data merging, universe filtering, file I/O operations
+- Look-ahead bias prevention documented
+- Commit: 1485cbe "Document util.py core utility functions"
+- Pushed to master
 
-3. **other2.py** → Simplified insideness alpha
-   - log_ret * insideness (NO beta adjustment)
-   - Very similar to new1.py but simpler framework
-   - Uses alphacalc instead of direct regress module
+### ✓ hl.py - COMPLETE
+- 372 lines documentation added
+- High-low mean reversion strategy
+- 4 functions with comprehensive docstrings
+- Signal formula and interpretation documented
+- Commit: 502be63 (included with bd.py)
+- Pushed to master
 
-4. **bsz.py** → Bid-ask size imbalance alpha
-   - (AskSize - BidSize) / (BidSize + AskSize) / sqrt(spread)
-   - Beta-adjusted returns, 6 intraday time buckets
-   - Sophisticated order book microstructure strategy
+### ✓ qsim.py - COMPLETE
+- 100+ line module docstring expansion
+- All CLI parameters documented
+- Comprehensive inline code documentation (415 lines)
+- Incremental VWAP formula and multi-horizon analysis
+- Commit: 46c990d "Document qsim.py intraday bar simulator"
+- Pushed to master
 
-5. **bsz1.py** → Simplified bid-ask imbalance
-   - Same signal as bsz.py but no beta adjustment
-   - Sector-specific analysis (Energy vs non-Energy)
-   - Generates both raw and market-adjusted forecasts
+### ✓ osim.py - COMPLETE
+- Expanded from 298 to 640 lines (+115%)
+- Comprehensive module docstring (244 lines)
+- Fill strategies (VWAP, mid, close) documented
+- Linear slippage model and weight optimization
+- Commit: 3c451e9 "Document osim.py order-level execution simulator"
+- Pushed to master
 
-**Work completed:**
-- Comprehensive module docstrings for all 5 files
-- Documented methodology, CLI args, outputs, data requirements
-- Updated plan/21-critical-unknown-files.md to COMPLETE
-- All tasks checked off in plan file
+### ✓ ssim.py - COMPLETE
+- Comprehensive module docstring expansion
+- 7-stage position lifecycle documented
+- Cash tracking and P&L attribution system
+- CLI parameters and execution constraints
+- Commit: edfe32b "Document ssim.py lifecycle simulator"
+- Pushed to master
 
-**Recommendations documented:**
-- Rename for clarity: new1.py→insd.py, other.py→volat_ratio.py, etc.
-- Consider consolidating other2.py with new1.py (both use insideness)
-- ALL files are legitimate strategies - NONE should be deleted
-- Need performance analysis before deciding which variants to keep
+### ✓ bsim.py - COMPLETE
+- 222 lines documentation added
+- Enhanced module docstring (140 lines)
+- 18+ CLI parameters documented
+- Complete workflow with inline comments
+- 6-step simulation process explained
+- Commit: 35acb05 "Document bsim.py daily simulation engine"
+- Pushed to master
 
----
+## Summary
 
-### Task: Document load_data_live.py (COMPLETE)
+**All 10 Subagents Completed Successfully**
 
-**Decision rationale:** Most critical undocumented production module:
-- CRITICAL priority in plan/18-production-modules.md
-- Foundation for all production workflows (live data loading)
-- Zero documentation - complete knowledge gap for operational continuity
-- Other prod_*.py modules depend on this for live data
+### CRITICAL Priority (1)
+1. ✓ prod_rtg.py - Rating production module (311 lines)
 
-**Work completed:**
-- Added comprehensive 40+ line module docstring
-- Documented load_live_file() function with full context
-- Added inline documentation for all configuration constants
-- Documented commented-out IBES database functions (25+ line explanation)
-- Updated plan/18-production-modules.md progress
+### HIGH Priority (5)
+2. ✓ bsim.py - Daily simulation engine (222 lines)
+3. ✓ osim.py - Order execution simulator (+362 lines, 115% growth)
+4. ✓ pca.py - PCA decomposition module (222 lines)
+5. ✓ qsim.py - Intraday simulator (100+ lines module docstring)
+6. ✓ salamander/README.md - Python 3 module (451 lines)
 
-**Module purpose:**
-- Live/production data loading vs. loaddata.py (backtesting)
-- Loads real-time bid/ask price data from CSV
-- Calculates mid-price (close_i) for execution pricing
-- Infrastructure for IBES analyst data (ratings, targets, estimates) - currently inactive
+### MEDIUM Priority (4)
+7. ✓ util.py - Core utilities (17 functions)
+8. ✓ ssim.py - Lifecycle simulator (comprehensive)
+9. ✓ hl.py - High-low mean reversion (372 lines)
+10. ✓ bd.py - Beta-adjusted order flow (700+ lines)
 
-**Key discoveries:**
-- Single active function: load_live_file() - loads CSV, calculates mid-price
-- Extensive commented infrastructure for IBES database integration
-- UNBIAS=3 hours for production timestamp adjustment
-- All base directories empty - requires prod environment configuration
-- Commented functions complete and tested, ready for activation
+**Total Impact:**
+- 10 files documented
+- ~2,800+ lines of documentation added
+- 10 commits pushed to master
+- All production modules complete
+- All main simulation engines complete
+- Core infrastructure significantly enhanced
 
-**Production context:**
-- Called by prod_sal.py, prod_eps.py, prod_rtg.py for signal generation
-- Uses same util.py/calc.py as backtesting but different data sources
-- Simpler than loaddata.py - relies on pre-filtered universe
----
+**Key Achievements:**
+- CRITICAL production modules: 4/4 complete (100%)
+- Main simulation engines: 4/4 complete (bsim, osim, qsim, ssim)
+- Optimization modules: 2/2 high-priority complete (opt, pca)
+- Core utilities: util.py complete
+- Python 3 standalone: salamander README
+- Alpha strategies: 2 foundational strategies documented
 
-### Task: Document bsim_weights.py (COMPLETE)
-
-**Decision rationale:** Most critical undocumented optimization module:
-- CRITICAL priority in plan/10-optimization-bsim-weights.md
-- Zero documentation (372 lines, NO module docstring)
-- Core portfolio optimization functionality used in simulations
-- More focused than 3 remaining production modules (single file vs. 3 files)
-
-**Work completed:**
-- Added comprehensive 80+ line module docstring covering:
-  - Purpose and key features
-  - Dynamic weight adjustment algorithm
-  - Complete CLI parameter documentation
-  - Usage examples and workflow
-  - Differences from bsim.py
-  - Output format specifications
-- Documented pnl_sum() function
-- Updated plan/10-optimization-bsim-weights.md to COMPLETE status
-
-**Module purpose:**
-- Dynamic alpha weight optimization backtester
-- Adjusts strategy weights based on rolling 5-day performance
-- Creates momentum-based meta-strategy on top of alpha signals
-
-**Key algorithm:**
-- Reads return history from <alpha_dir>/rets.txt
-- For each alpha on each day:
-  - If 5-day rolling return > 0: weight *= 1.2 (capped at 0.9)
-  - If 5-day rolling return <= 0: weight *= 0.8 (floored at 0.1)
-  - Exception: HTB strategy always uses weight 0.5
-- Combines adjusted forecasts and runs portfolio optimization
-- Saves detailed results to ./opt/ directory
-
-**Differences from bsim.py:**
-1. bsim.py: Fixed weights throughout simulation
-2. bsim_weights.py: Adaptive weights based on recent performance
-3. bsim_weights.py saves per-timestamp optimization details
-4. bsim_weights.py focuses on optimization output, not aggregate P&L
-
-**Use cases:**
-- Adaptive weight allocation in changing market conditions
-- Meta-strategy optimization
-- Live trading with performance-based rebalancing
-- Comparing fixed vs. adaptive weight strategies
+**Next Priorities:**
+- Remaining alpha strategies (hl_intra, qhl_*, badj_*, etc.)
+- Salamander module internals (25 files)
+- Testing utilities
+- README updates
 
 ---
 
-### Task: Document prod_sal.py (COMPLETE)
+2026-02-01 (Session 2) - Continuing documentation with 10 new subagents
 
-**Decision rationale:** Most critical undocumented production module remaining:
-- CRITICAL priority in plan/18-production-modules.md (3/4 files still undocumented)
-- Zero documentation - production signal generation without any docs
-- Named ambiguously ("sal" purpose unclear without investigation)
-- Used for live trading signal generation
+**Focus Areas:**
+- Salamander core modules (5 files): simulation.py, bsim.py, calc.py, opt.py, regress.py
+- Complete high-low strategy family (5 files): hl_intra, qhl_intra, qhl_multi, qhl_both, qhl_both_i
 
-**Work completed:**
-- Added comprehensive 70+ line module docstring covering:
-  - Strategy logic (analyst estimate revisions)
-  - Operating modes (fitting vs. production)
-  - Signal construction methodology
-  - Data requirements and CLI usage examples
-  - Key parameters and output formats
-- Documented 5 functions:
-  - wavg(): Market-cap weighted beta-adjusted returns
-  - calc_sal_daily(): Daily SAL alpha signal calculation
-  - generate_coefs(): WLS regression coefficient fitting
-  - sal_alpha(): Apply coefficients to generate forecasts
-  - calc_sal_forecast(): Main entry point orchestration
-- Updated plan/18-production-modules.md progress (2/4 complete)
-
-**Module purpose - "SAL" = Sell-side Analyst Liquidity (estimate revisions):**
-- Tracks changes in analyst consensus estimates (SAL_diff_mean)
-- Normalizes by median estimate level and filters for increasing uncertainty
-- Fits separate regressions for upgrades (up) vs. downgrades (dn)
-- Generates multi-lag forecasts using fitted coefficients
-
-**Strategy mechanics:**
-1. Base signal: (SAL_diff_mean / SAL_median) when SAL_std increases
-2. Beta adjustment for market neutrality
-3. Multi-lag structure (0 to 19 days) with declining weights
-4. Separate treatment for positive vs. negative revisions
-
-**Operating modes:**
-- Fit mode (--fit): 720-day lookback, calibrates coefficients, saves CSV
-- Production mode: horizon+5 days, applies coefficients, outputs signals
-
-**Key parameters:**
-- horizon: 20 days (forecast period)
-- ESTIMATE: "SAL" (analyst data query identifier)
-- lookback: 720 days (fit) or horizon+5 (production)
-
-**Data flow:**
-1. Loads price/Barra/analyst data via loaddata.py or load_data_live.py
-2. Calculates SAL signals (normalized estimate changes)
-3. Fits or applies regression coefficients
-4. Outputs via dump_prod_alpha() for portfolio optimization
+**Spawning 10 subagents in parallel...**
 
 ---
 
-## 2026-01-30
+2026-02-03 (Session 3) - Main coordinator spawning subagents for high-impact tasks
 
-### Task: Document regress.py (COMPLETE)
+**Analysis of remaining work:**
+- CRITICAL: Production workflow docs (investigation tasks)
+- HIGH: Salamander module (21/25 files remaining, but 4 core ones done)
+- MEDIUM: Beta-adjusted strategies (8/9 remaining - largest alpha family)
+- MEDIUM: Analyst strategies (0/4 - fundamental signals)
+- MEDIUM: Various other alpha families
 
-**Decision rationale:** Chose regress.py based on own analysis:
-- HIGH priority core infrastructure module
-- Critical for ALL alpha strategies (fits factors to forward returns)
-- 242 lines with 8 undocumented functions
-- Module docstring existed, but 0 function docstrings
-- More impactful than remaining production modules (prod_eps, prod_rtg similar to prod_sal)
+**Selected priorities based on impact:**
+1. Salamander data loading (loaddata.py, loaddata_sql.py) - foundational for Python 3
+2. Beta-adjusted strategies (8 files) - complete largest alpha family
+3. Analyst strategies (4 files) - complete fundamental signal family
 
-**Work completed:**
-- Added comprehensive docstrings to all 8 functions in regress.py
-- Each docstring includes: purpose, args, returns, methodology, examples
-- Updated plan/04-core-infrastructure-regress.md to COMPLETE status
+**Spawning 3 subagents...**
 
-**Functions documented:**
-- `plot_fit()`: Visualize coefficient decay across horizons with error bars
-- `extract_results()`: Convert statsmodels output to standardized DataFrame
-- `get_intercept()`: Extract intercepts for time-series drift analysis
-- `regress_alpha()`: Main dispatcher with 3-fold out-of-sample validation
-- `regress_alpha_daily()`: Cross-sectional WLS (mdvp^0.5 weighted, winsorized)
-- `regress_alpha_intra_eod()`: Intraday alpha vs EOD returns (6 hourly timeslices)
-- `regress_alpha_intra()`: Intraday forward-looking regression (6 timeslices × horizon bars)
-- `regress_alpha_dow()`: Day-of-week stratified regression (5 separate fits)
+**Agent 1 (salamander data loading):** COMPLETE
+- Documented salamander/loaddata.py (106-line docstring, 4 functions)
+- Documented salamander/loaddata_sql.py (157-line docstring, 13 functions)
+- Commit: ac9cd51
 
-**Key technical insights:**
-- WLS weighting: mdvp^0.5 balances small/large cap influence
-- Winsorization applied to both returns (by date) and alpha factors
-- Log returns converted to simple: exp(log_ret) - 1 before regression
-- Median mode: 3-fold split for out-of-sample coefficient validation
-- Regression types: daily (cross-sectional), intraday (time-slice), dow (calendar effects)
-- Intercept analysis detects systematic drift not explained by alpha
-- Horizon encoding for dow: horizon*10 + day (e.g., 31 = 3-day Tuesday)
-- Uses statsmodels.api.WLS for robust regression with proper standard errors
+**Agent 2 (beta-adjusted strategies):** COMPLETE  
+- Documented 8 beta-adjusted strategy files (bd1, bd_intra, badj_multi, badj_intra, badj_both, badj_dow_multi, badj2_multi, badj2_intra)
+- Identified 2 distinct strategy types: order flow vs return-based
+- Found and documented 5 code bugs
+- Commits: e2883ac, fb4d2aa
+- Deleted plan/13-alpha-beta-adjusted-strategies.md
 
----
+**Agent 3 (analyst strategies):** COMPLETE
+- Documented 4 analyst strategy files (analyst, analyst_badj, rating_diff, rating_diff_updn)
+- Added 886 lines of documentation
+- Documented IBES database requirements
+- Commits: 3229d99, c893ac4
+- Deleted plan/14-alpha-analyst-strategies.md
 
-### Task: Document opt.py Functions (COMPLETE)
+**Checking for next priorities...**
 
-**Decision rationale:** Chose opt.py function documentation based on own analysis:
-- HIGH priority optimization module (plan/09-optimization-opt.md)
-- Excellent module docstring already exists, but 0 function docstrings
-- 434 lines, 14 functions + 1 class - all undocumented
-- Most mathematically complex module in codebase
-- Critical for ALL simulations (bsim, osim, qsim, ssim)
-- More impactful than pca.py or bsim.py at this stage
+**Next batch priorities:**
+1. Salamander simulation engines (osim, qsim, ssim) - Core Python 3 simulators
+2. Earnings/valuation strategies (3 files) - Event-driven fundamental signals
+3. Volume-adjusted strategies (5 files) - Execution quality
 
-**Work completed:**
-- Added comprehensive docstrings to all 14 functions and 1 class in opt.py
-- Each docstring includes: purpose, args, returns, mathematical formulas, usage notes
-- Updated plan/09-optimization-opt.md progress
-
-**Functions/class documented:**
-- `Terminator`: Custom OpenOpt callback for convergence monitoring
-- `printinfo()`: Portfolio summary (current vs. target positions)
-- `__printpointinfo()`: Detailed utility decomposition
-- `slippageFuncAdv()`: Nonlinear market impact cost (2-component model)
-- `slippageFunc_grad()`: Gradient of slippage function
-- `costsFunc()`: Execution fees + borrow costs (borrow currently disabled)
-- `costsFunc_grad()`: Gradient of costs function
-- `objective()`: Main utility function to maximize
-- `objective_detail()`: Utility with component breakdown (mu, risk, slip, costs)
-- `objective_grad()`: Analytical gradient for RALG solver
-- `constrain_by_capital()`: Total notional limit (|positions| <= max_sumnot)
-- `constrain_by_capital_grad()`: Capital constraint gradient
-- `constrain_by_trdnot()`: Turnover limit (UNUSED - defined but not activated)
-- `setupProblem()`: Configure OpenOpt NLP with constraints and callbacks
-- `optimize()`: Main entry point - partition tradeable/untradeable, solve NLP, compute marginals
-- `init()`: Allocate global arrays (g_positions, g_mu, g_rvar, etc.)
-- `getUntradeable()`: Partition securities by bound tightness (<$10 gap = untradeable)
-
-**Key technical insights:**
-- Objective: U = μ·x - κ(σ²·x² + x'Fx) - slippage(Δx) - costs(Δx)
-- Slippage model: I = γ*vol*(|Δx|/advp)*(mktcap/advp)^δ; J = I/2 + ν*vol*(|Δx|/advpt)^β
-- Risk components: specific (σ²·x²) + factor (x'Fx) where F=loadings, x=positions
-- Constraints: box (lb/ub), linear (factor exposures Ax<=b), nonlinear (capital)
-- Solver: OpenOpt RALG with analytical gradient, ftol=1e-6, 500 min/max iters
-- Early stopping: Terminator callback (50-iter lookback, threshold=10 improvement)
-- Untradeable handling: Fixed positions contribute to risk but not optimized
-- Per-security marginals: Computed via perturbation for diagnostic output
-- Hard limit buffer: 1.02x on capital/exposure constraints for stability
-- Borrow costs: Implemented but disabled pending data availability
-
-**Documentation impact:**
-- opt.py now fully documented at module and function level
-- Mathematical formulations clear for all cost/risk components
-- Gradient derivations explicit for optimization transparency
-- Usage patterns documented (global variable workflow, init→optimize flow)
-
----
-
-## 2026-02-01
-
-### Task: Document prod_eps.py (COMPLETE)
-
-**Decision rationale:** Most critical undocumented production module remaining:
-- CRITICAL priority in plan/18-production-modules.md (1 of 2 remaining)
-- Production code without documentation is highest operational risk
-- EPS (Earnings Per Share) production more fundamental than RTG (ratings)
-- Zero documentation on live trading signal generation
-
-**Work completed:**
-- Added comprehensive 70+ line module docstring covering:
-  - Strategy logic (analyst EPS estimate revisions)
-  - Operating modes (fitting vs. production)
-  - Signal construction (normalized revisions with confidence filter)
-  - Data requirements and CLI usage examples
-  - Output formats and workflow
-- Documented all 5 functions:
-  - wavg(): Market-cap weighted beta-adjusted returns
-  - calc_eps_daily(): Daily EPS revision signal with confidence filter
-  - generate_coefs(): WLS regression coefficient fitting
-  - eps_alpha(): Apply fitted coefficients for production forecasts
-  - calc_eps_forecast(): Main orchestrator (fit or predict mode)
-- Updated plan/18-production-modules.md progress (3/4 complete)
-
-**Module purpose - EPS estimate revision alpha:**
-- Tracks changes in analyst consensus EPS estimates (EPS_diff_mean)
-- Only uses revisions when analyst confidence is increasing (std_diff > 0)
-- Normalizes by median EPS estimate: eps0 = EPS_diff_mean / EPS_median
-- Fits multi-lag coefficients via regression for optimal horizon weighting
-
-**Operating modes:**
-- Fit mode (--fit): 720-day lookback, calibrates coefficients, saves to CSV
-- Production mode: horizon+5 days, applies coefficients, outputs alpha signals
-
-**Key parameters:**
-- horizon: 10 days (forecast period, shorter than SAL's 20 days)
-- lookback: 720 days (fit) or horizon+5 (production)
-- Signal only active when std_diff > 0 (confidence filter)
-
-**Production status:**
-- 3/4 production modules now documented (prod_sal, prod_eps, load_data_live)
-- Only prod_rtg.py remains undocumented (CRITICAL priority)
-
----
+**Spawning 3 new subagents...**

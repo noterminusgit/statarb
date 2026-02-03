@@ -1,3 +1,279 @@
+"""
+SALAMANDER SSIM - Standalone System Simulation Engine (Python 3)
+
+This is the Python 3 standalone version of the full lifecycle backtesting simulation.
+It tracks complete order-to-execution workflows including positions, cash balances,
+and P&L across extended periods with detailed corporate action handling and
+multi-dimensional performance attribution.
+
+Differences from Main ssim.py:
+==============================
+
+1. **Python 3 Compatibility**
+   - Print statements use function syntax: print() not print
+   - Dictionary iteration: .items() instead of .iteritems()
+   - String formatting uses .format() instead of %
+   - Pandas indexing: .loc[] and .iloc[] instead of .ix[]
+
+2. **Simplified Data Pipeline**
+   - Uses standalone loaddata.py for HDF5/CSV loading
+   - Loads from --data_dir parameter (default: '.')
+   - Index: ('date', 'gvkey') instead of ('iclose_ts', 'sid')
+   - No intraday timestamps (daily simulation only)
+
+3. **Reduced Column Requirements**
+   - Core: split, div, close, symbol, volume, med_volume_21
+   - Returns: log_ret, overnight_log_ret
+   - Risk: volat_21 (volatility)
+   - Factors: BARRA_FACTORS (5 factors vs 13 in main)
+   - Industry: ind1 (simplified from 58 industries)
+
+4. **Alpha Loading Format**
+   - Format: "dir:name:weight,dir2:name2:weight2,..."
+   - Example: "alpha1:hl:0.6,alpha2:bd:0.4"
+   - Loads from {dir}/{name}/alpha.{name}.{start}-{end}.csv
+   - Expects 'traded' and 'shares' columns in alpha files
+
+5. **Position Tracking**
+   - Full lifecycle: shares, cash, P&L through all timestamps
+   - Corporate actions on day boundaries:
+     * Splits: shares *= split_ratio
+     * Dividends: cash += shares * dividend
+   - Carried forward with forward fill for missing bars
+
+6. **Execution Constraints**
+   - Max notional: $4M per position (vs $1M in main)
+   - ADV limit: 2% of 21-day median volume
+   - Participation: 1.5% of bar volume delta
+   - No locate constraints (main version has borrow checks)
+
+7. **Fill Price Methods**
+   - VWAP: Uses bvwap_b_n (bar VWAP), fallback to close
+   - Mid: Uses close as proxy for midpoint
+   - Default: VWAP execution
+
+8. **Slippage Model**
+   - Linear: cost = abs(traded) * slipbps
+   - Default: 0.0001 (1 basis point)
+   - Applied after fill price calculation
+   - Deducted from cash balance
+
+9. **Mark-to-Market Logic**
+   - Intraday: mark at iclose_n (next bar close)
+   - End-of-day: mark at close (official closing price)
+   - Determined by timestamp (15:45 or half-day 12:45)
+   - P&L = shares * mark_price + cash
+
+10. **Performance Attribution**
+    - Day buckets: notional, P&L, turnover, long/short exposure
+    - Month buckets: aggregated monthly metrics
+    - Time-of-day buckets: intraday performance by time slot
+    - Day-of-week buckets: Monday (0) through Friday (4)
+    - Conditioning buckets: factor/industry stratification
+
+11. **Factor Attribution**
+    - Tracks P&L by Barra factors (5 factors)
+    - Exposure calculation: weighted by positions
+    - Main version has 13 Barra factors + industry factors
+
+12. **Visualization**
+    - Cumulative return curves
+    - Long/short notional over time
+    - Notional and turnover time series
+    - Forecast-trade correlation scatter plots
+    - Stock-level P&L distributions
+
+Workflow:
+=========
+
+1. Load historical data from HDF5 cache (splits, divs, prices, volumes)
+2. Load pre-optimized positions from alpha CSV files
+3. Merge multiple forecasts with specified weights
+4. Initialize position tracking: shares=0, cash=0, pnl=0
+5. For each timestamp (date):
+   a. Merge with last period's positions
+   b. Apply corporate actions if day changed:
+      - Dividends: cash += shares_last * div
+      - Splits: shares_last *= split_ratio
+   c. Combine forecast positions: shares = sum(weight_i * shares_i)
+   d. Calculate shares_traded (limited by participation rate)
+   e. Update shares = shares_last + shares_traded
+   f. Calculate traded = shares_traded * fillprice
+   g. Update cash = cash_last - traded - slippage
+   h. Mark to market:
+      - Intraday: pnl = shares * iclose_n + cash
+      - EOD: pnl = shares * close + cash
+   i. Track daily metrics (notional, turnover, P&L change)
+6. Aggregate performance metrics:
+   - Daily returns and Sharpe ratio
+   - Monthly performance breakdown
+   - Time-of-day and day-of-week attribution
+   - Factor exposure and contribution
+7. Generate plots and summary statistics
+
+Command-Line Arguments:
+=======================
+
+Required:
+  --start         Start date (YYYYMMDD format)
+  --end           End date (YYYYMMDD format)
+  --fcast         Forecast specification (format: "dir:name:weight,...")
+                  Example: "alpha1:hl:0.6,alpha2:bd:0.4"
+                  Loads alpha.{name}.{start}-{end}.csv from {dir}/
+
+Optional:
+  --fill          Fill price method (default: "vwap")
+                  - "vwap": Fill at bvwap_b_n (bar VWAP)
+                  - "mid": Fill at close
+  --slipbps       Slippage in basis points (default: 0.0001 = 1bp)
+  --cond          Conditioning variable for analysis (default: "mkt_cap")
+                  Used for decile stratification
+  --file          Pre-computed trade file to replay (optional)
+                  CSV with columns: date, gvkey, vwap_n, traded
+  --data_dir      Root data directory (default: '.')
+
+Performance Metrics:
+====================
+
+Daily Metrics:
+  - Total P&L: Cumulative profit/loss
+  - Daily Return: (P&L change) / (notional from previous day)
+  - Annualized Return: Mean daily return * 252
+  - Annualized Volatility: Std daily return * sqrt(252)
+  - Sharpe Ratio: Annualized return / volatility
+  - Average Notional: Mean absolute position size
+  - Turnover: Total traded / notional
+
+Attribution Breakdowns:
+  - By Month: YYYYMM aggregation (P&L, notional, turnover)
+  - By Time: Intraday time slot (e.g., "0945", "1530")
+  - By Day-of-Week: 0=Monday through 4=Friday
+  - By Factor: Barra factor exposure and P&L contribution
+  - By Industry: Industry group performance (if available)
+
+Special Features:
+=================
+
+1. **Half-Day Handling**
+   - Tracks early close dates (Thanksgiving, Christmas Eve, July 3)
+   - Filters out trades after 12:45 PM on half days
+   - Ensures realistic simulation of shortened sessions
+
+2. **Corporate Action Processing**
+   - Automatic split adjustment on day boundaries
+   - Dividend cash payments to portfolio
+   - Maintains position continuity across events
+
+3. **Fill Slippage Analysis**
+   - Tracks fillslip_tot: sum of (price_diff * traded)
+   - Opportunity slip: unfilled orders * slip_to_close
+   - Total slippage from fixed bps cost
+
+4. **Conditioning Analysis**
+   - Ranks stocks by --cond variable into deciles
+   - Reports P&L by decile (e.g., large-cap vs small-cap)
+   - Identifies which segments drive performance
+
+5. **Factor Exposure Tracking**
+   - Computes factor loadings from Barra factors
+   - Tracks P&L contribution by factor
+   - Exposure = sum(position * factor) / notional
+   - Useful for risk management and attribution
+
+Examples:
+=========
+
+# Single forecast backtest
+python3 salamander/ssim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --data_dir=/path/to/workspace \\
+  --fcast=alpha1:hl:1.0 \\
+  --fill=vwap
+
+# Multi-forecast combination
+python3 salamander/ssim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --data_dir=/path/to/workspace \\
+  --fcast=alpha1:hl:0.6,alpha2:bd:0.4 \\
+  --fill=vwap \\
+  --slipbps=0.0001
+
+# Condition on volatility deciles
+python3 salamander/ssim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --data_dir=/path/to/workspace \\
+  --fcast=alpha1:hl:1.0 \\
+  --cond=volat_21
+
+# Mid-price fill with higher slippage
+python3 salamander/ssim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --data_dir=/path/to/workspace \\
+  --fcast=alpha1:hl:1.0 \\
+  --fill=mid \\
+  --slipbps=0.0005
+
+Data Requirements:
+==================
+
+1. Processed cache files:
+   python3 salamander/gen_hl.py \\
+     --start=20100630 \\
+     --end=20130630 \\
+     --dir=/path/to/workspace
+
+2. Alpha position files:
+   Must exist: {dir}/{forecast}/alpha.{name}.{start}-{end}.csv
+   Required columns: date, gvkey, forecast, traded, shares, target
+
+3. Directory structure:
+   {dir}/data/all/all.{start}-{end}.h5
+   {dir}/{forecast}/alpha.{name}.{start}-{end}.csv
+
+Output Files:
+=============
+
+Plots (PNG):
+  - rets.{period}.png: Cumulative return curve
+  - forecast_trade_corr.{period}.png: Scatter plot of forecast vs traded
+  - longshorts.{period}.png: Long and short notional over time
+  - notional.{period}.png: Total notional over time
+  - traded.{period}.png: Daily turnover
+  - stocks.png: Per-stock P&L distribution
+  - maxstock.png: Top P&L stock daily returns
+
+CSV Files:
+  - None (main version writes blotter, ssim only prints)
+
+Console Output:
+  - Daily timestamp, notional, P&L, return, turnover
+  - Total P&L summary
+  - Sharpe ratio and volatility
+  - Fill slippage analysis
+  - Turnover statistics
+  - Long/short name counts
+  - Monthly performance breakdown (basis points)
+  - Time-of-day breakdown
+  - Day-of-week breakdown
+  - Factor attribution
+  - Win rate (% positions with positive P&L)
+
+Notes:
+======
+
+- Python 3.6+ required
+- Most comprehensive simulator for full lifecycle analysis
+- Memory intensive: loads entire dataset into DataFrame
+- Typical runtime: 30-60 minutes for 6-month backtest
+- Best for portfolio-level analysis and attribution
+- Not suitable for real-time trading (batch only)
+- Requires pre-computed alpha positions from bsim or qsim
+"""
+
 from util import *
 from regress import *
 import gc

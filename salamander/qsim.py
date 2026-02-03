@@ -1,3 +1,221 @@
+"""
+SALAMANDER QSIM - Standalone Intraday Simulation Engine (Python 3)
+
+This is the Python 3 standalone version of the intraday (quote-level) backtesting
+simulation. It evaluates alpha signals at 30-minute bar intervals throughout the
+trading day, tracking multi-horizon forward returns and performance attribution
+across time-of-day, day-of-week, and conditioning deciles.
+
+Differences from Main qsim.py:
+==============================
+
+1. **Python 3 Compatibility**
+   - Print statements use function syntax: print() not print
+   - Dictionary methods: .items() instead of .iteritems()
+   - String formatting uses .format() instead of %
+   - Integer division uses // where needed
+
+2. **Simplified Data Pipeline**
+   - Uses standalone loaddata.py for HDF5/CSV loading
+   - Loads from --dir parameter (data stored in {dir}/data/)
+   - Expects 'date' and 'gvkey' index (not 'iclose_ts' and 'sid')
+   - No intraday timestamp filtering (data is pre-processed)
+
+3. **Reduced Column Set**
+   - Core data: symbol, volume, close, mdvp (median daily volume $)
+   - Returns: log_ret, overnight_log_ret, cum_ret{1-5}
+   - Market data: mkt_cap (for market neutralization)
+   - No Barra factors (main version uses 13 factors)
+   - No industry classifications (main has 58 industries)
+
+4. **Alpha Loading Format**
+   - Format: "name:multiplier:weight"
+   - Example: "qhl:1:1" or "qhl:1:0.6,badj:1:0.4"
+   - Loads from data/{name}/alpha.{name}.{start}-{end}.csv
+   - Main version: loads from directories with more complex paths
+
+5. **Position Sizing**
+   - Simple multiplier: shares = ALPHA_MULT * forecast
+   - Capped at 1% of bar volume: max_shares = 0.01 * volume
+   - Max notional: $500K per position (main: $4M)
+   - No ADV-based constraints (main: 2% of 21-day ADV)
+
+6. **Execution Model**
+   - Fixed slippage: cost = abs(notional) * slipbps
+   - Default: 1 basis point (0.0001)
+   - Optional VWAP fill: uses incremental vwap_n calculation
+   - Default: fill at iclose (close of bar)
+
+7. **Multi-Horizon Analysis**
+   - Tracks P&L from entry (bar 0) to horizon (default: 3 bars = 90 min)
+   - Computes cum_ret0, cum_ret1, ..., cum_ret{horizon}
+   - Day P&L: notional * (exp(cum_ret_tot{h}) - 1) - slippage
+   - Separate Sharpe ratio for each horizon
+
+8. **Market Neutralization**
+   - Delta hedging: adjusts for market return component
+   - Uses mkt_cap weighted market return: mkt_ret()
+   - delta_pnl = notional * mkt_ret (subtracted from P&L)
+   - Main version has more sophisticated hedging
+
+9. **Performance Attribution**
+   - Time-of-day buckets: 09:45, 10:00, ..., 15:45, 16:00
+   - Day-of-week buckets: 0 (Mon) to 4 (Fri)
+   - Month buckets: YYYYMM format
+   - Conditioning deciles: ranks by --cond variable (default: mkt_cap)
+
+10. **Visualization**
+    - Cumulative return plots for each horizon
+    - Forecast strength over time
+    - Alpha distribution histograms
+    - Stock-level P&L distributions
+    - Notional bias (long vs short) over time
+    - Alpha bias (positive vs negative signals)
+
+Workflow:
+=========
+
+1. Load intraday bar data (30-min bars) from HDF5 cache
+2. Load alpha forecasts for specified strategies
+3. Compute incremental VWAP: vwap_n = (vwap * vol - vwap_old * vol_old) / vol_new
+4. Mix multiple forecasts with weights
+5. Size positions: shares = ALPHA_MULT * forecast
+6. Apply participation constraints and max position limits
+7. For each bar:
+   a. Calculate notional = shares * close
+   b. Apply slippage cost
+   c. Compute forward returns from cum_ret0 to cum_ret{horizon}
+   d. Track P&L for each horizon
+   e. Aggregate into time/day/month/decile buckets
+8. Calculate Sharpe ratios for each horizon
+9. Generate performance attribution reports and plots
+
+Command-Line Arguments:
+=======================
+
+Required:
+  --start         Start date (YYYYMMDD format)
+  --end           End date (YYYYMMDD format)
+  --fcast         Alpha signals (format: "name:mult:weight,name2:mult2:weight2,...")
+                  Example: "qhl:1:1" or "qhl:1:0.6,badj:1:0.4"
+  --dir           Root directory (data in {dir}/data/, default: '.')
+
+Optional:
+  --horizon       Forecast horizon in 30-min bars (default: 3 = 90 minutes)
+  --mult          Position sizing multiplier (default: 1000.0)
+  --slipbps       Slippage in basis points (default: 0.0001 = 1bp)
+  --vwap          Use incremental VWAP fill (default: False = use iclose)
+  --cond          Conditioning variable for decile analysis (default: "mkt_cap")
+
+Performance Metrics:
+====================
+
+For each horizon (0 to --horizon bars):
+  - Total P&L: Sum of all position P&L
+  - Annualized Return: Mean daily return * 252
+  - Annualized Volatility: Std daily return * sqrt(252)
+  - Sharpe Ratio: Return / Volatility
+  - Average Notional: Mean absolute position size
+
+Attribution Breakdowns:
+  - Time-of-day: P&L and notional by intraday time slot
+  - Day-of-week: P&L and notional by weekday
+  - Month: P&L and notional by calendar month
+  - Conditioning deciles: P&L by deciles of --cond variable
+
+Diagnostic Outputs:
+  - Forecast correlations: Correlation matrix of alpha signals
+  - Forecast strength: Time series of forecast volatility
+  - Alpha histograms: Distribution of alpha values
+  - Stock P&L: Distribution of per-stock cumulative P&L
+  - Notional bias: Net long/short exposure over time
+  - Alpha bias: Ratio of positive to negative signals
+  - Win rate: Percentage of profitable positions
+
+Examples:
+=========
+
+# Single intraday forecast, 3-bar horizon (90 minutes)
+python3 salamander/qsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=qhl:1:1 \\
+  --horizon=3
+
+# Multi-forecast with VWAP execution
+python3 salamander/qsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=qhl:1:0.6,badj:1:0.4 \\
+  --vwap=True
+
+# Analyze by volume deciles with 5-bar horizon
+python3 salamander/qsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=qhl:1:1 \\
+  --cond=volume \\
+  --horizon=5
+
+# Aggressive multiplier with higher slippage
+python3 salamander/qsim.py \\
+  --start=20130101 \\
+  --end=20130630 \\
+  --dir=/path/to/workspace \\
+  --fcast=qhl:1:1 \\
+  --mult=2000 \\
+  --slipbps=0.0005
+
+Data Requirements:
+==================
+
+1. Processed intraday data files:
+   python3 salamander/gen_hl.py \\
+     --start=20100630 \\
+     --end=20130630 \\
+     --dir=/path/to/workspace
+
+2. Intraday alpha signals:
+   python3 salamander/gen_alpha.py \\
+     --start=20130101 \\
+     --end=20130630 \\
+     --dir=/path/to/workspace
+
+3. Data structure:
+   {dir}/data/all/all.{start}-{end}.h5
+   {dir}/data/{alpha}/alpha.{name}.{start}-{end}.csv
+
+Output Files:
+=============
+
+Plots (PNG):
+  - rets.{horizon}.{forecasts}.png: Cumulative return curves
+  - forecast_strength.png: Forecast volatility time series
+  - {forecast}__hist.png: Alpha distribution histogram
+  - stocks.png: Per-stock P&L distribution
+  - maxstock.png: Top P&L stock's daily returns
+  - notional_bias.png: Net long/short over time
+  - alpha_bias.png: Positive/negative signal ratio
+  - notional.png: Total notional deployed
+
+CSV Files:
+  - debug.csv: Detailed single-stock trace (testid)
+  - max_notional_day.csv: Day with maximum notional bias
+
+Notes:
+======
+
+- Python 3.6+ required
+- Designed for intraday strategy research and optimization
+- Memory efficient: processes in chunks
+- Typical runtime: 10-30 minutes for 6-month backtest
+- Best for strategies with 1-5 bar (30min-2.5hr) horizons
+- No live trading support (research only)
+"""
+
 from util import *
 from regress import *
 from loaddata import *

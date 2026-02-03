@@ -58,9 +58,9 @@ of the core trading system. It provides:
 ### 2. Core Simulation Documentation
 - [x] Document simulation.py (portfolio rebalancing Monte Carlo tool)
 - [x] Document bsim.py differences from main version
-- [ ] Document osim.py differences
-- [ ] Document qsim.py differences
-- [ ] Document ssim.py differences
+- [x] Document osim.py differences
+- [x] Document qsim.py differences
+- [x] Document ssim.py differences
 
 ### 3. Data Module Documentation
 - [x] Document loaddata.py vs main version
