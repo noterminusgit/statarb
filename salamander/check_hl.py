@@ -1,3 +1,46 @@
+"""HL Alpha Signal Validator
+
+Diagnostic tool to inspect HL alpha signals and verify data integrity. Finds
+the maximum absolute HL value and cross-references it with raw price data to
+confirm the signal calculation is reasonable.
+
+Purpose:
+    After generating HL alpha files, this script helps validate that:
+    1. Alpha signals are within expected ranges
+    2. Extreme signals correspond to actual price anomalies
+    3. Raw price data matches the signal generation
+
+Usage:
+    python check_hl.py --start=20130101 --end=20130630 --dir=./salamander_data
+
+Arguments:
+    --start: Start date (YYYYMMDD format)
+    --end:   End date (YYYYMMDD format)
+    --dir:   Root directory containing data/ subdirectory (default: '.')
+
+Data Requirements:
+    <dir>/data/hl/alpha.hl.<start>-<end>.csv   (HL alpha signals)
+    <dir>/data/raw/<end>/price_df.csv          (Raw price data)
+
+Output:
+    Prints two DataFrames:
+    1. The stock-date with the largest absolute HL value
+    2. The raw OHLC prices for that stock-date (hardcoded gvkey='011644')
+
+Example Output:
+                      hl  hl_abs
+    date       gvkey
+    2013-04-30 011644  0.523  0.523
+
+                           high    low   open  close
+    date       gvkey
+    2013-04-30 011644  45.20  43.80  44.10  45.15
+
+Note:
+    The second lookup uses a hardcoded gvkey='011644' and date='2013-04-30'.
+    This appears to be for a specific historical validation case.
+"""
+
 import pandas as pd
 import argparse
 

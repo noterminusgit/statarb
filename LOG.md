@@ -1,3 +1,96 @@
+2026-02-03 - Documented salamander utility scripts (10 files)
+
+**Strategy Files:**
+1. salamander/hl.py (124 lines) - High-low mean reversion strategy (prototype)
+   - Calculates hl0 ratio: close / sqrt(high * low)
+   - Industry-demeaned signals with winsorization
+   - Sector-based in/out-of-sample fitting (Energy sector 10)
+   - Lagged coefficient regression for mean reversion
+   - Output: HDF5 with 'hl' forecast column
+   - CLI: --start, --end parameters
+   - Note: Prototype version, see hl_csv.py for production
+
+2. salamander/hl_csv.py (153 lines) - Production HL strategy with CSV data
+   - Enhanced version with rolling 18-month data loading
+   - 6-month regression windows for stability
+   - Median-based regression for robustness
+   - Coefficient persistence in separate DataFrame
+   - Loads from structured raw/ directories
+   - Output: HDF5 forecasts + diagnostic plots
+   - CLI: --start, --end, --dir parameters
+   - Key improvement: 3-day horizon (vs 5 in prototype)
+
+**Validation Scripts:**
+3. salamander/change_hl.py (12 lines) - HDF5 date format converter
+   - Fixes date index dtype (object → datetime64[ns])
+   - One-off utility for legacy file repair
+   - Hardcoded file path: ./all/all.20040101-20040630.h5
+
+4. salamander/check_hl.py (25 lines) - HL alpha signal validator
+   - Finds maximum absolute HL value in alpha CSV
+   - Cross-references with raw price data
+   - Validates signal calculation reasonableness
+   - CLI: --start, --end, --dir parameters
+
+5. salamander/check_all.py (19 lines) - HDF5 full dataset inspector
+   - Quick sanity checks on all.h5 output
+   - Column availability verification
+   - Stock/sector filtering examples (commented)
+   - CLI: --start, --end, --dir parameters
+
+**Data Augmentation:**
+6. salamander/change_raw.py (118 lines) - Raw data augmentation utility
+   - Batch adds missing columns to raw CSV files
+   - SQL queries for market cap and SEDOL data
+   - Processes all raw/<YYYYMMDD>/ directories
+   - Capital IQ database integration (dbDevCapIQ)
+   - CLI: --dir parameter
+   - Currently active: SEDOL addition
+   - Commented out: Market cap addition
+
+7. salamander/mktcalendar.py (20 lines) - US trading calendar
+   - Defines US equity market holidays
+   - CustomBusinessDay offset (TDay) for date arithmetic
+   - 9 holidays: New Year, MLK Day, Presidents Day, Good Friday, Memorial Day, Independence Day, Labor Day, Thanksgiving, Christmas
+   - Does not include early closes or special closures
+   - Used by: change_raw.py, other date calculations
+
+**Borrow Data Processing:**
+8. salamander/get_borrow.py (18 lines) - Borrow rate aggregator
+   - Consolidates weekly stock lending files
+   - Processes Historical_Avail_US_Weekly_* files
+   - Output: Single borrow.csv with SEDOL, shares, fee, symbol
+   - Pipe-delimited format for backtesting
+   - CLI: --locates_dir parameter
+
+9. salamander/show_borrow.py (9 lines) - Borrow data inspector
+   - Quick diagnostic for specific SEDOL
+   - Validates borrow.csv output
+   - Hardcoded: ./data/locates/borrow.csv, SEDOL 2484088
+   - Useful for checking short sale costs
+
+10. salamander/show_raw.py (25 lines) - Raw data inspector
+    - Loads and displays raw CSV files
+    - Checks barra_df, price_df, missing_borrow.csv
+    - Multi-index setup validation
+    - CLI: --dir parameter
+    - Legacy validation tool
+
+**Key Insights:**
+- hl_csv.py is production version with rolling windows and CSV-based data
+- hl.py is prototype with simpler data loading
+- change_raw.py enables borrow rate integration via SEDOL linkage
+- mktcalendar.py provides trading day awareness for all date calculations
+- Validation scripts (check_*.py) help verify data integrity at each stage
+
+**Plan Updates:**
+- Marked all 10 utility scripts complete in plan/19-salamander-module.md
+- All salamander module documentation now complete (24 files)
+- Plan status: COMPLETE
+- Ready to delete plan/19-salamander-module.md
+
+---
+
 2026-02-03 - Documented salamander generators and util module (4 files)
 
 **Files Documented:**
