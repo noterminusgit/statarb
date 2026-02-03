@@ -1,3 +1,49 @@
+2026-02-03 - Documented salamander generators and util module (4 files)
+
+**Files Documented:**
+1. salamander/gen_dir.py (17 lines) - Directory structure generator
+   - Creates data/ folder hierarchy for salamander workflow
+   - Subdirectories: all/, all_graphs/, hl/, locates/, raw/, blotter/, opt/
+   - Must be run before other generators
+   - CLI: --dir parameter for root directory
+
+2. salamander/gen_hl.py (23 lines) - HL signal generator
+   - Generates high-low mean reversion signals from raw data
+   - Processes data in 6-month periods (Jan-Jun, Jul-Dec)
+   - Uses 12-month training window for regression
+   - Sector-specific models (Energy vs others)
+   - Output: HDF5 files with merged data and regression coefficients
+   - CLI: --start, --end, --dir parameters
+
+3. salamander/gen_alpha.py (32 lines) - Alpha file extractor
+   - Extracts 'hl' signals from HDF5 to CSV format
+   - Filters files by date range overlap
+   - Output: CSV files compatible with bsim.py
+   - CLI: --start, --end, --dir parameters
+
+4. salamander/util.py (260 lines) - Utility functions module
+   - 18 utility functions for data manipulation and I/O
+   - Data merging: merge_barra_data(), merge_intra_data(), merge_intra_eod()
+   - Column management: remove_dup_cols(), get_overlapping_cols()
+   - Filtering: filter_expandable(), filter_pca()
+   - Alpha export: dump_alpha(), dump_daily_alpha(), dump_prod_alpha(), dump_all()
+   - Results loading: load_all_results(), load_merged_results()
+   - Helpers: df_dates(), merge_daily_calcs(), merge_intra_calcs()
+
+**Key Workflows Documented:**
+- Salamander setup: gen_dir.py → populate raw/ → gen_hl.py → gen_alpha.py → bsim.py
+- HDF5 → CSV conversion for backtesting compatibility
+- Barra data lagging (shift by 1 day) to prevent look-ahead bias
+- Intraday timestamp broadcasting for daily signals
+- Multi-directory result merging for alpha combination
+
+**Plan Updates:**
+- Marked generator documentation complete in plan/19-salamander-module.md
+- Marked util.py documentation complete
+- Remaining: utility scripts (change_hl.py, check_hl.py, etc.)
+
+---
+
 2026-02-03 - Documented volume-adjusted strategy family (5 files)
 
 **Files Documented:**
@@ -298,5 +344,38 @@
 1. Salamander simulation engines (osim, qsim, ssim) - Core Python 3 simulators
 2. Earnings/valuation strategies (3 files) - Event-driven fundamental signals
 3. Volume-adjusted strategies (5 files) - Execution quality
+
+**Spawning 3 new subagents...**
+
+**Agent 4 (salamander simulators):** COMPLETE
+- Documented salamander/{osim,qsim,ssim}.py (3 core simulators)
+- Added 1,904 lines of documentation
+- Commit: 8a9a4a7
+
+**Agent 5 (earnings/valuation):** COMPLETE
+- Documented {eps,target,prod_tgt}.py (3 event-driven strategies)
+- PEAD and price target deviation signals
+- Commits: 87aab44, ac6567a
+- Deleted plan/15-alpha-earnings-valuation.md
+
+**Agent 6 (volume-adjusted):** COMPLETE
+- Documented {vadj,vadj_multi,vadj_intra,vadj_pos,vadj_old}.py (5 files)
+- Volume normalization and liquidity-aware sizing
+- Commits: 87aab44, db132d4
+- Deleted plan/16-alpha-volume-adjusted.md
+
+**Checking remaining work...**
+
+**Remaining plan files:**
+- 17-alpha-other-strategies.md (7 files: c2o, pca_generator, mom_year, ebs, htb, rrb)
+- 19-salamander-module.md (generators + 13 utility scripts)
+- 20-testing-utilities.md (8 testing/utility files)
+- 22-readme-update.md (README enhancement)
+- Plus ~10 completed plan files that should be cleaned up
+
+**Next priorities:**
+1. Other alpha strategies (7 files) - Complete remaining alpha families
+2. Salamander generators (3 files) - Small but important for workflow
+3. Salamander utilities (13 files) - Many small utility scripts
 
 **Spawning 3 new subagents...**
