@@ -1,4 +1,190 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+BIGSIM_TEST - Intraday Rebalancing Simulator
+
+IMPORTANT: Despite the name, this is NOT a test suite. This is a production
+simulation engine for intraday rebalancing strategies.
+
+This simulator extends BSIM (daily rebalancing) to support intraday optimization
+and rebalancing at 15-minute bar frequency. It shares the same core optimization
+logic as BSIM but operates on intraday timestamps instead of daily close.
+
+Key Differences from BSIM
+--------------------------
+1. Rebalancing Frequency:
+   - BSIM: Once per day at market close (15:45 or 15:30)
+   - BIGSIM_TEST: Every timestamp in intraday data (15-min bars)
+
+2. Data Source:
+   - BSIM: Daily cache with end-of-day values
+   - BIGSIM_TEST: Intraday cache with 15-minute bars
+
+3. Performance:
+   - BSIM: Fast, optimizes ~250 times per year
+   - BIGSIM_TEST: Slow, optimizes ~2500 times per year
+
+4. Use Cases:
+   - BSIM: Daily rebalancing strategies
+   - BIGSIM_TEST: High-frequency rebalancing, intraday alpha testing
+
+Simulation Methodology
+----------------------
+1. Load factor cache and price cache for date range
+2. Load alpha forecasts from multiple sources
+3. Combine forecasts using PCA eigenvalue scaling
+4. For each 15-minute timestamp:
+   a. Merge current positions with new data
+   b. Apply corporate actions (splits, dividends)
+   c. Filter invalid/missing data
+   d. Apply universe filters (market cap, price, industry)
+   e. Adjust risk for earnings announcements (optional)
+   f. Run portfolio optimization via opt.py
+   g. Apply participation rate constraints
+   h. Execute trades and update positions
+   i. Write optimization results to CSV
+
+5. Track cumulative P&L across all timestamps
+
+PCA Eigenvalue Scaling
+----------------------
+Forecasts are divided by the first principal component eigenvalue:
+    forecast_scaled = forecast / eig
+
+This adjusts forecast magnitude based on market regime:
+    - High eigenvalue (concentrated risk): scale down forecasts
+    - Low eigenvalue (dispersed risk): scale up forecasts
+
+Data loaded from: /q/work/sean/forecasts_final/pcadata/eig.txt
+
+Universe Filters
+----------------
+Excludes positions when:
+    - Market cap < $1.6B
+    - Stock price > $500
+    - Industry = "PHARMA"
+
+These filters are applied by zeroing out forecast, max_notional, min_notional.
+
+Earnings Risk Management (--earnings flag)
+-------------------------------------------
+When enabled, increases volatility estimates and flattens positions around
+earnings announcements:
+    - 3 days before: 2x volatility
+    - 2 days before: 3x volatility
+    - 1 day before: 4x volatility
+    - Force close to current position (prevent new bets)
+
+Optimization Parameters
+-----------------------
+Same as BSIM - see opt.py documentation:
+    - kappa: Risk aversion (default: 2e-8)
+    - max_sumnot: Max total notional (default: $200M)
+    - slip_nu: Market impact coefficient (default: 0.18)
+    - slip_beta: Market impact exponent (default: 0.6)
+    - maxiter: Max optimization iterations (default: 1500)
+    - max_adv: Max position as % of ADV (2%)
+    - max_dollars: Max position size ($1M)
+    - participation: Volume participation rate (1.5%)
+
+Command-Line Arguments
+----------------------
+--start : str
+    Start date (YYYYMMDD format)
+--end : str
+    End date (YYYYMMDD format)
+--fcast : str
+    Forecast specification: "dir:name:mult:weight,dir2:name2:mult2:weight2,..."
+    Example: "hl:1:1,bd:0.8:0.4" combines hl and bd strategies
+--horizon : int
+    Forecast horizon in bars (default: 3)
+--mult : float
+    Global forecast multiplier (default: 1.0)
+--kappa : float
+    Risk aversion parameter (default: 2e-8)
+--maxnot : float
+    Maximum total notional (default: $200M)
+--maxdollars : float
+    Maximum position size (default: $1M)
+--maxforecast : float
+    Maximum alpha forecast value (default: 0.0050 = 50 bps)
+--slipnu : float
+    Market impact coefficient (default: 0.18)
+--slipbeta : float
+    Market impact exponent (default: 0.6)
+--locates : bool
+    Apply locate constraints on short positions (default: True)
+--earnings : int
+    Days before/after earnings to apply risk management (default: None)
+--nonegutil : bool
+    Prevent trades that decrease utility (default: True)
+--vwap : bool
+    Use VWAP fill prices instead of mid (default: False)
+--maxiter : int
+    Max optimization iterations (default: 1500)
+--fast : bool
+    Fast mode - skip some timestamps (default: False)
+--exclude : str
+    Exclude stocks by attribute threshold (format: "attr:value")
+
+Usage Examples
+--------------
+Basic intraday simulation:
+    python bigsim_test.py --start=20130101 --end=20130630 --fcast=hl:1:1
+
+Multi-alpha combination:
+    python bigsim_test.py --start=20130101 --end=20130630 \
+        --fcast=hl:1:0.6,bd:0.8:0.4 --kappa=2e-8
+
+With earnings risk management:
+    python bigsim_test.py --start=20130101 --end=20130630 \
+        --fcast=hl:1:1 --earnings=3
+
+Output Files
+------------
+Optimization results written to ./opt/ directory:
+    opt/opt.{forecast_names}.{YYYYMMDD}_{HHMMSS}.csv
+
+Each file contains:
+    - timestamp, sid (index)
+    - target: Optimized position (dollars)
+    - traded: Trade size (dollars)
+    - shares: Position (shares)
+    - position: Position (dollars)
+    - forecast: Alpha forecast value
+    - dutil, dmu, dsrisk, dfrisk, eslip, costs: Optimization diagnostics
+
+Performance Considerations
+--------------------------
+- Memory intensive: loads full intraday dataset into RAM
+- CPU intensive: runs optimization ~26 times per day
+- Typical runtime: 10-100x slower than BSIM
+- Uses garbage collection to manage memory (gc.collect())
+- Processes timestamps sequentially (not parallelizable)
+
+Comparison with Other Simulators
+---------------------------------
+BSIM:  Daily rebalancing, portfolio optimization
+OSIM:  Order-level execution, no optimization
+QSIM:  Intraday bars, simple forecast evaluation
+SSIM:  Full lifecycle, cash and position tracking
+BIGSIM_TEST: Intraday rebalancing, portfolio optimization
+
+When to Use BIGSIM_TEST
+------------------------
+- Testing high-frequency alpha signals
+- Evaluating intraday rebalancing vs. daily
+- Studying optimal rebalancing frequency
+- Analyzing intraday risk management
+- Research only - NOT for production (too slow)
+
+Notes
+-----
+- Name is misleading - this is not a test suite
+- Consider renaming to isim.py (intraday simulator)
+- Memory leaks possible on very long date ranges
+- Uses explicit garbage collection after each timestamp
+- Email notification sent on completion (requires email() function)
+"""
 
 from util import *
 from regress import *

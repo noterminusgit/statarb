@@ -1,4 +1,81 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+DUMPALL - Comprehensive Data Export Utility
+
+Loads and exports all data components used in the trading system to HDF5 files
+for inspection, debugging, or external analysis. This utility orchestrates the
+complete data pipeline from raw data through all calculations and transformations.
+
+Data Components Exported
+-------------------------
+1. all.h5: Complete intraday dataset with all calculations
+   - Intraday 15-minute bars (dbars_df)
+   - Bar-level calculations (bbars_df)
+   - Merged intraday calculations
+   - Daily data merged with intraday
+   - Barra factors and risk model data
+   - Analyst ratings and estimates
+   - Volume profiles
+   - Forward returns
+   - Price extras
+
+2. all.factors.h5: Factor regression results
+   - Calculated alpha factors
+   - Factor exposures
+   - Factor returns
+
+Usage
+-----
+    python dumpall.py --start=20130101 --end=20130630
+
+This will create:
+    - all.h5: Full dataset with all calculations
+    - all.factors.h5: Factor data
+
+Parameters
+----------
+--start : str
+    Start date in YYYYMMDD format
+--end : str
+    End date in YYYYMMDD format
+
+Data Pipeline
+-------------
+1. Load universe and filter stocks
+2. Load Barra risk model data
+3. Load price data (daily bars)
+4. Load analyst ratings history
+5. Load intraday bars (15-minute frequency)
+6. Merge intraday calculations
+7. Merge and transform Barra data
+8. Load locate availability data
+9. Calculate forward returns (5-day horizon)
+10. Calculate alpha factors
+11. Calculate price extras
+12. Calculate volume profiles
+13. Export to HDF5
+
+Output Files
+------------
+The HDF5 files can be read with:
+    import pandas as pd
+    df = pd.read_hdf('all.h5', 'table')
+
+Use Cases
+---------
+- Data quality inspection
+- External analysis in Python/R/MATLAB
+- Debugging data pipeline issues
+- Archiving processed datasets
+- Offline research and backtesting
+
+Notes
+-----
+- Requires significant memory for large date ranges
+- lookback=30 days used for universe construction
+- horizon=5 days used for forward returns
+- Output files can be very large (multi-GB)
+"""
 
 from calc import *
 from loaddata import *

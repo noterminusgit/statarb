@@ -1,4 +1,194 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
+"""
+OSIM2 - Order Simulation Without Weight Optimization
+
+Simplified variant of OSIM that simulates order execution with FIXED forecast
+weights instead of optimizing weights based on historical performance.
+
+Key Difference from OSIM
+-------------------------
+OSIM: Optimizes forecast weights using OpenOpt NLP solver to maximize Sharpe ratio
+OSIM2: Uses fixed weights (or simple adaptive scaling based on recent returns)
+
+This makes OSIM2 much faster than OSIM but less sophisticated in forecast
+combination. OSIM2 is suitable for:
+    - Quick backtests with known good weights
+    - Testing execution quality without weight optimization overhead
+    - Validating fill price assumptions
+    - Prototyping new fill strategies
+
+Methodology
+-----------
+1. Load optimized position targets from multiple alpha forecasts
+2. Load bar data and price history for date range
+3. For each timestamp:
+   a. Combine forecasts using fixed weights
+   b. Apply simple adaptive scaling (optional, currently disabled)
+   c. Constrain trades by participation rate and notional limits
+   d. Execute trades with fill price (VWAP or mid)
+   e. Apply linear slippage costs
+   f. Handle splits, dividends, corporate actions
+   g. Mark positions to market
+   h. Track P&L
+
+4. Compute daily returns and Sharpe ratio
+
+Forecast Weighting
+------------------
+Default: Equal weights (0.5 for each forecast)
+
+Adaptive Scaling (lines 142-155, currently set to weight=1):
+    - Compute 10-day rolling return for each forecast
+    - If rolling return > 0: weight *= 1.1 (max 1.0)
+    - If rolling return < 0: weight *= 0.9 (min 0.1)
+    - Currently disabled (weight = 1 on line 153)
+
+To enable adaptive scaling, remove line 153: "weight = 1"
+
+Fill Price Strategy
+-------------------
+Controlled by --fill argument:
+
+vwap (--fill=vwap):
+    Uses bar VWAP price (bvwap_b_n)
+    Falls back to iclose if VWAP unavailable
+    Recommended for large orders
+
+mid (--fill=mid, default):
+    Uses intraday close (iclose) as midpoint proxy
+    Assumes instantaneous execution
+    Suitable for smaller orders
+
+Slippage Model
+--------------
+Linear slippage as fixed percentage of traded notional:
+    slippage_cost = abs(dollars_traded) * slipbps
+
+Default: 0.0001 (1 basis point)
+Configure with: --slipbps=0.0002
+
+Participation Rate Constraints
+-------------------------------
+    max_trade_size = bar_volume * fill_price * participation
+    participation = 1.5% (hardcoded)
+
+Prevents unrealistic order sizes that would dominate bar volume.
+
+Additional notional constraints:
+    max_notional = min($1M, 2% of 21-day ADV)
+    min_notional = -max_notional
+
+Corporate Actions
+-----------------
+Splits:
+    shares_new = shares_last * split_ratio
+    Applied on day changes
+
+Dividends:
+    cash_new = cash_last + shares_last * dividend
+    Applied before split adjustment
+
+Market Breaks (--breaks):
+    On year-end breaks, liquidate all positions to cash
+    Dates: 20110705, 20120102, 20120705, 20130103
+
+Special Dates
+-------------
+halfdays: Early close dates (12:45 PM)
+    Filters out timestamps after 12:45 PM
+    Dates: 20111125, 20120703, 20121123, 20121224
+
+breaks: Year-end liquidation dates
+    Forces flat positions to simulate trading breaks
+    Dates: 20110705, 20120102, 20120705, 20130103
+
+Command-Line Arguments
+----------------------
+--start : str
+    Start date (YYYYMMDD format)
+--end : str
+    End date (YYYYMMDD format)
+--fcast : str
+    Forecast specifications: "dir:name,dir2:name2,..."
+    Example: "mus:hl,mus:bd" loads forecasts from mus/opt/opt.hl.*.csv
+--fill : str
+    Fill price strategy: 'vwap' or 'mid' (default: 'mid')
+--slipbps : float
+    Slippage in basis points (default: 0.0001)
+
+Input Data Format
+-----------------
+Forecast files expected in:
+    ./{dir}/opt/opt.{name}.{YYYYMMDD}_HHMMSS.csv
+
+Each file must contain:
+    - iclose_ts: Timestamp
+    - sid: Security ID
+    - traded: Trade size (dollars)
+    - target: Target position (dollars)
+
+Also reads from {dir}/rets.txt:
+    - date, ret (space-separated)
+    - Used for adaptive weight scaling
+
+Usage Examples
+--------------
+Basic simulation with two forecasts:
+    python osim2.py --start=20130101 --end=20130630 --fcast=mus:hl,mus:bd
+
+VWAP fill with custom slippage:
+    python osim2.py --start=20130101 --end=20130630 \
+        --fcast=mus:hl --fill=vwap --slipbps=0.0002
+
+Output
+------
+Prints to stdout:
+    - Per-timestamp: timestamp, notional, cumPnL, dayPnL, return, turnover, slippage
+    - Final: Total P&L, annualized Sharpe ratio, average notional
+
+Example output:
+    2013-03-01 15:45:00: 150000000 125000 8500 0.0057 2500000 1.67 850
+    Total Pnl: $2,450K
+    Day mean: 0.1250 std: 0.0850 sharpe: 1.47 avg Notional: $148,500K
+
+When to Use OSIM2
+-----------------
+Use OSIM2 instead of OSIM when:
+    - You already know good forecast weights from previous optimization
+    - You want to test execution assumptions quickly
+    - You're validating fill price models
+    - You don't want the overhead of weight optimization
+    - You're doing sensitivity analysis on execution parameters
+
+Use OSIM (not OSIM2) when:
+    - You want to find optimal forecast weights
+    - You're combining new forecasts with unknown quality
+    - You want risk-adjusted weight selection
+    - Computation time is not critical
+
+Comparison with Other Simulators
+---------------------------------
+BSIM:  Daily rebalancing, portfolio optimization, factor risk
+OSIM:  Order-level execution, forecast weight optimization
+OSIM2: Order-level execution, fixed weights (this file)
+OSIM_SIMPLE: Portfolio weight optimization offline
+QSIM:  Intraday bars, simple forecast evaluation
+SSIM:  Full lifecycle with cash tracking
+
+Performance
+-----------
+OSIM2 is significantly faster than OSIM because it skips the expensive
+weight optimization loop. Typical speedup: 10-100x depending on number
+of forecasts and date range.
+
+Notes
+-----
+- Adaptive weight scaling is currently disabled (line 153)
+- To enable, remove the "weight = 1" override
+- Default equal weights (0.5) may be suboptimal
+- Consider using OSIM first to find good weights, then OSIM2 for validation
+- Memory efficient - loads data in chunks by timestamp
+"""
 
 from util import *
 from regress import *
