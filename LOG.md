@@ -1,3 +1,35 @@
+2026-02-04 - Enhanced README with comprehensive documentation
+
+**README.md Updates:**
+- File inventory: 88 Python files categorized by function (~35,000 lines total)
+- Alpha strategies: 35 strategies across 7 families with detailed descriptions
+- Data requirements: Comprehensive specifications for 7 data sources
+- Module dependencies: Full dependency graph and import relationships
+- Python versions: Clarified Python 2.7 (main) vs Python 3 (salamander)
+- Production deployment: Workflows, checklists, monitoring guidelines
+- Technical debt: Known issues, incomplete implementations, security concerns
+- Installation: Troubleshooting, setup instructions, known issues
+
+**Key Sections Added:**
+1. Complete file inventory with line counts and descriptions
+2. Strategy family documentation (High-Low, Beta-Adjusted, Analyst, Earnings, Volume, PCA, Specialized)
+3. Data setup guide with format specifications and validation steps
+4. Module dependency graph (5 levels: foundation → simulation)
+5. Production deployment workflow and best practices
+6. Technical debt documentation (Python 2.7 EOL, incomplete PCA generators, etc.)
+7. Contributing guidelines and code style
+
+**Commits:**
+- 9cb8315 "Enhance README with comprehensive project documentation"
+- Deleted plan/22-readme-update.md (all tasks complete)
+
+**README Stats:**
+- Before: 567 lines
+- After: 1,685 lines (+1,118 lines, 197% growth)
+- Comprehensive coverage of entire codebase
+
+---
+
 2026-02-03 - Documented salamander utility scripts (10 files)
 
 **Strategy Files:**
@@ -551,3 +583,33 @@
 - PCA generators have incomplete implementations (residuals commented out)
 - c2o.py has sophisticated sector-specific and time-of-day modeling
 
+
+**Agent 7 (other alpha strategies):** COMPLETE
+- Documented 7 specialized strategies (c2o, pca_generator, pca_generator_daily, mom_year, ebs, htb, rrb)
+- Investigated rrb.py = "Residual Return Betting" (Barra residuals)
+- Found ebs.py is analyst estimates, not equity borrow
+- Commits: 4eab48e, 620e03a, 94f4745
+- Deleted plan/17-alpha-other-strategies.md
+
+**Agent 8 (salamander generators):** COMPLETE
+- Documented salamander/{gen_dir,gen_hl,gen_alpha,util}.py (4 files)
+- Workflow: gen_dir → gen_hl → gen_alpha → backtesting
+- Commit: 68b340c
+
+**Agent 9 (salamander utilities):** COMPLETE
+- Documented 10 salamander utility scripts (hl, hl_csv, change_hl, check_hl, check_all, change_raw, mktcalendar, get_borrow, show_borrow, show_raw)
+- Salamander module 100% complete (24/24 files)
+- Commits: 2 commits
+- Deleted plan/19-salamander-module.md
+
+---
+
+**Session Summary (2026-02-03):**
+- 9 subagents spawned and completed
+- 44 Python files documented (1,400+ lines of documentation added)
+- 6 plan files deleted upon completion
+- All major alpha strategy families complete
+- Salamander module 100% complete
+- Remaining: testing utilities, README updates, cleanup of completed plan files
+
+**User requested /exit - stopping work.**
