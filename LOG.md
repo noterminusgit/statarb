@@ -1,3 +1,36 @@
+2026-02-04 - Documentation complete: Testing and utility scripts (8 files)
+
+**Documented Files:**
+1. bigsim_test.py - Intraday rebalancing simulator (NOT a test suite despite name)
+2. osim2.py - Order simulation without weight optimization (faster than osim.py)
+3. osim_simple.py - Portfolio weight optimizer using OpenOpt (NOT a simplified simulator)
+4. rev.py - Mean reversion alpha strategy with industry demeaning
+5. dumpall.py - Comprehensive data export to HDF5 for all pipeline components
+6. readcsv.py - Simple CSV debugging utility for key-value display
+7. slip.py - QuantBook order/execution merger (deprecated 2012 analysis)
+8. factors.py - Factor visualization/plotting tool (NOT factor enumeration)
+
+**Investigation Findings:**
+- bigsim_test.py: Production intraday simulator, should be renamed isim.py
+- osim2.py: Fixed-weight variant of osim.py, 10-100x faster without optimization
+- osim_simple.py: Offline weight optimizer, misleadingly named
+- slip.py: One-off analysis from 2012-02-08, appears deprecated
+- Several files have misleading names that don't match actual purpose
+
+**Commits:**
+- f7eca57 "Document testing and utility scripts (8 files)"
+- Deleted plan/20-testing-utilities.md (all tasks complete)
+
+**Documentation Statistics:**
+- Total files documented: 86/88 (98%)
+- Total documentation added: ~16,000 lines of docstrings
+- All 21 documentation plans completed
+- Only 2 deprecated scripts remain undocumented
+
+**Project Status:** Documentation phase COMPLETE ✅
+
+---
+
 2026-02-04 - Enhanced README with comprehensive documentation
 
 **README.md Updates:**
