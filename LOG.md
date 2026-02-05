@@ -789,3 +789,27 @@
 
 ---
 
+2026-02-05 - Created unit tests for calc.py (Plan 24, Task 3)
+
+**Tests Created:**
+- tests/test_calc.py with 26 comprehensive unit tests
+- 7 critical functions tested: winsorize, winsorize_by_date, calc_forward_returns, mkt_ret, create_z_score, calc_price_extras, winsorize_by_group
+- **CRITICAL:** Forward returns tests verify shift(-n) correctness (no look-ahead bias)
+- **CRITICAL:** Cross-sectional tests verify date independence (winsorize_by_date, create_z_score)
+- Mathematical correctness verified with np.isclose() assertions (atol=1e-10)
+- Synthetic data with known outputs for precise verification
+
+**Coverage:**
+- 100% of tested calculation/transformation functions covered
+- Estimated 40-50% line coverage for calc.py
+- 15+ edge case scenarios (outliers, NaN, boundaries, extremes)
+- 70+ assert statements for thorough verification
+
+**Documentation:**
+- tests/test_calc_coverage.md documenting all tests and critical safety checks
+- Detailed test data strategy with examples
+
+**Commit:** ad5519d "Add unit tests for calc.py"
+
+---
+

@@ -53,13 +53,13 @@ See LOG.md for detailed completion history.
 **Tasks**:
 - Task 1: Set up pytest infrastructure ✅ COMPLETE
 - Task 2: Unit tests for util.py ✅ COMPLETE
-- Task 3: Unit tests for calc.py
+- Task 3: Unit tests for calc.py ✅ COMPLETE
 - Task 4: Integration test for bsim.py
 - Task 5: Data validation tests
 
 **Effort**: 8-12 hours | **Files**: New test files
 
-**Progress**: 2/5 tasks complete (40%)
+**Progress**: 3/5 tasks complete (60%)
 
 **Subagent Strategy**:
 - Agent 1: Infrastructure setup (1-2 hours) ✅ DONE
@@ -123,7 +123,7 @@ Can run agents 2-5 in parallel after agent 1 completes.
 **Overall Progress: 0/3 new plans complete** 🔵
 
 - Code quality improvements: 0/2 tasks complete
-- Testing framework: 1/5 tasks complete (20%)
+- Testing framework: 3/5 tasks complete (60%)
 - Python 3 migration analysis: 0/3 tasks complete
 
 ## Success Metrics
