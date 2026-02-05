@@ -8,7 +8,7 @@ Fix hard-coded paths, improve error handling, and enhance code maintainability i
 
 ## Tasks
 
-### Task 1: Fix Hard-Coded Paths (2 files)
+### Task 1: Fix Hard-Coded Paths (2 files) ✅ COMPLETE
 **Files:** salamander/change_hl.py, salamander/show_borrow.py
 
 **Current Issues:**
@@ -16,10 +16,10 @@ Fix hard-coded paths, improve error handling, and enhance code maintainability i
 - `show_borrow.py`: Hard-coded path `./data/locates/borrow.csv` and SEDOL `2484088`
 
 **Actions:**
-- [ ] Add argparse CLI arguments for file paths and parameters
-- [ ] Make scripts flexible for different dates/SEDOLs
-- [ ] Update docstrings with usage examples
-- [ ] Test with different input values
+- [x] Add argparse CLI arguments for file paths and parameters
+- [x] Make scripts flexible for different dates/SEDOLs
+- [x] Update docstrings with usage examples
+- [x] Test with different input values
 
 **Subagent Instructions:**
 ```
@@ -63,8 +63,11 @@ Improve error handling in core modules:
 ```
 
 ## Success Criteria
-- [ ] All hard-coded paths replaced with CLI arguments
-- [ ] Key functions have input validation
-- [ ] Data quality issues raise informative errors
-- [ ] All changes tested (at minimum, syntax check)
-- [ ] Documentation updated
+- [x] All hard-coded paths replaced with CLI arguments (Task 1 complete)
+- [ ] Key functions have input validation (Task 2 pending)
+- [ ] Data quality issues raise informative errors (Task 2 pending)
+- [x] All changes tested (at minimum, syntax check)
+- [x] Documentation updated
+
+## Progress
+**1/2 tasks complete (50%)**

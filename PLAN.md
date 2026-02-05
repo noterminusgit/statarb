@@ -6,11 +6,11 @@ After completing comprehensive documentation (98%, 86/88 files) and fixing 11 cr
 
 ## Current Plans
 
-### 23: Code Quality Improvements (MEDIUM Priority)
+### 23: Code Quality Improvements (MEDIUM Priority) - 50% Complete
 **Objective**: Fix hard-coded paths and improve error handling
-- Task 1: Fix hard-coded paths in salamander scripts (2 files)
+- Task 1: Fix hard-coded paths in salamander scripts (2 files) ✅ COMPLETE (Commit: 0b60548)
 - Task 2: Add error handling to core modules (4 files)
-- **Effort**: 4-6 hours
+- **Effort**: 4-6 hours (2 hours spent)
 - **Files**: salamander/change_hl.py, salamander/show_borrow.py, loaddata.py, calc.py, regress.py, opt.py
 
 ### 24: Testing Framework (HIGH Priority) ✅ COMPLETE
@@ -111,9 +111,9 @@ Output: Migration roadmap with effort estimates
 ## Success Metrics
 
 ### Code Quality
-- [ ] Zero hard-coded paths in utility scripts
-- [ ] Core functions have input validation
-- [ ] Error messages informative and actionable
+- [x] Zero hard-coded paths in utility scripts (Task 1 complete)
+- [ ] Core functions have input validation (Task 2 pending)
+- [ ] Error messages informative and actionable (Task 2 pending)
 
 ### Testing
 - [x] pytest infrastructure operational

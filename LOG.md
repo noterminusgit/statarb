@@ -1,3 +1,23 @@
+2026-02-05 - Added CLI arguments to salamander utility scripts (Plan 23, Task 1) ✅ COMPLETE
+
+**Scripts Enhanced:**
+- salamander/change_hl.py: Added --file argument for HDF5 file path (default: ./all/all.20040101-20040630.h5)
+- salamander/show_borrow.py: Added --file and --sedol arguments (defaults: ./data/locates/borrow.csv, 2484088)
+
+**Improvements:**
+- Replaced hard-coded paths with argparse CLI arguments
+- Updated docstrings with usage examples (default and parameterized)
+- Maintained backward compatibility using hard-coded values as defaults
+- Added if __name__ == '__main__' guards for proper script execution
+
+**Syntax Validation:** PASSED (Python 3 py_compile)
+
+**Commit:** 0b60548 "Add CLI arguments to salamander utility scripts"
+
+**Plan 23 Status:** 1/2 tasks complete (50%)
+
+---
+
 2026-02-05 - Created data quality validation tests (Plan 24, Task 5) ✅ COMPLETE
 
 **Production-Ready Validators:**
