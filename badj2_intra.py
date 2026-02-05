@@ -361,9 +361,8 @@ def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
         - Sector-specific fitting (Energy vs others)
         - Most sophisticated intraday beta adjustment (market-weighted)
         - Output column named 'badj2_i' (note the '2')
-        - Code has naming issue on line 79: wrong column name check
     """
-    if 'badj_i' not in full_df.columns:
+    if 'badj2_i' not in full_df.columns:
         print "Creating forecast columns..."
         full_df['badj2_i'] = np.nan
         full_df[ 'o2cC_B_ma_coef' ] = np.nan
@@ -436,8 +435,6 @@ def calc_o2c_forecast(daily_df, intra_df, horizon, outsample):
         - Daily lags computed but not used in forecast
         - Final forecast in 'badj2_i' column
         - Most sophisticated intraday beta adjustment approach
-        - Code has logic issue on line 139: uses outsample_df in condition
-          before proper assignment
     """
     daily_df = calc_o2c(daily_df, horizon) 
     intra_df = calc_o2c_intra(intra_df, daily_df)
@@ -460,9 +457,9 @@ def calc_o2c_forecast(daily_df, intra_df, horizon, outsample):
     full_df = o2c_fits(sector_df, sector_intra_df, full_df, horizon, "ex", middate)
 
     outsample_df = full_df
-    if outsample_df:
-        full_df = full_df[ full_df['date'] >= middate ]
-  
+    if outsample:
+        outsample_df = full_df[ full_df['date'] >= middate ]
+
     return full_df, outsample_df
 
 if __name__=="__main__":            

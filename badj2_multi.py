@@ -462,7 +462,6 @@ def calc_o2c_forecast(daily_df, intra_df, horizon, outsample):
         - Only outsample data returned if outsample=True
         - Final forecast in 'badj2_m' column
         - Uses market-weighted approach (not simple division)
-        - Code has bug on line 166: references undefined outsample_df variable
     """
     daily_df = calc_o2c(daily_df, horizon) 
     intra_df = calc_o2c_intra(intra_df, daily_df)
@@ -488,12 +487,12 @@ def calc_o2c_forecast(daily_df, intra_df, horizon, outsample):
         full_df = full_df[ full_df['date'] > middate ]
     return full_df
 
-if __name__=="__main__":            
+if __name__=="__main__":
     parser = argparse.ArgumentParser(description='G')
     parser.add_argument("--start",action="store",dest="start",default=None)
     parser.add_argument("--end",action="store",dest="end",default=None)
     parser.add_argument("--os",action="store",dest="outsample",default=False)
-    args = parser.parse_args()    
+    args = parser.parse_args()
 
     start = args.start
     end = args.end
@@ -523,6 +522,6 @@ if __name__=="__main__":
 
     full_df = calc_o2c_forecast(daily_df, intra_df, horizon, outsample)
 
-    dump_alpha(outsample_df, 'badj2_m')
-    dump_all(outsample_df)
+    dump_alpha(full_df, 'badj2_m')
+    dump_all(full_df)
 

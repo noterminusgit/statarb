@@ -1,3 +1,20 @@
+2026-02-05 - Fixed 5 documented bugs in beta-adjusted strategies
+
+**Bugs Fixed:**
+1. bd1.py line 148: Variable name 'bdC' → 'bd1' (copy-paste error)
+2. bd1.py line 152-153: Column references 'bdC_B' → 'bd1_B', output 'bdC_B_ma' → 'bd1_B_ma'
+3. badj_intra.py line 304: Missing colon after if statement (syntax error)
+4. badj_intra.py line 394: Logic error using outsample_df instead of outsample boolean
+5. badj2_multi.py line 526: Undefined variable outsample_df → full_df
+6. badj2_intra.py line 366: Column check 'badj_i' → 'badj2_i' (consistency fix)
+7. badj2_intra.py line 463: Logic error using outsample_df instead of outsample boolean
+
+**Impact:** All beta-adjusted strategy files now have correct variable names, proper Python syntax, and consistent logic. Removed bug documentation from docstrings.
+
+**Commit:** Fix 5 documented bugs in beta-adjusted strategies
+
+---
+
 2026-02-04 - Documentation complete: Testing and utility scripts (8 files)
 
 **Documented Files:**
@@ -646,3 +663,18 @@
 - Remaining: testing utilities, README updates, cleanup of completed plan files
 
 **User requested /exit - stopping work.**
+2026-02-05 - Updated PLAN.md to reflect documentation completion
+
+**Changes:**
+- Rewrote PLAN.md as concise "mission accomplished" summary
+- Removed outdated references to deleted plan files
+- Added final statistics: 86/88 files (98%), ~16,000 lines of docs
+- Added pointers to plan/00-documentation-overview.md and LOG.md
+- Committed and pushed to remote
+
+**Commit:** 4a8825d "Update PLAN.md to reflect documentation completion"
+
+**Status:** Documentation project finalized ✅
+
+---
+

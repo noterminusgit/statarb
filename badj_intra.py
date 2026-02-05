@@ -115,11 +115,6 @@ Related Modules:
 - bd_intra.py: Order flow based intraday strategy
 - badj2_intra.py: Alternative with market-weighted beta calculation
 
-Code Issues:
------------
-- Line 70: Missing colon after if statement (syntax error)
-- Line 122: Variable name inconsistency (outsample_df vs full_df condition)
-
 Notes:
 -----
 - Horizon fixed at 3 in __main__
@@ -290,7 +285,6 @@ def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
         - Only out-of-sample data gets forecasts
         - Time-of-day coefficients capture intraday pattern evolution
         - Sector-specific fitting (Energy vs others)
-        - Code has syntax error on line 70: missing colon after if statement
     """
     if 'badj_i' not in full_df.columns:
         print "Creating forecast columns..."
@@ -301,7 +295,7 @@ def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
     insample_daily_df = daily_df
     outsample_intra_df = intra_df
     outsample = False
-    if middate is not None
+    if middate is not None:
         outsample = True
         insample_intra_df = intra_df[ intra_df['date'] <  middate ]
         insample_daily_df = daily_df[ daily_df['date'] < middate ]
@@ -368,7 +362,6 @@ def calc_o2c_forecast(daily_df, intra_df, horizon, outsample):
         - Energy sector handled separately for robustness
         - Daily lags computed but not used in forecast
         - Final forecast in 'badj_i' column
-        - Code has logic error on line 122: uses outsample_df before assignment
     """
     daily_df = calc_o2c(daily_df, horizon) 
     intra_df = calc_o2c_intra(intra_df, daily_df)
@@ -391,9 +384,9 @@ def calc_o2c_forecast(daily_df, intra_df, horizon, outsample):
     full_df = o2c_fits(sector_df, sector_intra_df, full_df, horizon, "ex", middate)
 
     outsample_df = full_df
-    if outsample_df:
-        full_df = full_df[ full_df['date'] >= middate ]
-  
+    if outsample:
+        outsample_df = full_df[ full_df['date'] >= middate ]
+
     return full_df, outsample_df
 
 if __name__=="__main__":            

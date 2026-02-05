@@ -79,7 +79,6 @@ Related Modules:
 
 Notes:
 -----
-- The code has a bug: line 17 references 'bdC' but should be 'bd1'
 - This appears to be a quick experimental variant for testing differenced signals
 - May produce different signal characteristics than level-based order flow
 """
@@ -113,7 +112,7 @@ def calc_bd_intra(intra_df):
         pd.DataFrame: Input dataframe augmented with:
             - bd1: Differenced order flow ratio signal
             - bd1_B: Winsorized bd1 signal
-            - bdC_B_ma: Industry-demeaned signal (NOTE: naming inconsistency)
+            - bd1_B_ma: Industry-demeaned signal
 
     Signal Formula:
         bd1 = (askHitDollars.diff() - bidHitDollars.diff()) /
@@ -129,7 +128,6 @@ def calc_bd_intra(intra_df):
         7. Merge back into original intra_df
 
     Notes:
-        - BUG: Line referencing 'bdC' should be 'bd1' - appears to be copy-paste error
         - No beta adjustment despite "beta-adjusted" in module name
         - No spread normalization unlike bd.py
         - First bar of each day will have NaN for .diff() calculation
@@ -145,12 +143,12 @@ def calc_bd_intra(intra_df):
 
     print "Calulating bd1..."
     result_df['bd1'] = (result_df['askHitDollars'].diff() - result_df['bidHitDollars'].diff()) / (result_df['askHitDollars'].diff() + result_df['midHitDollars'].diff() + result_df['bidHitDollars'].diff())
-    result_df['bd1_B'] = winsorize(result_df['bdC'])
+    result_df['bd1_B'] = winsorize(result_df['bd1'])
 
-    print "Calulating bdC_ma..."
+    print "Calulating bd1_ma..."
     demean = lambda x: (x - x.mean())
-    indgroups = result_df[['bdC_B', 'date', 'ind1']].groupby(['date', 'ind1'], sort=False).transform(demean)
-    result_df['bdC_B_ma'] = indgroups['bdC_B']
+    indgroups = result_df[['bd1_B', 'date', 'ind1']].groupby(['date', 'ind1'], sort=False).transform(demean)
+    result_df['bd1_B_ma'] = indgroups['bd1_B']
 
     #important for keeping NaTs out of the following merge
     del result_df['date']
