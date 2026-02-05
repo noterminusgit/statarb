@@ -107,17 +107,17 @@ def calc_pca_intra(intra_df):
         except:
             pcafit = lastpcafit
         print "PCA explained variance {}: {}".format(dt, pcafit.explained_variance_ratio_)
-#        pcarets = pca.transform(rets)
-#        pr = np.dot(pcarets, pcafit.components_)
-#        resids = rets - pr.T.reshape(len(df))
-#        result_df.ix[ grp.index, 'pcaC' ] = resids.values
+        pcarets = pca.transform(rets)
+        pr = np.dot(pcarets, pcafit.components_)
+        resids = rets - pr.T.reshape(len(df))
+        result_df.ix[ grp.index, 'pcaC' ] = resids.values
         lastpcafit = pcafit
 
     print "Calulating pcaC_ma..."
     result_df['pcaC_B'] = winsorize_by_ts(result_df['pcaC'])
- #   demean = lambda x: (x - x.mean())
-#    dategroups = result_df[['pcaC_B', 'giclose_ts']].groupby(['giclose_ts'], sort=False).transform(demean)
-    result_df['pcaC_B_ma'] = result_df['pcaC_B']
+    demean = lambda x: (x - x.mean())
+    dategroups = result_df[['pcaC_B', 'giclose_ts']].groupby(['giclose_ts'], sort=False).transform(demean)
+    result_df['pcaC_B_ma'] = dategroups['pcaC_B']
 
     return result_df
 
@@ -140,7 +140,7 @@ if __name__=="__main__":
     price_df = load_prices(uni_df, start, end, PRICE_COLS)
     DBAR_COLS = ['close', 'dvolume', 'dopen']
     daybar_df = load_daybars(price_df[ ['ticker'] ], start, end, DBAR_COLS, freq)
-    intra_df = merge_intra_data(daily_df, daybar_df)
+    intra_df = merge_intra_data(price_df, daybar_df)
     intra_df = calc_pca_intra(intra_df)
 
  

@@ -116,7 +116,7 @@ def calc_pca_daily(daily_df):
         df = corr_matrices.xs(dt, axis=0)
         df = df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
- #       rets = unstacked_rets_df.xs(dt)
+        rets = unstacked_overnight_df.xs(dt)
         print "Average correlation: {} {} {}".format(dt, df.unstack().mean(), df.unstack().std())
         try:
             pcafit =  pca.fit(np.asarray(df))
@@ -124,10 +124,10 @@ def calc_pca_daily(daily_df):
             pcafit = lastpcafit
         print "PCA explained variance {}: {}".format(dt, pcafit.explained_variance_ratio_)
 
-#        pcarets = pca.transform(rets)
-#        pr = np.dot(pcarets, pcafit.components_)
-#        resids = rets - pr.T.reshape(len(df))
-#        result_df.ix[ grp.index, 'pca0' ] = resids.values
+        pcarets = pca.transform(rets)
+        pr = np.dot(pcarets, pcafit.components_)
+        resids = rets - pr.T.reshape(len(df))
+        result_df.ix[ grp.index, 'pca0' ] = resids.values
         lastpcafit = pcafit
 
     return result_df
