@@ -263,7 +263,6 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
         - Only fits the intraday signal (not daily signals)
         - Uses a fixed horizon of 1 day for intraday regression
         - Combines intraday signal with lagged daily signals from daily_df
-        - Has a bug on line 46 where `lag` is undefined before use
 
     Regression Process:
         1. Fit intraday signal (hlC_B_ma) against 1-day forward returns
@@ -272,10 +271,6 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
 
     Forecast Formula:
         forecast = hlC_B_ma * coef0 + sum(lag=0 to horizon-1: hl{lag}_B_ma * coef_{lag})
-
-    Note: The code has a bug on line 46 where it references `lag` before the loop
-    that defines it. This line attempts to set 'hl_intra{lag}_B_ma_coef' but should
-    likely be 'hlC_B_ma_coef' or be placed inside the loop.
 
     Args:
         daily_df (DataFrame): Daily data (not used in this function, but passed for API consistency)
@@ -288,8 +283,6 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
         DataFrame: full_df with new columns:
             - {name} (float): Final alpha forecast combining intraday + lagged daily signals
             - hlC_B_ma_coef (float): Intraday signal coefficient
-            - hl_intra{lag}_B_ma_coef (float): Coefficient (bug: lag undefined)
-            - hl{lag}_B_ma_coef (float): Implied coefficients for lagged daily signals
 
     Side Effects:
         Generates diagnostic plot:
@@ -304,7 +297,6 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
         - Fixed horizon=1 for intraday regression (overwrites parameter)
         - Assumes daily_df contains lagged hl signals (hl0_B_ma, hl1_B_ma, etc.)
         - Coefficient is applied globally to all rows in full_df (not limited to intra_df timestamps)
-        - Bug: Line 46 should be inside the loop or reference a specific lag value
 
     Example:
         If regression yields coef0 = -0.5 for hlC_B_ma at horizon 1:
@@ -314,7 +306,6 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
     fits_df = fits_df.append(regress_alpha_intra(intra_df, 'hlC_B_ma', 1), ignore_index=True)
     plot_fit(fits_df, name + "_intra_" + df_dates(intra_df))
-    fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
     horizon = 1
@@ -322,7 +313,6 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
 
     #should only set where key in daily_df
     full_df[ 'hlC_B_ma_coef' ] = coef0
-    full_df[ 'hl_intra'+str(lag)+'_B_ma_coef' ] = coef0  # BUG: 'lag' is not defined yet
 
     full_df[name] = full_df['hlC_B_ma'] * full_df['hlC_B_ma_coef']
     for lag in range(0,horizon):
