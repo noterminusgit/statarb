@@ -1434,13 +1434,22 @@ Analyze realized vs. estimated costs using OSIM engine.
    - **Mitigation**: Salamander module provides Python 3 path
    - **Long-term**: Migrate to cvxpy, scipy.optimize, or commercial solver
 
-2. **Incomplete Implementations**:
-   - `pca_generator.py` - Residual calculation commented out
-   - `pca_generator_daily.py` - Analysis code, residuals not extracted
-   - **Impact**: PCA residual strategies not fully functional
-   - **Fix Required**: Uncomment and test residual extraction logic
+2. **Incomplete Implementations** (Now Resolved):
+   - ✅ `pca_generator.py` - Residual calculation fixed (2026-02-05)
+   - ✅ `pca_generator_daily.py` - Residual extraction enabled (2026-02-05)
+   - **Status**: PCA residual strategies now fully functional
 
-3. **Misleading Filenames**:
+3. **Code Bugs** (Now Resolved):
+   - ✅ Fixed 7 bugs in beta-adjusted strategies (2026-02-05)
+     - Variable naming errors in bd1.py
+     - Syntax errors in badj_intra.py
+     - Undefined variable references in badj2_multi.py, badj2_intra.py
+   - ✅ Fixed 2 bugs in hl_intra.py (2026-02-05)
+     - Empty DataFrame overwrite causing KeyError
+     - Undefined variable 'lag' causing NameError
+   - **Status**: All documented runtime bugs fixed
+
+4. **Misleading Filenames**:
    - `ebs.py` - Actually analyst estimates, not equity borrow
    - **Clarification**: "SAL" = Analyst estimates, not short availability
    - **Action**: Consider renaming to `sal.py` for clarity
