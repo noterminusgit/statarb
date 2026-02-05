@@ -13,15 +13,15 @@ After completing comprehensive documentation (98%, 86/88 files) and fixing 11 cr
 - **Effort**: 4-6 hours
 - **Files**: salamander/change_hl.py, salamander/show_borrow.py, loaddata.py, calc.py, regress.py, opt.py
 
-### 24: Testing Framework (HIGH Priority) - 1/5 COMPLETE
+### 24: Testing Framework (HIGH Priority) - 2/5 COMPLETE
 **Objective**: Create pytest infrastructure with comprehensive tests
 - Task 1: Set up pytest infrastructure ✅ COMPLETE (Commit: 5b25150)
-- Task 2: Unit tests for util.py
+- Task 2: Unit tests for util.py ✅ COMPLETE (Commit: b34c321)
 - Task 3: Unit tests for calc.py
 - Task 4: Integration test for bsim.py
 - Task 5: Data validation tests
-- **Effort**: 8-12 hours (1-2 hours spent)
-- **Files**: tests/ directory (created)
+- **Effort**: 8-12 hours (3-5 hours spent)
+- **Files**: tests/ directory (created), test_util.py (40+ tests)
 
 ### 25: Python 3 Migration Analysis (MEDIUM Priority)
 **Objective**: Research Python 3 feasibility and create migration roadmap

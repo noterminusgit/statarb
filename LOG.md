@@ -1,3 +1,26 @@
+2026-02-05 - Created unit tests for util.py (Plan 24, Task 2)
+
+**Tests Created:**
+- tests/test_util.py with 40+ comprehensive unit tests
+- 9 critical functions tested: merge_barra_data, filter_expandable, filter_pca, remove_dup_cols, get_overlapping_cols, merge_daily_calcs, merge_intra_calcs, df_dates, mkdir_p
+- **CRITICAL:** test_merge_barra_data_one_day_lag verifies 1-day lag (no look-ahead bias)
+- Edge cases: empty DataFrames, NaN values, boundary conditions
+- 10 test classes with organized test suites
+
+**Coverage:**
+- 100% of tested functions covered
+- Estimated 70-75% line coverage for util.py
+- 15+ edge case scenarios
+- All tests use conftest.py fixtures (no external dependencies)
+
+**Documentation:**
+- tests/test_util_coverage.md documenting all tests and coverage details
+- Detailed comments explaining critical tests (look-ahead bias prevention)
+
+**Commit:** b34c321 "Add unit tests for util.py"
+
+---
+
 2026-02-05 - Set up pytest testing infrastructure (Plan 24, Task 1)
 
 **Infrastructure Created:**
