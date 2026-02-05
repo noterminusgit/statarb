@@ -1,3 +1,17 @@
+2026-02-05 - Completed PCA generator implementations (pca_generator.py, pca_generator_daily.py)
+
+**Fixes:**
+- Uncommented residual calculation (core signal generation) in both files
+- Fixed variable name bug: daily_df → price_df in pca_generator.py line 143
+- Fixed variable reference: unstacked_rets_df → unstacked_overnight_df in pca_generator_daily.py
+- Enabled demeaning transformations in pca_generator.py
+
+**Impact:** Both PCA generators now functional - calculate residuals (actual - reconstructed returns) as mean-reverting alpha signals.
+
+**Commit:** Complete PCA generator implementations
+
+---
+
 2026-02-05 - Fixed 5 documented bugs in beta-adjusted strategies
 
 **Bugs Fixed:**
