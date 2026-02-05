@@ -10,11 +10,21 @@ Purpose:
     - Diagnose missing or anomalous borrow data
 
 Usage:
+    # Use defaults (backward compatible):
     python show_borrow.py
 
-    Hardcoded to:
-    - Load from: ./data/locates/borrow.csv
-    - Display SEDOL: 2484088 (example security)
+    # Specify custom file path:
+    python show_borrow.py --file ./custom/locates/borrow.csv
+
+    # Query different SEDOL:
+    python show_borrow.py --sedol 1234567
+
+    # Combine both:
+    python show_borrow.py --file ./data/locates/borrow.csv --sedol 9876543
+
+Arguments:
+    --file: Path to borrow.csv file (default: ./data/locates/borrow.csv)
+    --sedol: SEDOL identifier to query (default: 2484088)
 
 Output:
     Prints all rows for the specified SEDOL:
@@ -24,12 +34,6 @@ Output:
         2484088  2013-01-11  1100000  0.45
         2484088  2013-01-18   950000  0.55
         ...
-
-Customization:
-    Edit line 8 to change the SEDOL:
-        print(result_df[result_df['sedol']=='YOUR_SEDOL'])
-
-    Edit main("./data") to change the data directory.
 
 Data Format:
     Expects pipe-delimited CSV with columns: sedol, date, shares, fee
@@ -44,13 +48,43 @@ Related:
     change_raw.py - Adds SEDOL to uni_df for joining with borrow data
 """
 
+import argparse
 import pandas as pd
 
-def main(locates_dir):
-    pd.set_option('display.max_columns', 100)
-    ff = locates_dir + "/locates/borrow.csv"
-    print("Loading", ff)
-    result_df = pd.read_csv(ff, parse_dates=['date'], usecols=['sedol', 'date', 'shares', 'fee'], sep='|')
-    print(result_df[result_df['sedol']=='2484088'])
+def main():
+    parser = argparse.ArgumentParser(
+        description='View borrow rate history for a specific security'
+    )
+    parser.add_argument(
+        '--file',
+        type=str,
+        default='./data/locates/borrow.csv',
+        help='Path to borrow.csv file (default: ./data/locates/borrow.csv)'
+    )
+    parser.add_argument(
+        '--sedol',
+        type=str,
+        default='2484088',
+        help='SEDOL identifier to query (default: 2484088)'
+    )
+    args = parser.parse_args()
 
-main("./data")
+    pd.set_option('display.max_columns', 100)
+
+    print("Loading", args.file)
+    result_df = pd.read_csv(
+        args.file,
+        parse_dates=['date'],
+        usecols=['sedol', 'date', 'shares', 'fee'],
+        sep='|'
+    )
+
+    print("\nBorrow data for SEDOL:", args.sedol)
+    filtered_df = result_df[result_df['sedol'] == args.sedol]
+    if len(filtered_df) == 0:
+        print("No data found for SEDOL:", args.sedol)
+    else:
+        print(filtered_df)
+
+if __name__ == '__main__':
+    main()

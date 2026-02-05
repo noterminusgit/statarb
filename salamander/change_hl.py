@@ -10,9 +10,14 @@ Purpose:
     like truncate(), resample(), and date-based filtering.
 
 Usage:
+    # Use default file path (backward compatible):
     python change_hl.py
 
-    Hardcoded to process: ./all/all.20040101-20040630.h5
+    # Specify custom file path:
+    python change_hl.py --file ./custom/data.20050101-20050630.h5
+
+Arguments:
+    --file: Path to HDF5 file to process (default: ./all/all.20040101-20040630.h5)
 
 Process:
     1. Load full_df from HDF5 file
@@ -26,19 +31,38 @@ Output:
     Prints before and after dtypes for verification.
 
 Note:
-    This is a one-off utility script. File path is hardcoded and should be
-    updated for different files. For batch processing, see change_raw.py.
+    For batch processing of multiple files, see change_raw.py.
 """
 
+import argparse
 import h5py
 import pandas as pd
 
-pd.set_option('display.max_columns', 100)
-filename1 = './all/all.20040101-20040630.h5'
-df = pd.read_hdf(filename1, key='full_df')
-print(df.index.levels[0].dtype)
-df = df.reset_index()
-df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
-df.set_index(['date', 'gvkey'], inplace=True)
-print(df.index.levels[0].dtype)
-df.to_hdf('./all/all.20040101-20040630.h5', 'full_df', mode='w')
+def main():
+    parser = argparse.ArgumentParser(
+        description='Fix date index format in HL HDF5 files'
+    )
+    parser.add_argument(
+        '--file',
+        type=str,
+        default='./all/all.20040101-20040630.h5',
+        help='Path to HDF5 file to process (default: ./all/all.20040101-20040630.h5)'
+    )
+    args = parser.parse_args()
+
+    pd.set_option('display.max_columns', 100)
+
+    print("Processing file:", args.file)
+    df = pd.read_hdf(args.file, key='full_df')
+    print("Before - Date dtype:", df.index.levels[0].dtype)
+
+    df = df.reset_index()
+    df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+    df.set_index(['date', 'gvkey'], inplace=True)
+
+    print("After - Date dtype:", df.index.levels[0].dtype)
+    df.to_hdf(args.file, 'full_df', mode='w')
+    print("File updated successfully")
+
+if __name__ == '__main__':
+    main()
