@@ -1,3 +1,35 @@
+2026-02-05 - Created integration test for bsim.py (Plan 24, Task 4)
+
+**Tests Created:**
+- tests/test_bsim_integration.py with 5 end-to-end integration test scenarios
+- Comprehensive synthetic data fixture (5 stocks, 10 days, intraday timestamps)
+- Full pipeline test: data loading -> forecast combination -> optimization -> position tracking
+
+**Test Scenarios:**
+1. Basic simulation - complete pipeline runs without errors, positions generated
+2. All zero forecasts - degenerate alpha case, minimal positions expected
+3. Single stock universe - edge case with one security
+4. Constrained optimization - tight position limits stress test
+5. Output structure validation - verify result format and columns
+
+**Synthetic Data:**
+- Random walk prices with realistic volatility
+- Volume/market cap data matching production structure
+- Barra factor exposures (3 factors for testing)
+- Mean-reversion alpha signal (hl strategy)
+
+**Validation:**
+- Positions respect bounds (min/max notional)
+- Gross notional respects max_sumnot constraint
+- Trades executed within participation limits
+- Output DataFrame has correct structure
+
+**Note:** Tests syntax-validated with Python 3 AST parser, require Python 2.7 runtime to execute (opt module dependency)
+
+**Commit:** 1e7684d "Add integration test for bsim.py"
+
+---
+
 2026-02-05 - Created unit tests for util.py (Plan 24, Task 2)
 
 **Tests Created:**
