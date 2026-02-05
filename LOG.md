@@ -1,3 +1,15 @@
+2026-02-05 - Fixed 2 bugs in hl_intra.py hl_fits_fast function
+
+**Bugs Fixed:**
+1. Removed line overwriting fits_df with empty DataFrame after plotting (would cause KeyError extracting coef0)
+2. Removed line using undefined variable 'lag' before loop definition (would cause NameError)
+
+**Impact:** hl_intra strategy now executes without runtime errors.
+
+**Commit:** b5d9e2f "Fix two bugs in hl_intra.py hl_fits_fast function"
+
+---
+
 2026-02-05 - Completed PCA generator implementations (pca_generator.py, pca_generator_daily.py)
 
 **Fixes:**
