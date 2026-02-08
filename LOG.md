@@ -1,3 +1,39 @@
+2026-02-08 - OpenOpt alternatives research (Plan 25, Task 2) ✅ COMPLETE
+
+**Research Scope:** Evaluated 5 Python 3 optimization libraries to replace OpenOpt/FuncDesigner for portfolio optimization in opt.py
+
+**Alternatives Analyzed:**
+1. scipy.optimize.minimize (trust-constr/SLSQP) - RECOMMENDED
+2. cvxpy + OSQP/ECOS - Strong alternative
+3. CVXOPT QP solver - Lower-level, not recommended
+4. PyPortfolioOpt - Not suitable (too high-level)
+5. Pyomo + IPOPT - Overkill for this problem
+
+**Recommendation:** scipy.optimize.minimize with trust-constr method
+- Native NLP support (handles nonlinear slippage without approximation)
+- Designed for large-scale problems (1000+ variables)
+- No new dependencies (part of SciPy stack)
+- 8-12 hour migration effort (lowest among alternatives)
+- Expected 1-10 sec solve time (acceptable for daily rebalancing)
+
+**Key Findings:**
+- trust-constr specifically designed for problems with 1400+ variables
+- Preserves model fidelity (no need to linearize power-law slippage term)
+- Similar API to OpenOpt (objective, gradient, constraints)
+- cvxpy would require convex approximation of slippage (11-18 hour effort)
+
+**Documentation Added:**
+- Comprehensive comparison table (features, performance, effort, licenses)
+- Complete scipy.optimize.minimize implementation example
+- Detailed pros/cons for each alternative
+- Alternative recommendation (cvxpy) if slippage can be simplified
+
+**Commit:** 83fdf21 "Add OpenOpt alternatives research"
+
+**Plan 25 Status:** 2/3 tasks complete (67%)
+
+---
+
 2026-02-08 - Added error handling and validation to core modules (Plan 23, Task 2) ✅ COMPLETE
 
 **Modules Enhanced:**

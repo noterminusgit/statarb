@@ -47,20 +47,39 @@ Survey Python 3 compatibility issues:
 6. Push to remote
 ```
 
-### Task 2: OpenOpt Alternative Research
-**Files:** Add to PYTHON3_MIGRATION.md
+### Task 2: OpenOpt Alternative Research ✅ COMPLETE
+**Files:** PYTHON3_MIGRATION.md
 
-**Alternatives to evaluate:**
-1. **cvxpy** - Convex optimization, active development
-2. **scipy.optimize** - Built-in, quadratic programming
-3. **CVXOPT** - Open source convex optimization
-4. **Commercial solvers** - Gurobi, CPLEX (mention only)
+**Status:** COMPLETE - Comprehensive research added to PYTHON3_MIGRATION.md
+- Evaluated 5 alternatives: scipy.optimize, cvxpy, CVXOPT, PyPortfolioOpt, Pyomo+IPOPT
+- Feature comparison table with problem compatibility, performance, effort estimates
+- **RECOMMENDED**: scipy.optimize.minimize (trust-constr method)
+  * Native NLP support (no approximations needed)
+  * Designed for large-scale problems (1000+ vars)
+  * No new dependencies (part of SciPy)
+  * 8-12 hour migration effort
+  * Expected 1-10 sec solve time
+- Alternative: cvxpy + OSQP (if slippage can be simplified)
+  * Requires convex approximation of power-law slippage
+  * Excellent performance (0.5-5 sec)
+  * 11-18 hour effort with model changes
+- Complete scipy.optimize implementation example provided
+- Detailed pros/cons for each alternative
+- Migration effort estimates: 8-22 hours depending on choice
 
-**Research Questions:**
-- Can they handle portfolio optimization constraints?
-- Performance comparison (speed, iterations)
-- API complexity (migration effort)
-- License compatibility
+**Alternatives evaluated:**
+1. **scipy.optimize.minimize** - RECOMMENDED (trust-constr for large-scale)
+2. **cvxpy + OSQP/ECOS** - Strong alternative, requires convex approximation
+3. **CVXOPT** - Lower-level QP solver, not recommended
+4. **PyPortfolioOpt** - Not suitable (too high-level for custom objectives)
+5. **Pyomo + IPOPT** - Powerful but overkill for this problem
+
+**Research findings:**
+- scipy.optimize.minimize best handles nonlinear slippage function
+- trust-constr method specifically designed for 1000+ variable problems
+- cvxpy excellent but requires linearizing power-law slippage term
+- All alternatives actively maintained with good community support
+- scipy has best balance of functionality, performance, migration effort
 
 **Subagent Instructions:**
 ```
@@ -138,8 +157,8 @@ Create Python 3 migration roadmap:
 
 ## Success Criteria
 - [x] Python 3 compatibility issues catalogued
-- [ ] OpenOpt alternatives researched and compared
+- [x] OpenOpt alternatives researched and compared
 - [ ] Migration roadmap created with effort estimates
 - [x] Risk assessment completed
-- [ ] Recommendation made for migration approach
+- [x] Recommendation made for migration approach (scipy.optimize.minimize)
 - [ ] Decision point: Proceed with migration or defer?
