@@ -39,6 +39,7 @@ time-series operations across securities.
 import numpy as np
 import pandas as pd
 import gc
+import logging
 
 from scipy import stats
 from pandas.stats.api import ols
@@ -47,6 +48,9 @@ from lmfit import minimize, Parameters, Parameter, report_errors
 from collections import defaultdict
 
 from util import *
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 INDUSTRIES = ['CONTAINR', 'HLTHSVCS', 'SPLTYRET', 'SPTYSTOR', 'DIVFIN', 'GASUTIL', 'BIOLIFE', 'SPTYCHEM', 'ALUMSTEL', 'AERODEF', 'COMMEQP', 'HOUSEDUR', 'CHEM', 'LEISPROD', 'AUTO', 'CONGLOM', 'HOMEBLDG', 'CNSTENG', 'LEISSVCS', 'OILGSCON', 'MEDIA', 'FOODPROD', 'PSNLPROD', 'OILGSDRL', 'SOFTWARE', 'BANKS', 'RESTAUR', 'FOODRET', 'ROADRAIL', 'APPAREL', 'INTERNET', 'NETRET', 'PAPER', 'WIRELESS', 'PHARMA', 'MGDHLTH', 'CNSTMACH', 'OILGSEQP', 'REALEST', 'COMPELEC', 'BLDGPROD', 'TRADECO', 'MULTUTIL', 'CNSTMATL', 'HLTHEQP', 'PRECMTLS', 'INDMACH', 'TRANSPRT', 'SEMIEQP', 'TELECOM', 'OILGSEXP', 'INSURNCE', 'AIRLINES', 'SEMICOND', 'ELECEQP', 'ELECUTIL', 'LIFEINS', 'COMSVCS', 'DISTRIB']
@@ -157,6 +161,22 @@ def calc_forward_returns(daily_df, horizon):
         - cum_ret2 = log_ret[T+1] + log_ret[T+2]
         - cum_ret5 = sum of log_ret from T+1 to T+5
     """
+    # Validate inputs
+    if daily_df is None or daily_df.empty:
+        raise ValueError("daily_df cannot be None or empty")
+    if not isinstance(horizon, int) or horizon <= 0:
+        raise ValueError("horizon must be a positive integer, got: {}".format(horizon))
+    if horizon > 20:
+        logging.warning("horizon={} is unusually large".format(horizon))
+    if 'log_ret' not in daily_df.columns:
+        raise ValueError("daily_df must contain 'log_ret' column")
+
+    # Check for data quality issues in log_ret
+    if daily_df['log_ret'].isnull().all():
+        raise ValueError("All log_ret values are NaN")
+    if np.isinf(daily_df['log_ret']).any():
+        logging.warning("Found {} infinite values in log_ret".format(np.isinf(daily_df['log_ret']).sum()))
+
     print "Calculating forward returns..."
     results_df = pd.DataFrame( index=daily_df.index )
     for ii in range(1, horizon+1):
@@ -192,9 +212,34 @@ def winsorize(data, std_level=5):
         - Values < -5 become -5
         - Values in [-5, 5] unchanged
     """
+    # Validate inputs
+    if data is None or len(data) == 0:
+        raise ValueError("data cannot be None or empty")
+    if not isinstance(std_level, (int, float)) or std_level <= 0:
+        raise ValueError("std_level must be a positive number, got: {}".format(std_level))
+    if std_level > 10:
+        logging.warning("std_level={} is unusually high, may not winsorize effectively".format(std_level))
+
     result = data.copy()
+
+    # Check for all NaN
+    if result.isnull().all():
+        logging.warning("All values are NaN in winsorize, returning as-is")
+        return result
+
+    # Check for infinite values
+    if np.isinf(result).any():
+        logging.warning("Found {} infinite values in data, replacing with NaN".format(np.isinf(result).sum()))
+        result = result.replace([np.inf, -np.inf], np.nan)
+
     std = result.std() * std_level
     mean = result.mean()
+
+    # Handle case where std is 0 or NaN
+    if pd.isnull(std) or std == 0:
+        logging.warning("Standard deviation is {} in winsorize, returning data unchanged".format(std))
+        return result
+
     result[result > mean + std] = mean + std
     result[result < mean - std] = mean - std
     return result

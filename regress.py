@@ -38,6 +38,7 @@ import glob
 import argparse
 import re
 import math
+import logging
 from collections import defaultdict
 from dateutil import parser as dateparser
 
@@ -56,6 +57,9 @@ import statsmodels.api as sm
 
 from util import *
 from calc import *
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 ADV_POWER = 1/2
 
@@ -283,24 +287,58 @@ def regress_alpha_daily(daily_df, indep, horizon, intercept=True):
         To fit hl (high-low) alpha for 3-day returns:
         >>> regress_alpha_daily(daily_df, 'hl', horizon=3)
     """
+    # Validate inputs
+    if daily_df is None or daily_df.empty:
+        raise ValueError("daily_df cannot be None or empty")
+    if not isinstance(horizon, int) or horizon <= 0:
+        raise ValueError("horizon must be a positive integer, got: {}".format(horizon))
+    if not isinstance(indep, str) or not indep:
+        raise ValueError("indep must be a non-empty string")
+
     print "Regressing alphas daily for {} with horizon {}...".format(indep, horizon)
     retname = 'cum_ret'+str(horizon)
 
+    # Check for required columns
+    required_cols = [retname, 'mdvp', indep]
+    missing_cols = [col for col in required_cols if col not in daily_df.columns]
+    if missing_cols:
+        raise ValueError("Missing required columns: {}".format(missing_cols))
+
     fitdata_df = daily_df[ [retname, 'mdvp', indep] ]
-#    print fitdata_df.tail()
     fitdata_df.replace([np.inf, -np.inf], np.nan, inplace=True)
     fitdata_df = fitdata_df.dropna()
 
+    # Check for sufficient observations
+    if len(fitdata_df) < 10:
+        raise ValueError("Insufficient observations for regression: {} rows (need at least 10)".format(len(fitdata_df)))
+
+    # Check for data quality
+    if fitdata_df['mdvp'].min() <= 0:
+        logging.warning("Found non-positive mdvp values, may cause issues with weighting")
+    if fitdata_df[indep].std() == 0:
+        raise ValueError("Alpha factor {} has zero variance, cannot perform regression".format(indep))
+
     weights = fitdata_df['mdvp'] ** ADV_POWER
+
+    # Validate weights
+    if weights.isnull().any() or (weights <= 0).any():
+        logging.warning("Found invalid weights, setting to 1 where invalid")
+        weights = weights.fillna(1)
+        weights[weights <= 0] = 1
+
     ys = winsorize_by_date(fitdata_df[retname])
     ys = np.exp(ys) - 1
     xs = winsorize(fitdata_df[indep])
     if intercept:
         xs = sm.add_constant(xs)
-    results_wls = sm.WLS(ys, xs, weights=weights).fit()
-    print results_wls.summary()
-    results_df = extract_results(results_wls, indep, horizon)
-    return results_df
+
+    try:
+        results_wls = sm.WLS(ys, xs, weights=weights).fit()
+        print results_wls.summary()
+        results_df = extract_results(results_wls, indep, horizon)
+        return results_df
+    except Exception as e:
+        raise ValueError("Regression failed for {} at horizon {}: {}".format(indep, horizon, str(e)))
 
 def regress_alpha_intra_eod(intra_df, indep):
     """

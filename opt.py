@@ -53,9 +53,13 @@ Global Variables:
 import sys
 import numpy
 import math
+import logging
 import openopt
 
 import util
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 max_sumnot = 50.0e6
 max_expnot = 0.048
@@ -646,8 +650,37 @@ def optimize():
     """
     global p
 
+    # Validate global variables are initialized
+    if g_positions is None or len(g_positions) == 0:
+        raise ValueError("g_positions is not initialized or empty")
+    if g_mu is None or len(g_mu) == 0:
+        raise ValueError("g_mu is not initialized or empty")
+    if g_factors is None or g_factors.size == 0:
+        raise ValueError("g_factors is not initialized or empty")
+
+    # Check dimensions match
+    if len(g_positions) != len(g_mu):
+        raise ValueError("Dimension mismatch: g_positions ({}) != g_mu ({})".format(len(g_positions), len(g_mu)))
+    if g_factors.shape[1] != len(g_positions):
+        raise ValueError("Dimension mismatch: g_factors columns ({}) != g_positions ({})".format(g_factors.shape[1], len(g_positions)))
+
+    # Check for NaN/inf in critical inputs
+    if numpy.isnan(g_mu).any():
+        logging.warning("Found {} NaN values in g_mu, setting to 0".format(numpy.isnan(g_mu).sum()))
+        g_mu[numpy.isnan(g_mu)] = 0
+    if numpy.isinf(g_mu).any():
+        logging.warning("Found {} infinite values in g_mu, setting to 0".format(numpy.isinf(g_mu).sum()))
+        g_mu[numpy.isinf(g_mu)] = 0
+
+    if numpy.isnan(g_rvar).any() or (g_rvar < 0).any():
+        logging.warning("Found invalid g_rvar values (NaN or negative), setting to small positive value")
+        g_rvar[numpy.isnan(g_rvar) | (g_rvar < 0)] = 1e-8
+
     tradeable, untradeable = getUntradeable()
-    
+
+    if len(tradeable) == 0:
+        raise ValueError("No tradeable securities found - check bounds configuration")
+
     t_num_secs = len(tradeable)
     t_positions = numpy.copy(g_positions[tradeable])
     t_factors = numpy.copy(g_factors[:, tradeable])
@@ -689,7 +722,17 @@ def optimize():
 
     lb = numpy.maximum(t_lbound, -max_posnot * max_sumnot)
     ub = numpy.minimum(t_ubound, max_posnot * max_sumnot)
-        
+
+    # Validate bounds are feasible
+    if (lb > ub).any():
+        num_infeasible = (lb > ub).sum()
+        logging.warning("Found {} securities with infeasible bounds (lb > ub)".format(num_infeasible))
+        # Fix by relaxing bounds
+        infeasible_mask = lb > ub
+        midpoint = (lb[infeasible_mask] + ub[infeasible_mask]) / 2
+        lb[infeasible_mask] = midpoint
+        ub[infeasible_mask] = midpoint
+
     #exposure constraints
     Ac = numpy.zeros((2 * num_factors, t_num_secs))
     bc = numpy.zeros(2 * num_factors)
@@ -700,13 +743,25 @@ def optimize():
         bc[i] = ubexp[i]
         bc[num_factors + i] = -lbexp[i]
 
+    # Validate exposure bounds
+    if (lbexp > ubexp).any():
+        num_infeasible = (lbexp > ubexp).sum()
+        logging.warning("Found {} factors with infeasible exposure bounds (lb > ub)".format(num_infeasible))
+
     untradeable_mu = numpy.dot(u_mu, u_positions)
     untradeable_rvar = numpy.dot(u_positions * u_rvar, u_positions)
     untradeable_loadings = untradeable_exposures
-    untradeable_info = (untradeable_mu, untradeable_rvar, untradeable_loadings) 
+    untradeable_info = (untradeable_mu, untradeable_rvar, untradeable_loadings)
 
-    p = setupProblem(t_positions, t_mu, t_rvar, t_factors, g_fcov, t_advp, t_advpt, t_vol, t_mktcap, t_borrowRate, t_price, lb, ub, Ac, bc, lbexp, ubexp, untradeable_info, sumnot, zero_start)
-    r = p.solve('ralg')
+    # Validate sumnot constraint
+    if sumnot <= 0:
+        raise ValueError("Capital constraint sumnot must be positive, got: {}".format(sumnot))
+
+    try:
+        p = setupProblem(t_positions, t_mu, t_rvar, t_factors, g_fcov, t_advp, t_advpt, t_vol, t_mktcap, t_borrowRate, t_price, lb, ub, Ac, bc, lbexp, ubexp, untradeable_info, sumnot, zero_start)
+        r = p.solve('ralg')
+    except Exception as e:
+        raise ValueError("Optimization setup or solve failed: {}".format(str(e)))
     
     #XXX need to check for small number of iterations!!!
     if (r.stopcase == -1 or r.isFeasible == False) and zero_start > 0:

@@ -38,6 +38,7 @@ import os
 import glob
 import re
 import math
+import logging
 
 from dateutil import parser as dateparser
 import time
@@ -51,6 +52,9 @@ import sqlite3 as lite
 
 from util import *
 from calc import *
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 UNIV_BASE_DIR = ""
 SECDATA_BASE_DIR = ""
@@ -99,49 +103,113 @@ def get_uni(start, end, lookback, uni_size=1400):
         - SECDATA_BASE_DIR/{year}/{date}.csv.gz - Security data with sectors
         - PRICE_BASE_DIR/{year}/{date}.csv - Price/volume data
     """
+    # Validate input parameters
+    if not isinstance(start, datetime) or not isinstance(end, datetime):
+        raise ValueError("start and end must be datetime objects")
+    if start >= end:
+        raise ValueError("start date must be before end date: start={}, end={}".format(start, end))
+    if not isinstance(lookback, int) or lookback < 0:
+        raise ValueError("lookback must be a non-negative integer, got: {}".format(lookback))
+    if not isinstance(uni_size, int) or uni_size <= 0:
+        raise ValueError("uni_size must be a positive integer, got: {}".format(uni_size))
+
     unidate = start - timedelta(days=lookback)
     year = unidate.strftime("%Y")
     unidate = unidate.strftime("%Y%m%d")
 
     univ_dir = UNIV_BASE_DIR + year
     univ_file = univ_dir + "/" + unidate + ".csv"
-    univ_df = pd.read_csv(univ_file, header=0, usecols=['sid', 'ticker_root', 'status', 'country', 'currency'], index_col=['sid'])
-    print "Universe size (raw): {}".format(len(univ_df.index))    
+
+    try:
+        univ_df = pd.read_csv(univ_file, header=0, usecols=['sid', 'ticker_root', 'status', 'country', 'currency'], index_col=['sid'])
+    except IOError as e:
+        raise IOError("Failed to load universe file {}: {}".format(univ_file, str(e)))
+    except Exception as e:
+        raise ValueError("Error reading universe file {}: {}".format(univ_file, str(e)))
+
+    if univ_df.empty:
+        raise ValueError("Universe file {} is empty".format(univ_file))
+    if univ_df.isnull().all().all():
+        raise ValueError("Universe file {} contains all NaN values".format(univ_file))
+
+    print "Universe size (raw): {}".format(len(univ_df.index))
     univ_df = univ_df[ (univ_df['country'] == "USA") & (univ_df['currency'] == "USD") ]
-    print "Universe size (US/USD): {}".format(len(univ_df.index))    
+    print "Universe size (US/USD): {}".format(len(univ_df.index))
+
+    if univ_df.empty:
+        logging.warning("No US/USD stocks found in universe for date {}".format(unidate))    
 
     secdata_dir = SECDATA_BASE_DIR + year
     secdata_file = secdata_dir + "/" + unidate + ".csv.gz"
-    secdata_df = pd.read_csv(secdata_file, header=0, compression='gzip', usecols=['sid', 'symbol', 'sector', 'ind', 'group', 'sector_name', 'ind_name', 'estu_inter', 'estu_barra4s'], index_col=['sid'])
+
+    try:
+        secdata_df = pd.read_csv(secdata_file, header=0, compression='gzip', usecols=['sid', 'symbol', 'sector', 'ind', 'group', 'sector_name', 'ind_name', 'estu_inter', 'estu_barra4s'], index_col=['sid'])
+    except IOError as e:
+        raise IOError("Failed to load secdata file {}: {}".format(secdata_file, str(e)))
+    except Exception as e:
+        raise ValueError("Error reading secdata file {}: {}".format(secdata_file, str(e)))
+
+    if secdata_df.empty:
+        raise ValueError("Secdata file {} is empty".format(secdata_file))
+
     univ_df = pd.merge(univ_df, secdata_df, how='inner', left_index=True, right_index=True, sort=True)
-    print "Universe size (secdata): {}".format(len(univ_df.index))    
+    print "Universe size (secdata): {}".format(len(univ_df.index))
     univ_df = univ_df[ (univ_df['estu_barra4s'] == 1) | (univ_df['ind'] == 404020) ]
     del univ_df['estu_inter']
     del univ_df['estu_barra4s']
-    print "Universe size (estu_inter): {}".format(len(univ_df.index))    
+    print "Universe size (estu_inter): {}".format(len(univ_df.index))
 
     univ_df = univ_df[ univ_df['group'] != 3520 ]
-    print "Universe size (bio): {}".format(len(univ_df.index))    
+    print "Universe size (bio): {}".format(len(univ_df.index))
 
     price_dir = PRICE_BASE_DIR + year
     price_file = price_dir + "/" + unidate + ".csv"
-    price_df = pd.read_csv(price_file, header=0, usecols=['sid', 'ticker', 'close', 'tradable_med_volume_21', 'mkt_cap'], index_col=['sid'])
 
-    univ_df = pd.merge(univ_df, price_df, how='inner', left_index=True, right_index=True, sort=True)    
+    try:
+        price_df = pd.read_csv(price_file, header=0, usecols=['sid', 'ticker', 'close', 'tradable_med_volume_21', 'mkt_cap'], index_col=['sid'])
+    except IOError as e:
+        raise IOError("Failed to load price file {}: {}".format(price_file, str(e)))
+    except Exception as e:
+        raise ValueError("Error reading price file {}: {}".format(price_file, str(e)))
+
+    if price_df.empty:
+        raise ValueError("Price file {} is empty".format(price_file))
+
+    univ_df = pd.merge(univ_df, price_df, how='inner', left_index=True, right_index=True, sort=True)
     print "Universe size (prices): {}".format(len(univ_df.index))    
 
+    # Check for invalid price data
+    if np.isinf(univ_df['close']).any():
+        logging.warning("Found infinite values in close prices, filtering out")
+        univ_df = univ_df[~np.isinf(univ_df['close'])]
+
     univ_df = univ_df[ (univ_df['close'] > t_low_price) & (univ_df['close'] < t_high_price) ]
-    print "Universe size (price range): {}".format(len(univ_df.index))    
+    print "Universe size (price range): {}".format(len(univ_df.index))
 
     univ_df['mdvp'] = univ_df['tradable_med_volume_21'] * univ_df['close']
+
+    # Check for invalid volume data
+    if np.isinf(univ_df['mdvp']).any():
+        logging.warning("Found infinite values in mdvp, filtering out")
+        univ_df = univ_df[~np.isinf(univ_df['mdvp'])]
+
     univ_df = univ_df[ univ_df['mdvp'] > t_min_advp ]
     print "Universe size (adv): {}".format(len(univ_df.index))
 
     univ_df['rank'] = univ_df['mkt_cap'].fillna(0).rank(ascending=False)
     univ_df = univ_df[ univ_df['rank'] <= uni_size ]
     print "Universe size (mktcap): {}".format(len(univ_df.index))
-    
-    return univ_df[ ['symbol', 'sector_name'] ]
+
+    if univ_df.empty:
+        raise ValueError("Final universe is empty after all filters. Check universe parameters.")
+
+    result_df = univ_df[ ['symbol', 'sector_name'] ]
+
+    # Final validation
+    if result_df.isnull().any().any():
+        logging.warning("Final universe contains NaN values in symbol or sector_name columns")
+
+    return result_df
 #    univ_df = univ_df[['ticker_root']]
 
     # date = start
@@ -309,6 +377,14 @@ def load_prices(uni_df, start, end, cols):
     File Dependencies:
         - PRICE_BASE_DIR/{year}/{date}.equ_prices.rev.csv
     """
+    # Validate inputs
+    if uni_df is None or uni_df.empty:
+        raise ValueError("uni_df cannot be None or empty")
+    if not isinstance(start, datetime) or not isinstance(end, datetime):
+        raise ValueError("start and end must be datetime objects")
+    if start >= end:
+        raise ValueError("start date must be before end date: start={}, end={}".format(start, end))
+
     if cols is None:
         cols = ['open', 'high', 'low', 'prim_volume', 'comp_volume', 'shares_out', 'ret', 'log_ret', 'prim_med_volume_21', 'prim_med_volume_60', 'comp_med_volume_21', 'comp_med_volume_60', 'tradable_med_volume_60', 'volat_21', 'volat_60', 'cum_log_ret', 'overnight_log_ret', 'today_log_ret', 'overnight_volat_21', 'today_volat_21', 'split', 'div']
     cols.extend( ['sid', 'ticker', 'close', 'tradable_med_volume_21', 'log_ret', 'tradable_volume', 'mkt_cap'] )
@@ -334,7 +410,22 @@ def load_prices(uni_df, start, end, cols):
         result_dfs.append(prices_df)        
         date += timedelta(days=1)
 
+    if not result_dfs:
+        raise ValueError("No price data loaded for date range {} to {}".format(start, end))
+
     result_df = pd.concat(result_dfs, verify_integrity=True)
+
+    if result_df.empty:
+        raise ValueError("Price data is empty after loading and merging")
+
+    # Check for NaN/inf in critical columns
+    if 'close' in result_df.columns:
+        if result_df['close'].isnull().all():
+            raise ValueError("All close prices are NaN")
+        if np.isinf(result_df['close']).any():
+            logging.warning("Found infinite values in close prices, filtering out")
+            result_df = result_df[~np.isinf(result_df['close'])]
+
     result_df['tradable_med_volume_21'] = result_df['tradable_med_volume_21'].astype(float)
     if 'shares_out' in result_df.columns:
         result_df['shares_out'] = result_df['shares_out'].astype(float)
@@ -342,6 +433,12 @@ def load_prices(uni_df, start, end, cols):
     if 'comp_voume' in result_df.columns:
         result_df['comp_volume'] = result_df['comp_volume'].astype(float)
     result_df['mdvp'] = result_df['close'] * result_df['tradable_med_volume_21']
+
+    # Check for invalid mdvp values
+    if np.isinf(result_df['mdvp']).any():
+        logging.warning("Found infinite values in mdvp")
+        result_df.loc[np.isinf(result_df['mdvp']), 'mdvp'] = np.nan
+
     result_df = lag_data(result_df)
     result_df['expandable'] = (result_df['close_y'] > e_low_price) & (result_df['close_y'] < e_high_price) & (result_df['mdvp_y'] > e_min_advp)
 
