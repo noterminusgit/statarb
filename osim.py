@@ -117,7 +117,7 @@ Only end-of-day marks contribute to daily P&L calculations.
 
 Weight Optimization
 -------------------
-The OpenOpt NSP (Non-Smooth Problem) solver optimizes forecast weights by:
+The scipy.optimize.minimize solver optimizes forecast weights by:
 
 Objective function:
     maximize: sharpe_ratio - 0.05 * std(weights)
@@ -213,7 +213,7 @@ Dependencies
 - util.py: Data merging and utility functions (remove_dup_cols, push_data)
 - regress.py: Regression utilities (unused in this file)
 - loaddata.py: Data loading with load_cache() function
-- openopt: Non-smooth optimization solver (NSP class)
+- scipy.optimize: Constrained optimization solver (minimize function)
 
 Data Requirements
 -----------------
@@ -250,7 +250,7 @@ from util import *
 from regress import *
 from loaddata import *
 
-import openopt
+from scipy.optimize import minimize
 
 from collections import defaultdict
 
@@ -385,7 +385,7 @@ def objective(weights):
     Objective function for forecast weight optimization.
 
     Simulates order execution with weighted forecast combinations and computes
-    risk-adjusted returns. This function is called iteratively by the OpenOpt
+    risk-adjusted returns. This function is called iteratively by the scipy.optimize
     solver to find optimal forecast weights.
 
     Parameters
@@ -619,24 +619,27 @@ else:
 lb = np.ones(len(forecasts)) * 0.0  # Lower bound: no short weights
 ub = np.ones(len(forecasts))        # Upper bound: max weight is 1.0
 
-# Setup OpenOpt Non-Smooth Problem optimizer
-plotit = False
-p = openopt.NSP(goal='max', f=objective, x0=initial_weights, lb=lb, ub=ub, plot=plotit)
-p.ftol = 0.001        # Function tolerance (stop when improvement < 0.001)
-p.maxFunEvals = 150   # Maximum objective function evaluations
+# Setup scipy.optimize.minimize optimizer
+# Note: scipy minimizes, so we negate the objective
+bounds = [(lb[i], ub[i]) for i in range(len(lb))]
 
-# Solve using reduced-gradient algorithm
-r = p.solve('ralg')
+result = minimize(
+    fun=lambda w: -objective(w),  # Negate to maximize
+    x0=initial_weights,
+    method='L-BFGS-B',  # Bounded optimization
+    bounds=bounds,
+    options={'ftol': 0.001, 'maxfun': 150}
+)
 
 # Check for optimization failure
-if (r.stopcase == -1 or r.isFeasible == False):
-    print(objective_detail(target, *g_params))
-    raise Exception("Optimization failed")
+if not result.success:
+    print("Optimization failed: {}".format(result.message))
+    raise Exception("Optimization failed: {}".format(result.message))
 
 # Print optimal weights
-print(r.xf)
+print(result.x)
 ii = 0
 for fcast in forecasts:
-    print("{}: {}".format(fcast, r.xf[ii]))
+    print("{}: {}".format(fcast, result.x[ii]))
     ii += 1
 

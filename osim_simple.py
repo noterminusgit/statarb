@@ -185,7 +185,7 @@ Notes
 
 from __future__ import division, print_function
 
-import openopt
+from scipy.optimize import minimize
 
 from collections import defaultdict
 from datetime import timedelta
@@ -253,39 +253,45 @@ while end < pd.to_datetime("20130101"):
     initial_weights = np.asarray([.5, .5, .5, .5, .5, .5, .5, .5, .5, .5])
     #initial_weights = np.asarray([0, 0, 0, 0, 1, 0, 0, 0, 0, 0])
 
-    p = openopt.NSP(goal='max', f=fcn, x0=initial_weights, lb=lb, ub=ub)
-    p.args.f = (start, end)
-    p.ftol = 0.001
-    p.maxFunEvals = 300
-    r = p.solve('ralg')
-    if (r.stopcase == -1 or r.isFeasible == False):
-        print(objective_detail(target, *g_params))
-        raise Exception("Optimization failed")
+    bounds = [(lb[i], ub[i]) for i in range(len(lb))]
 
-    print(r.xf)
+    result = minimize(
+        fun=lambda w: -fcn(w, start, end),  # Negate to maximize
+        x0=initial_weights,
+        method='L-BFGS-B',
+        bounds=bounds,
+        options={'ftol': 0.001, 'maxfun': 300}
+    )
+    if not result.success:
+        print("Optimization failed: {}".format(result.message))
+        raise Exception("Optimization failed: {}".format(result.message))
 
-    for ii in range(0,10):
-        print("{}: {}".format(cols[ii], r.xf[ii]))
-        ii += 1
-
-    wtrecent = r.xf
-
-    p = openopt.NSP(goal='max', f=fcn, x0=initial_weights, lb=lb, ub=ub)
-    p.args.f = (gstart, end)
-    p.ftol = 0.001
-    p.maxFunEvals = 300
-    r = p.solve('ralg')
-    if (r.stopcase == -1 or r.isFeasible == False):
-        print(objective_detail(target, *g_params))
-        raise Exception("Optimization failed")
-
-    print(r.xf)
+    print(result.x)
 
     for ii in range(0,10):
-        print("{}: {}".format(cols[ii], r.xf[ii]))
+        print("{}: {}".format(cols[ii], result.x[ii]))
         ii += 1
 
-    wtall = r.xf
+    wtrecent = result.x
+
+    result = minimize(
+        fun=lambda w: -fcn(w, gstart, end),  # Negate to maximize
+        x0=initial_weights,
+        method='L-BFGS-B',
+        bounds=bounds,
+        options={'ftol': 0.001, 'maxfun': 300}
+    )
+    if not result.success:
+        print("Optimization failed: {}".format(result.message))
+        raise Exception("Optimization failed: {}".format(result.message))
+
+    print(result.x)
+
+    for ii in range(0,10):
+        print("{}: {}".format(cols[ii], result.x[ii]))
+        ii += 1
+
+    wtall = result.x
     
     #fcn(initial_weights, start='20110701', end='20120101')
     wts = np.ones(10) * 0.0
