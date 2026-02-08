@@ -1,16 +1,16 @@
 # Improvement Plan - Code Quality, Testing, and Python 3 Analysis
 
-## Status: Active - 3 New Plans
+## Status: Active - 1 New Plan Remaining
 
 After completing comprehensive documentation (98%, 86/88 files) and fixing 11 critical bugs, focus shifts to code quality improvements, testing infrastructure, and Python 3 migration analysis.
 
 ## Current Plans
 
-### 23: Code Quality Improvements (MEDIUM Priority) - 50% Complete
+### 23: Code Quality Improvements (MEDIUM Priority) ✅ COMPLETE
 **Objective**: Fix hard-coded paths and improve error handling
 - Task 1: Fix hard-coded paths in salamander scripts (2 files) ✅ COMPLETE (Commit: 0b60548)
-- Task 2: Add error handling to core modules (4 files)
-- **Effort**: 4-6 hours (2 hours spent)
+- Task 2: Add error handling to core modules (4 files) ✅ COMPLETE (Commit: dd5cced)
+- **Effort**: 4-6 hours (completed)
 - **Files**: salamander/change_hl.py, salamander/show_borrow.py, loaddata.py, calc.py, regress.py, opt.py
 
 ### 24: Testing Framework (HIGH Priority) ✅ COMPLETE
@@ -112,8 +112,8 @@ Output: Migration roadmap with effort estimates
 
 ### Code Quality
 - [x] Zero hard-coded paths in utility scripts (Task 1 complete)
-- [ ] Core functions have input validation (Task 2 pending)
-- [ ] Error messages informative and actionable (Task 2 pending)
+- [x] Core functions have input validation (Task 2 complete)
+- [x] Error messages informative and actionable (Task 2 complete)
 
 ### Testing
 - [x] pytest infrastructure operational
