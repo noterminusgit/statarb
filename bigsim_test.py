@@ -186,6 +186,8 @@ Notes
 - Email notification sent on completion (requires email() function)
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *
@@ -222,7 +224,7 @@ parser.add_argument("--maxforecast",action="store",dest="maxforecast",default=0.
 parser.add_argument("--nonegutil",action="store",dest="nonegutil",default=True)
 args = parser.parse_args()
 
-print args
+print(args)
 
 mkdir_p("opt")
 
@@ -270,7 +272,7 @@ pnl_df.index.names = ['iclose_ts', 'sid']
 pnl_df['forecast'] = np.nan
 pnl_df['forecast_abs'] = np.nan
 for fcast in forecastargs:
-    print "Loading {}".format(fcast)
+    print("Loading {}".format(fcast))
     fdir, name, mult, weight = fcast.split(":")
     mu_df = load_mus(fdir, name, start, end)
     pnl_df = pd.merge(pnl_df, mu_df, how='left', left_index=True, right_index=True)
@@ -372,12 +374,12 @@ for name, date_group in groups:
     hour = int(name.strftime("%H"))
     if hour >= 16: continue
 
-    print "Looking at {}".format(name)
+    print("Looking at {}".format(name))
     monthname = name.strftime("%Y%m")
     timename = name.strftime("%H%M%S")
     weekdayname = name.weekday()
 
-    print pca_df.ix[ dateparser.parse(dayname), 'eig' ]
+    print(pca_df.ix[ dateparser.parse(dayname), 'eig' ])
     eig = 1
     try:
         eig = float(pca_df.ix[ dateparser.parse(dayname), 'eig' ][0])
@@ -391,7 +393,7 @@ for name, date_group in groups:
 
     date_group = date_group[ (date_group['iclose'] > 0) & (date_group['bvolume_d'] > 0) & (date_group['mdvp_y'] > 0) ].sort()
     if len(date_group) == 0:
-        print "No data for {}".format(name)
+        print("No data for {}".format(name))
         continue
 
     date_group = pd.merge(date_group.reset_index(), last_pos.reset_index(), how='outer', left_on=['sid'], right_on=['sid'], suffixes=['', '_last'])

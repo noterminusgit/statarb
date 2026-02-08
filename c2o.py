@@ -39,6 +39,8 @@ Usage:
     python c2o.py --start=20130101 --end=20130630 --mid=20130401 --horizon=1
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -118,10 +120,10 @@ def calc_c2o_daily(daily_df, horizon):
     Returns:
         DataFrame with c2o0_B_ma and c2o{lag}_B_ma columns for each lag
     """
-    print "Caculating daily c2o..."
+    print("Caculating daily c2o...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating c2o0..."
+    print("Calculating c2o0...")
 #    result_df['c2o0'] = result_df['overnight_log_ret'] / result_df['pbeta']
     result_df['bret'] = result_df[['overnight_log_ret', 'pbeta', 'mkt_cap_y', 'gdate']].groupby('gdate').apply(wavg).reset_index(level=0)['pbeta']
     result_df['badjret'] = result_df['overnight_log_ret'] - result_df['bret']
@@ -137,7 +139,7 @@ def calc_c2o_daily(daily_df, horizon):
     indgroups = result_df[['c2o0_B', 'gdate', 'ind1']].groupby(['gdate', 'ind1'], sort=False).transform(demean)
     result_df['c2o0_B_ma'] = indgroups['c2o0_B']
 
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['c2o' + str(lag) + '_B_ma'] = shift_df['c2o0_B_ma']
@@ -167,10 +169,10 @@ def calc_c2o_intra(intra_df):
     Returns:
         DataFrame with c2oC_B_ma column containing intraday gap signal
     """
-    print "Calculating c2o intra..."
+    print("Calculating c2o intra...")
     result_df = filter_expandable(intra_df)
 
-    print "Calulating c2oC..."
+    print("Calulating c2oC...")
     result_df['cur_log_ret'] = np.log(result_df['iclose']/result_df['dopen'])
     result_df['bretC'] = result_df[['cur_log_ret', 'pbeta', 'mkt_cap_y', 'giclose_ts']].groupby(['giclose_ts'], sort=False).apply(wavg3).reset_index(level=0)['pbeta']
     result_df['badjretC'] = result_df['cur_log_ret'] - result_df['bretC']
@@ -184,7 +186,7 @@ def calc_c2o_intra(intra_df):
     result_df['c2oC_B'] = winsorize_by_ts(result_df['c2oC'])
     result_df = result_df.dropna(subset=['c2oC_B'])
 
-    print "Calulating c2oC_ma..."
+    print("Calulating c2oC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['c2oC_B', 'giclose_ts', 'ind1']].groupby(['giclose_ts', 'ind1'], sort=False).transform(demean)
     result_df['c2oC_B_ma'] = indgroups['c2oC_B']
@@ -256,7 +258,7 @@ def c2o_fits(daily_df, intra_df, horizon, name, middate):
     #DAILY...
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
     for lag in range(1,horizon+1):
-        print insample_daily_df.head()
+        print(insample_daily_df.head())
         fitresults_df = regress_alpha(insample_daily_df, 'c2o0_B_ma', lag, True, 'daily') 
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     plot_fit(fits_df, "c2o_daily_"+name+"_" + df_dates(insample_daily_df))
@@ -273,7 +275,7 @@ def c2o_fits(daily_df, intra_df, horizon, name, middate):
     coef0 = fits_df.ix['c2o0_B_ma'].ix[horizon].ix['coef']
     for lag in range(1,horizon):
         coef = coef0 - fits_df.ix['c2o0_B_ma'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
+        print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'c2o'+str(lag)+'_B_ma_coef' ] = coef
 
     outsample_intra_df[ 'c2o'] = outsample_intra_df['c2oC_B_ma'] * outsample_intra_df['c2oC_B_ma_coef']
@@ -319,7 +321,7 @@ def calc_c2o_forecast(daily_df, intra_df, horizon, middate):
 
     results = list()
     for sector_name in daily_results_df['sector_name'].dropna().unique():
-        print "Running c2o for sector {}".format(sector_name)
+        print("Running c2o for sector {}".format(sector_name))
         sector_df = daily_results_df[ daily_results_df['sector_name'] == sector_name ]
         sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] == sector_name ]
         result_df = c2o_fits(sector_df, sector_intra_results_df, horizon, sector_name, middate)
@@ -357,7 +359,7 @@ if __name__=="__main__":
         intra_df = pd.read_hdf(pname+"_intra.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

@@ -127,6 +127,8 @@ Notes:
     - Typical runtime: 1-2 hours for 6-month backtest
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *
@@ -188,7 +190,7 @@ parser.add_argument("--nonegutil",action="store",dest="nonegutil",default=True)
 parser.add_argument("--daily",action="store",dest="daily",default=False)
 args = parser.parse_args()
 
-print args
+print(args)
 
 # Create output directory for optimization results
 mkdir_p("opt")
@@ -252,7 +254,7 @@ pnl_df['forecast_abs'] = np.nan
 
 # Load alpha forecasts from each strategy directory and merge into pnl_df
 for fcast in forecastargs:
-    print "Loading {}".format(fcast)
+    print("Loading {}".format(fcast))
     fdir, name, mult, weight = fcast.split(":")
     mu_df = load_mus(fdir, name, start, end)  # Load forecast DataFrame
     pnl_df = pd.merge(pnl_df, mu_df, how='left', left_index=True, right_index=True)
@@ -397,7 +399,7 @@ for name, date_group in groups:
 
     if hour >= 16: continue  # Skip after market close
 
-    print "Looking at {}".format(name)
+    print("Looking at {}".format(name))
     monthname = name.strftime("%Y%m")
     timename = name.strftime("%H%M%S")
     weekdayname = name.weekday()
@@ -405,7 +407,7 @@ for name, date_group in groups:
     # Filter tradable universe: require positive price, volume, and ADV data
     date_group = date_group[ (date_group['iclose'] > 0) & (date_group['bvolume_d'] > 0) & (date_group['mdvp_y'] > 0) ].sort()
     if len(date_group) == 0:
-        print "No data for {}".format(name)
+        print("No data for {}".format(name))
         continue
 
     # Merge current universe with last positions
@@ -485,7 +487,7 @@ for name, date_group in groups:
     opt.g_mktcap = date_group['mkt_cap_y'].copy().fillna(0).values  # Market capitalization
 
     # Debug output for test security
-    print date_group.xs(testid, level=1)[['forecast', 'min_notional', 'max_notional', 'position_last']]
+    print(date_group.xs(testid, level=1)[['forecast', 'min_notional', 'max_notional', 'position_last']])
 
     # Pass Barra factor exposures to optimizer (13 factors x N securities matrix)
     find = 0

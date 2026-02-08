@@ -68,6 +68,8 @@ Creates alpha forecast file: vadj_b.h5
 Creates fit diagnostic plot: vadj_daily_*.png
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from calc import *
 from loaddata import *
@@ -132,10 +134,10 @@ def calc_vadj_daily(daily_df, horizon):
     Returns:
         DataFrame: Original data plus vadj0_B_ma and vadj{1..horizon}_B_ma columns
     """
-    print "Caculating daily vadj..."
+    print("Caculating daily vadj...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating vadj0..."
+    print("Calculating vadj0...")
     result_df['rv'] = result_df['tradable_volume'].astype(float) / result_df['tradable_med_volume_21']
 
     result_df.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -151,12 +153,12 @@ def calc_vadj_daily(daily_df, horizon):
     indgroups = result_df[['vadj0_B', 'gdate', 'ind1']].groupby(['gdate', 'ind1'], sort=False).transform(demean)
     result_df['vadj0_B_ma'] = indgroups['vadj0_B']
 
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['vadj' + str(lag) + '_B_ma'] = shift_df['vadj0_B_ma']
 
-    print "Calculated {} values".format(len(result_df['vadj0_B_ma'].dropna()))
+    print("Calculated {} values".format(len(result_df['vadj0_B_ma'].dropna())))
     return result_df
 
 def calc_vadj_intra(intra_df):
@@ -177,10 +179,10 @@ def calc_vadj_intra(intra_df):
     Returns:
         DataFrame: Original data plus vadjC_B_ma column (unused)
     """
-    print "Calculating vadj intra..."
+    print("Calculating vadj intra...")
     result_df = filter_expandable(intra_df)
 
-    print "Calulating vadjC..."
+    print("Calulating vadjC...")
     result_df['cur_log_ret'] = result_df['overnight_log_ret'] + (np.log(result_df['iclose']/result_df['dopen']))
 #    result_df['c2c_badj'] = result_df['cur_log_ret'] / result_df['pbeta']
     result_df['bret'] = result_df[['cur_log_ret', 'pbeta', 'mkt_cap_y', 'giclose_ts']].groupby(['giclose_ts'], sort=False).apply(wavg2).reset_index(level=0)['pbeta']
@@ -189,12 +191,12 @@ def calc_vadj_intra(intra_df):
     result_df['vadjC'] = result_df['rv_i'] * result_df['badjret']
     result_df['vadjC_B'] = winsorize_by_ts(result_df['vadjC'])
 
-    print "Calulating vadjC_ma..."
+    print("Calulating vadjC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['vadjC_B', 'date', 'ind1']].groupby(['date', 'ind1'], sort=False).transform(demean)
     result_df['vadjC_B_ma'] = indgroups['vadjC_B']
 
-    print "Calculated {} values".format(len(result_df['vadjC_B_ma'].dropna()))
+    print("Calculated {} values".format(len(result_df['vadjC_B_ma'].dropna())))
     return result_df
 
 def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
@@ -262,7 +264,7 @@ def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
 #    outsample_intra_df[ 'vadjC_B_ma_coef' ] = coef0
     for lag in range(1,horizon):
         coef = coef0 - fits_df.ix['vadj0_B_ma'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
+        print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'vadj'+str(lag)+'_B_ma_coef' ] = coef
 
 #    outsample_intra_df[ 'vadj_b'] = outsample_intra_df['vadjC_B_ma'] * outsample_intra_df['vadjC_B_ma_coef']
@@ -304,12 +306,12 @@ def calc_vadj_forecast(daily_df, intra_df, horizon, middate):
     intra_results_df = merge_intra_data(daily_results_df, intra_results_df)
 
     sector_name = 'Energy'
-    print "Running vadj for sector {}".format(sector_name)
+    print("Running vadj for sector {}".format(sector_name))
     sector_df = daily_results_df[ daily_results_df['sector_name'] == sector_name ]
     sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] == sector_name ]
     result1_df = vadj_fits(sector_df, sector_intra_results_df, horizon, "ex", middate)
 
-    print "Running vadj for sector {}".format(sector_name)
+    print("Running vadj for sector {}".format(sector_name))
     sector_df = daily_results_df[ daily_results_df['sector_name'] != sector_name ]
     sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] != sector_name ]
     result2_df = vadj_fits(sector_df, sector_intra_results_df, horizon, "in", middate)
@@ -350,7 +352,7 @@ if __name__=="__main__":
         intra_df = pd.read_hdf(pname+"_intra.h5", 'table')
         loaded = True
     except:
-        print "Could not load cached data..."
+        print("Could not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)    

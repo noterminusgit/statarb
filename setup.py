@@ -1,3 +1,5 @@
+from __future__ import division, print_function
+
 from distutils.core import setup
 from Cython.Build import cythonize
 

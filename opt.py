@@ -50,6 +50,8 @@ Global Variables:
     g_borrowRate: Borrow costs for shorts
 """
 
+from __future__ import division, print_function
+
 import sys
 import numpy
 import math
@@ -151,16 +153,16 @@ class Terminator():
         prev = -min(self.objValues[0:(-self.lookback -1)])
 
         if numpy.isinf(prev):
-            print "Haven't found a feasible point yet"
+            print("Haven't found a feasible point yet")
             return False
         elif numpy.isinf(curr):
-            print "We are probably diverging, but we are staying the course for a huge comeback"
+            print("We are probably diverging, but we are staying the course for a huge comeback")
             return False
 
         if self.iter % 10 == 0:
-            print "Current improvement after {} iterations is {}".format(self.lookback, float(curr-prev))
+            print("Current improvement after {} iterations is {}".format(self.lookback, float(curr-prev)))
         if curr - prev < self.stopThreshold:
-            print "Current improvement after {} iterations is {}".format(self.lookback, float(curr-prev))
+            print("Current improvement after {} iterations is {}".format(self.lookback, float(curr-prev)))
             return True
         else:
             return False
@@ -202,20 +204,20 @@ def printinfo(target, kappa, slip_gamma, slip_nu,positions, mu, rvar, factors, f
     tlong=0
     tshort=0
     diff=0
-    for ii in xrange(len(positions)):
+    for ii in range(len(positions)):
         if positions[ii]>=0:
             clong+=positions[ii]
         else:
             cshort-=positions[ii]
-    for ii in xrange(len(target)):
+    for ii in range(len(target)):
         if target[ii]>=0:
             tlong+=target[ii]
         else:
             tshort-=target[ii]
         diff+=abs(target[ii]-positions[ii])
-    print "[CURRENT] Long: {:.0f}, Short: {:.0f}, Total: {:.0f}".format(clong,cshort,clong+cshort)
-    print "[TARGET]  Long: {:.0f}, Short: {:.0f}, Total: {:.0f}".format(tlong,tshort,tlong+tshort)
-    print "Dollars traded: {:.0f}".format(diff)
+    print("[CURRENT] Long: {:.0f}, Short: {:.0f}, Total: {:.0f}".format(clong,cshort,clong+cshort))
+    print("[TARGET]  Long: {:.0f}, Short: {:.0f}, Total: {:.0f}".format(tlong,tshort,tlong+tshort))
+    print("Dollars traded: {:.0f}".format(diff))
     __printpointinfo("Current",positions,  kappa, slip_gamma, slip_nu, positions, mu, rvar, factors, fcov, advp, advpt, vol, mktcap, brate, price, execFee, untradeable_info)
     __printpointinfo("Optimum",target,  kappa, slip_gamma, slip_nu, positions, mu, rvar, factors, fcov, advp, advpt, vol, mktcap, brate, price, execFee, untradeable_info)
 
@@ -243,7 +245,7 @@ def __printpointinfo(name,target, kappa, slip_gamma, slip_nu, positions, mu, rva
     utility4 = costsFunc(target, positions, brate, price, execFee)
     var = kappa * numpy.dot(target * rvar, target)
     covar = kappa * numpy.dot(numpy.dot(loadings, fcov), loadings)
-    print "@{}: total={:.0f}, mu={:.0f}, risk={:.0f}, slip={:.2f}, costs={:.2f}, ratio={:.3f}, var={:.0f}, covar={:.0f}".format(name,utility1-utility2-utility3-utility4, utility1,utility2,utility3,utility4,utility1/utility2, var, covar)
+    print("@{}: total={:.0f}, mu={:.0f}, risk={:.0f}, slip={:.2f}, costs={:.2f}, ratio={:.3f}, var={:.0f}, covar={:.0f}".format(name,utility1-utility2-utility3-utility4, utility1,utility2,utility3,utility4,utility1/utility2, var, covar))
 
 def slippageFuncAdv(target, positions, advp, advpt, vol, mktcap, slip_gamma, slip_nu):
     """Calculate total market impact slippage cost for portfolio rebalancing.
@@ -352,7 +354,7 @@ def costsFunc_grad(target, positions, brate, price, execFee):
         ∂(costs)/∂(target) += brate[i] for target[i] <= 0
     """
     grad = execFee * numpy.sign(target - positions) / price
-#    for i in xrange(len(grad)):
+#    for i in range(len(grad)):
         #ATTENTION!  borrow costs are negative, derivative is negative (more positive position, lower costs)
 #        if target[i] <=0 : grad[i] += brate[i]
     return grad
@@ -736,8 +738,8 @@ def optimize():
     #exposure constraints
     Ac = numpy.zeros((2 * num_factors, t_num_secs))
     bc = numpy.zeros(2 * num_factors)
-    for i in xrange(num_factors):
-        for j in xrange(t_num_secs):
+    for i in range(num_factors):
+        for j in range(t_num_secs):
             Ac[i, j] = t_factors[i, j]
             Ac[num_factors + i, j] = -t_factors[i, j]
         bc[i] = ubexp[i]
@@ -773,7 +775,7 @@ def optimize():
     g_params = [kappa, slip_gamma, slip_nu, g_positions, g_mu, g_rvar, g_factors, g_fcov, g_advp, g_advpt, g_vol, g_mktcap, g_borrowRate, g_price, execFee, (0.0,0.0, numpy.zeros_like(untradeable_loadings))]
     
     if (r.stopcase == -1 or r.isFeasible == False):
-        print objective_detail(target, *g_params)
+        print(objective_detail(target, *g_params))
         raise Exception("Optimization failed")
 
     #the target is the zipping of the opt result and the untradeable securities
@@ -892,7 +894,7 @@ def getUntradeable():
     untradeable = []
     tradeable = []
 
-    for ii in xrange(num_secs):
+    for ii in range(num_secs):
         if abs(g_lbound[ii] - g_ubound[ii]) < 10:
             untradeable.append(ii)
         else:

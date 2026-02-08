@@ -27,6 +27,8 @@ The module ensures data integrity and proper temporal alignment to prevent
 look-ahead bias in backtesting.
 """
 
+from __future__ import division, print_function
+
 import sys
 import os
 import glob
@@ -192,7 +194,7 @@ def merge_intra_eod(daily_df, intra_df):
         4. Merge on (date, sid) keys
         5. Remove duplicate columns and redundant ticker_eod
     """
-    print "Merging EOD bar data..."
+    print("Merging EOD bar data...")
     eod_df = intra_df.unstack().at_time('16:00').stack()
     merged_df = pd.merge(daily_df.reset_index(), eod_df.reset_index(), left_on=['date', 'sid'], right_on=['date', 'sid'], sort=True, suffixes=['', '_eod'])
     merged_df = remove_dup_cols(merged_df)
@@ -231,7 +233,7 @@ def merge_intra_data(daily_df, intra_df):
         Left join ensures all intraday bars are preserved even if
         daily data is missing (forward-fills daily data across bars)
     """
-    print "Merging intra data..."
+    print("Merging intra data...")
     merged_df = pd.merge(intra_df.reset_index(), daily_df.reset_index(), how='left', left_on=['date', 'sid'], right_on=['date', 'sid'], sort=False, suffixes=['', '_dead'])
     merged_df = remove_dup_cols(merged_df)
     merged_df.set_index(['iclose_ts', 'sid'], inplace=True)
@@ -268,7 +270,7 @@ def filter_expandable(df):
     result_df = df.dropna(subset=['expandable'])
     result_df = result_df[ result_df['expandable'] ]
     newsize = len(result_df)
-    print "Restricting forecast to expandables: {} -> {}".format(origsize, newsize)
+    print("Restricting forecast to expandables: {} -> {}".format(origsize, newsize))
     return result_df
 
 def filter_pca(df):
@@ -300,7 +302,7 @@ def filter_pca(df):
     origsize = len(df)
     result_df = df[ df['mkt_cap'] > 1e10 ]
     newsize = len(result_df)
-    print "Restricting forecast to expandables: {} -> {}".format(origsize, newsize)
+    print("Restricting forecast to expandables: {} -> {}".format(origsize, newsize))
     return result_df
     
 
@@ -358,15 +360,15 @@ def dump_all(results_df):
         - Creates 'all' directory if it doesn't exist
         - Used for comprehensive intraday signal archival
     """
-    print "Dumping alpha files..."
+    print("Dumping alpha files...")
     results_df = results_df.reset_index()
     groups = results_df['iclose_ts'].unique()
     for group in groups:
         if str(group) == 'NaT': continue
-        print "Dumping group: {}".format(str(group))
+        print("Dumping group: {}".format(str(group)))
         date_df = results_df[ results_df['iclose_ts'] == group ]
         if not len(date_df) > 0:
-            print "No data found at ts: {}".format(str(group))
+            print("No data found at ts: {}".format(str(group)))
             continue
         try:
             os.mkdir("all")
@@ -405,7 +407,7 @@ def dump_alpha(results_df, name):
         - Creates output directory if needed
         - Only exports sid and named alpha column
     """
-    print "Dumping alpha files..."
+    print("Dumping alpha files...")
     results_df = results_df.reset_index()
     groups = results_df['iclose_ts'].unique()
 
@@ -413,10 +415,10 @@ def dump_alpha(results_df, name):
     for group in groups:
         if str(group) == 'NaT': continue
 
-        print "Dumping group: {}".format(str(group))
+        print("Dumping group: {}".format(str(group)))
         date_df = results_df[ results_df['iclose_ts'] == group ]
         if not len(date_df) > 0:
-            print "No data found at ts: {}".format(str(group))
+            print("No data found at ts: {}".format(str(group)))
             continue
         try:
             os.mkdir(name)
@@ -454,7 +456,7 @@ def dump_prod_alpha(results_df, name, outputfile):
         - No timestamp suffix in filename (specified by user)
         - Used by production alpha generation scripts
     """
-    print "Dumping alpha files..."
+    print("Dumping alpha files...")
     results_df = results_df.reset_index()
     group = results_df['date'].unique().max()
     results_df = results_df[ ['sid', 'date', name] ]
@@ -498,7 +500,7 @@ def dump_daily_alpha(results_df, name):
         a given date. Used to make daily signals compatible with intraday
         simulation infrastructure.
     """
-    print "Dumping daily alpha files..."
+    print("Dumping daily alpha files...")
     results_df = results_df.reset_index()
     groups = results_df['date'].unique()
 
@@ -506,10 +508,10 @@ def dump_daily_alpha(results_df, name):
     for group in groups:
         if str(group) == 'NaT': continue
 
-        print "Dumping group: {}".format(str(group))
+        print("Dumping group: {}".format(str(group)))
         date_df = results_df[ results_df['date'] == group ]
         if not len(date_df) > 0:
-            print "No data found at ts: {}".format(str(group))
+            print("No data found at ts: {}".format(str(group)))
             continue
         try:
             os.mkdir(name)
@@ -582,7 +584,7 @@ def merge_daily_calcs(full_df, result_df):
     result_df = result_df.reset_index()
     full_df = full_df.reset_index()
     cols.extend(['date', 'sid'])
-    print "Merging daily results: " + str(cols)
+    print("Merging daily results: " + str(cols))
     result_df = pd.merge(full_df, result_df[cols], how='left', left_on=['date', 'sid'], right_on=['date', 'sid'], sort=False, suffixes=['_dead', ''])
     result_df.set_index(['date', 'sid'], inplace=True)
     return result_df
@@ -624,7 +626,7 @@ def merge_intra_calcs(full_df, result_df):
     del result_df['date']
     rcols = set(result_df.columns)
     cols = list(rcols - set(full_df.columns))
-    print "Merging intra results: " + str(cols)
+    print("Merging intra results: " + str(cols))
     result_df = pd.merge(full_df, result_df[cols], how='left', left_index=True, right_index=True, sort=False, suffixes=['_dead', ''])
     return result_df
 
@@ -740,7 +742,7 @@ def load_all_results(fdir, start, end, cols=None):
         index values across files
     """
     fdir += "/all/"
-    print "Looking in {}".format(fdir)
+    print("Looking in {}".format(fdir))
     fcast_dfs = list()
     for ff in sorted(glob.glob(fdir + "/alpha.*")):
         m = re.match(r".*alpha\.all\.(\d{8})_(\d{4}).*", str(ff))
@@ -748,7 +750,7 @@ def load_all_results(fdir, start, end, cols=None):
         ftime = int(m.group(2))
         if ftime < 1000 or ftime > 1530: continue
         if fdate < int(start) or fdate > int(end): continue
-        print "Loading {} for {}".format(ff, fdate)
+        print("Loading {} for {}".format(ff, fdate))
 
         if cols is not None:
             df = pd.read_csv(ff, index_col=['iclose_ts', 'sid'], header=0, parse_dates=True, sep=",", usecols=cols)

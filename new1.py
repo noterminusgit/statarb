@@ -33,6 +33,8 @@ Output:
 NOTE: This file should be renamed to 'insd.py' for clarity.
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -52,7 +54,7 @@ def wavg2(group):
     return res
 
 def calc_insd_daily(daily_df, horizon):
-    print "Caculating daily insd..."
+    print("Caculating daily insd...")
     result_df = filter_expandable(daily_df)
 
 #    decile = laminsda x: 10.0 * x.rank()/float(len(x))
@@ -60,7 +62,7 @@ def calc_insd_daily(daily_df, horizon):
     result_df['bret'] = result_df[['log_ret', 'pbeta', 'mkt_cap_y', 'gdate']].groupby('gdate').apply(wavg).reset_index(level=0)['pbeta']
     result_df['badjret'] = result_df['log_ret'] - result_df['bret']
 
-    print "Calculating insd0..."
+    print("Calculating insd0...")
     result_df['insd0'] = result_df['insideness'] * np.sign(result_df['badjret'])
     result_df['insd0_B'] = winsorize_by_date(result_df['insd0'])
 
@@ -68,7 +70,7 @@ def calc_insd_daily(daily_df, horizon):
     indgroups = result_df[['insd0_B', 'gdate', 'ind1']].groupby(['gdate', 'ind1'], sort=False).transform(demean)
     result_df['insd0_B_ma'] = indgroups['insd0_B']
 
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['insd'+str(lag)+'_B_ma'] = shift_df['insd0_B_ma']
@@ -76,18 +78,18 @@ def calc_insd_daily(daily_df, horizon):
     return result_df
 
 def calc_insd_intra(intra_df):
-    print "Calculating insd intra..."
+    print("Calculating insd intra...")
     result_df = filter_expandable(intra_df)
 
     result_df['cur_log_ret'] = np.log(result_df['iclose']/result_df['bopen'])
     result_df['bret'] = result_df[['cur_log_ret', 'pbeta', 'mkt_cap_y', 'giclose_ts']].groupby(['giclose_ts'], sort=False).apply(wavg2).reset_index(level=0)['pbeta']
     result_df['badjret'] = result_df['cur_log_ret'] - result_df['bret']
 
-    print "Calulating insdC..."    
+    print("Calulating insdC..."    )
     result_df['insdC'] = result_df['insideness'] * np.sign(result_df['badjret'])
     result_df['insdC_B'] = winsorize_by_ts(result_df['insdC'])
 
-    print "Calulating insdC_ma..."
+    print("Calulating insdC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['insdC_B', 'giclose_ts', 'ind1']].groupby(['giclose_ts', 'ind1'], sort=False).transform(demean)
     result_df['insdC_B_ma'] = indgroups['insdC_B']
@@ -123,7 +125,7 @@ def insd_fits(daily_df, intra_df, horizon, name, middate):
     coefs[4] = unstacked.between_time('12:30', '13:31').stack().index
     coefs[5] = unstacked.between_time('13:30', '14:31').stack().index
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
-    print fits_df.head()
+    print(fits_df.head())
     for ii in range(1,7):
         outsample_intra_df.ix[ coefs[ii], 'insdC_B_ma_coef' ] = fits_df.ix['insdC_B_ma'].ix[ii].ix['coef']
 
@@ -136,10 +138,10 @@ def insd_fits(daily_df, intra_df, horizon, name, middate):
 
     coef0 = fits_df.ix['insd0_B_ma'].ix[horizon].ix['coef']
 #    full_df.ix[ outsample_intra_df.index, 'insdC_B_ma_coef' ] = coef0
-    print "Coef0: {}".format(coef0)
+    print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
         coef = coef0 - fits_df.ix['insd0_B_ma'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
+        print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'insd'+str(lag)+'_B_ma_coef' ] = coef
 
     outsample_intra_df[ 'insd'] = outsample_intra_df['insdC_B_ma'] * outsample_intra_df['insdC_B_ma_coef']
@@ -184,7 +186,7 @@ if __name__=="__main__":
         intra_df = pd.read_hdf(pname+"_intra.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

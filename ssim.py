@@ -185,6 +185,8 @@ qsim.py : Intraday 30-minute bar simulation
 opt.py : Portfolio optimization producing target positions
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *
@@ -305,16 +307,16 @@ else:
     for pair in fcasts:
         # Parse forecast specification: directory:name:weight
         fdir, fcast, weight = pair.split(":")
-        print fdir, fcast, weight
+        print(fdir, fcast, weight)
 
         # Load all optimization output files for this alpha in date range
         flist = list()
         for ff in sorted(glob.glob("./" + fdir + "/opt/opt." + fcast + ".*.csv")):
-            m = re.match(r".*opt\." + fcast + "\.(\d{8})_\d{6}.csv", str(ff))
+            m = re.match(r".*opt\." + fcast + r"\.(\d{8})_\d{6}.csv", str(ff))
             if m is None: continue
             d1 = int(m.group(1))
             if d1 < int(args.start) or d1 > int(args.end): continue
-            print "Loading {}".format(ff)
+            print("Loading {}".format(ff))
             flist.append(pd.read_csv(ff, parse_dates=True))
 
         # Concatenate all files for this alpha and set index
@@ -322,8 +324,8 @@ else:
         fcast_trades_df['iclose_ts'] = pd.to_datetime(fcast_trades_df['iclose_ts'])
         fcast_trades_df = fcast_trades_df.set_index(['iclose_ts', 'sid']).sort()
 
-        print fcast
-        print fcast_trades_df.xs(testid, level=1)[['traded','shares']]
+        print(fcast)
+        print(fcast_trades_df.xs(testid, level=1)[['traded','shares']])
 
         if trades_df is None:
             # First alpha: initialize trades_df with weighted shares
@@ -389,15 +391,15 @@ short_names = 0             # Count of short trades across all days
 
 if args.fill == "vwap":
     # Fill at bucket VWAP (bvwap_b_n is next bar's VWAP due to push_data)
-    print "Filling at vwap..."
+    print("Filling at vwap...")
     trades_df['fillprice'] = trades_df['bvwap_b_n']
-    print "Bad count: {}".format(len(trades_df) - len(trades_df[trades_df['fillprice'] > 0]))
+    print("Bad count: {}".format(len(trades_df) - len(trades_df[trades_df['fillprice'] > 0])))
 
     # Fallback to interval close if VWAP is missing or invalid
     trades_df.ix[(trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice'] = trades_df['iclose']
 else:
     # Fill at interval close (mid price approximation)
-    print "Filling at mid..."
+    print("Filling at mid...")
     trades_df['fillprice'] = trades_df['iclose']
 
 # Calculate fill quality metrics
@@ -553,8 +555,8 @@ for ts, group_df in trades_df.groupby(level='iclose_ts'):
         notional2 = np.sum(np.abs((group_df['close'] * group_df['position'] / group_df['iclose'])))
 
         # Print daily summary
-        print "{}: {} {} {} {:.4f} {:.2f} {}".format(ts, notional, pnl_tot, delta, ret,
-                                                     daytraded/notional, notional2)
+        print("{}: {} {} {} {:.4f} {:.2f} {}".format(ts, notional, pnl_tot, delta, ret,
+                                                     daytraded/notional, notional2))
 
         # Update daily tracking buckets
         day_bucket['pnl'][dayname] = delta
@@ -599,50 +601,50 @@ for ts, group_df in trades_df.groupby(level='iclose_ts'):
 
 period = "{}.{}".format(args.start, args.end)
 
-print
-print
-print "=" * 80
-print "EXECUTION QUALITY METRICS"
-print "=" * 80
-print "Fill Slip: {}".format(fillslip_tot/traded_tot)
+print()
+print()
+print("=" * 80)
+print("EXECUTION QUALITY METRICS")
+print("=" * 80)
+print("Fill Slip: {}".format(fillslip_tot/traded_tot))
 oppslip = (trades_df['unfilled'] * trades_df['slip2close']).sum()
-print "Opp slip: {}".format(oppslip)
-print "Totslip: {}".format(totslip)
-print "Avg turnover: {}".format(totturnover/cnt)
-print "Longs: {}".format(long_names/cnt)
-print "Shorts: {}".format(short_names/cnt)
-print
+print("Opp slip: {}".format(oppslip))
+print("Totslip: {}".format(totslip))
+print("Avg turnover: {}".format(totturnover/cnt))
+print("Longs: {}".format(long_names/cnt))
+print("Shorts: {}".format(short_names/cnt))
+print()
 
 
-print "=" * 80
-print "CONDITIONAL P&L BREAKDOWN"
-print "=" * 80
+print("=" * 80)
+print("CONDITIONAL P&L BREAKDOWN")
+print("=" * 80)
 
 # Extract final timestamp slice for attribution analysis
 lastslice = trades_df.xs(last_ts, level='iclose_ts')
 condname = args.cond
 
 # Industry-level P&L attribution
-print "By Industry:"
+print("By Industry:")
 for ind in INDUSTRIES:
     decile = lastslice[lastslice['indname1'] == ind]
-    print "{}: {}".format(ind, decile['cum_pnl'].sum())
+    print("{}: {}".format(ind, decile['cum_pnl'].sum()))
 
-print
+print()
 
 # Decile-based P&L attribution by conditional variable
-print "By {} Decile:".format(condname)
+print("By {} Decile:".format(condname))
 lastslice['decile'] = lastslice[condname].rank() / float(len(lastslice)) * 10
 lastslice['decile'] = lastslice['decile'].fillna(-1)
 lastslice['decile'] = lastslice['decile'].astype(int)
 for ii in range(-1, 10):
     decile = lastslice[lastslice['decile'] == ii]
-    print "Decile {}: {} mean, {} P&L".format(ii, decile[condname].mean(), decile['cum_pnl'].sum())
+    print("Decile {}: {} mean, {} P&L".format(ii, decile[condname].mean(), decile['cum_pnl'].sum()))
 
-print
-print "=" * 80
-print "STOCK-LEVEL P&L ANALYSIS"
-print "=" * 80
+print()
+print("=" * 80)
+print("STOCK-LEVEL P&L ANALYSIS")
+print("=" * 80)
 
 # Extract first and last slices for comparison
 firstslice = trades_df.xs(min(trades_df.index)[0], level='iclose_ts')
@@ -657,8 +659,8 @@ plt.savefig("stocks.png")
 maxpnlid = pnlbystock.idxmax()
 minpnlid = pnlbystock.idxmin()
 
-print "Max pnl stock: {} with P&L {}".format(maxpnlid, pnlbystock.ix[maxpnlid])
-print "Min pnl stock: {} with P&L {}".format(minpnlid, pnlbystock.ix[minpnlid])
+print("Max pnl stock: {} with P&L {}".format(maxpnlid, pnlbystock.ix[maxpnlid]))
+print("Min pnl stock: {} with P&L {}".format(minpnlid, pnlbystock.ix[minpnlid]))
 
 # Generate daily P&L distribution for best-performing stock
 plt.figure()
@@ -667,9 +669,9 @@ maxstock_df['day_pnl'].hist(bins=100)
 plt.savefig("maxstock.png")
 print 
 
-print "=" * 80
-print "FACTOR EXPOSURE AND P&L ATTRIBUTION"
-print "=" * 80
+print("=" * 80)
+print("FACTOR EXPOSURE AND P&L ATTRIBUTION")
+print("=" * 80)
 
 # Prepare factor z-scores for first and last slices
 firstslice = create_z_score(firstslice, 'srisk_pct')
@@ -689,13 +691,13 @@ for factor in BARRA_FACTORS + PROP_FACTORS:
     # P&L attribution: sum of daily P&L weighted by factor value
     pnl = (trades_df['day_pnl'] * trades_df[factor]).sum()
 
-    print "{}: exposure: {:.2f}, pnl: {}".format(factor, exposure, pnl)
-print
+    print("{}: exposure: {:.2f}, pnl: {}".format(factor, exposure, pnl))
+print()
 
-print "=" * 80
-print "FORECAST-TRADE CORRELATION"
-print "=" * 80
-print trades_df[['forecast', 'traded', 'target']].corr()
+print("=" * 80)
+print("FORECAST-TRADE CORRELATION")
+print("=" * 80)
+print(trades_df[['forecast', 'traded', 'target']].corr())
 
 # Generate scatter plot of forecast vs. actual trades
 plt.figure()
@@ -749,10 +751,10 @@ pnl_df.set_index(['date'], inplace=True)
 rets = pd.merge(pnl_df, nots, left_index=True, right_index=True)
 rets = pd.merge(rets, trds, left_index=True, right_index=True)
 
-print "=" * 80
-print "OVERALL PERFORMANCE SUMMARY"
-print "=" * 80
-print "Total Pnl: ${:.0f}K".format(rets['pnl'].sum()/1000.0)
+print("=" * 80)
+print("OVERALL PERFORMANCE SUMMARY")
+print("=" * 80)
+print("Total Pnl: ${:.0f}K".format(rets['pnl'].sum()/1000.0))
 
 # Calculate daily returns (P&L divided by previous day's notional)
 rets['day_rets'] = rets['pnl'] / rets['notional'].shift(1)
@@ -773,56 +775,56 @@ mean = rets['day_rets'].mean() * 252
 std = rets['day_rets'].std() * math.sqrt(252)
 sharpe = mean / std
 
-print "Annualized mean: {:.4f}".format(mean)
-print "Annualized std: {:.4f}".format(std)
-print "Sharpe ratio: {:.4f}".format(sharpe)
-print "Avg Notional: ${:.0f}K".format(rets['notional'].mean()/1000.0)
-print
+print("Annualized mean: {:.4f}".format(mean))
+print("Annualized std: {:.4f}".format(std))
+print("Sharpe ratio: {:.4f}".format(sharpe))
+print("Avg Notional: ${:.0f}K".format(rets['notional'].mean()/1000.0))
+print()
 
 ###############################################################################
 # TEMPORAL BREAKDOWN ANALYSIS
 ###############################################################################
 
-print "=" * 80
-print "MONTHLY BREAKDOWN (BPS)"
-print "=" * 80
+print("=" * 80)
+print("MONTHLY BREAKDOWN (BPS)")
+print("=" * 80)
 for month in sorted(month_bucket['not'].keys()):
     notional = month_bucket['not'][month]
     traded = month_bucket['trd'][month]
     if notional > 0:
         # P&L in basis points, turnover ratio
-        print "Month {}: {:.4f} bps, {:.4f} turnover".format(
-            month, 10000 * month_bucket['pnl'][month]/notional, traded/notional)
-print
+        print("Month {}: {:.4f} bps, {:.4f} turnover".format(
+            month, 10000 * month_bucket['pnl'][month]/notional, traded/notional))
+print()
 
-print "=" * 80
-print "TIME-OF-DAY BREAKDOWN (BPS)"
-print "=" * 80
+print("=" * 80)
+print("TIME-OF-DAY BREAKDOWN (BPS)")
+print("=" * 80)
 for time in sorted(time_bucket['not'].keys()):
     notional = time_bucket['not'][time]
     traded = time_bucket['trd'][time]
     if notional > 0:
-        print "Time {}: {:.4f} bps, {:.4f} turnover".format(
-            time, 10000 * time_bucket['pnl'][time]/notional, traded/notional)
-print
+        print("Time {}: {:.4f} bps, {:.4f} turnover".format(
+            time, 10000 * time_bucket['pnl'][time]/notional, traded/notional))
+print()
 
-print "=" * 80
-print "DAY-OF-WEEK BREAKDOWN (BPS)"
-print "=" * 80
+print("=" * 80)
+print("DAY-OF-WEEK BREAKDOWN (BPS)")
+print("=" * 80)
 dayofweek_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 for dayofweek in sorted(dayofweek_bucket['not'].keys()):
     notional = dayofweek_bucket['not'][dayofweek]
     traded = dayofweek_bucket['trd'][dayofweek]
     if notional > 0:
-        print "{} ({}): {:.4f} bps, {:.4f} turnover".format(
+        print("{} ({}): {:.4f} bps, {:.4f} turnover".format(
             dayofweek_names[dayofweek], dayofweek,
-            10000 * dayofweek_bucket['pnl'][dayofweek]/notional, traded/notional)
-print
+            10000 * dayofweek_bucket['pnl'][dayofweek]/notional, traded/notional))
+print()
 
-print "=" * 80
-print "POSITION STATISTICS"
-print "=" * 80
-print "Win Rate (% positions with positive P&L): {:.4f}".format(
-    float(upnames)/(upnames+downnames))
+print("=" * 80)
+print("POSITION STATISTICS")
+print("=" * 80)
+print("Win Rate (% positions with positive P&L): {:.4f}".format(
+    float(upnames)/(upnames+downnames)))
 
 

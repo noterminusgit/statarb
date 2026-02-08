@@ -53,6 +53,8 @@ Notes:
     - Legacy Python 2.7 codebase
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -94,10 +96,10 @@ def calc_rtg_daily(daily_df, horizon):
         - det_diff captures both changes in ratings and analyst coverage
         - Squaring makes both upgrades and downgrades generate positive signal
     """
-    print "Caculating daily rtg..."
+    print("Caculating daily rtg...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating rtg0..."    
+    print("Calculating rtg0..."    )
     halflife = horizon / 2
 #    result_df['dk'] = np.exp( -1.0 * halflife *  (result_df['gdate'] - result_df['last']).astype('timedelta64[D]').astype(int) )
 
@@ -177,7 +179,7 @@ def rtg_fits(daily_df, horizon, name, middate=None):
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
     coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
-    print "Coef{}: {}".format(0, coef0)
+    print("Coef{}: {}".format(0, coef0))
     outsample_daily_df[ 'rtg0_ma_coef' ] = coef0
 
     outsample_daily_df[ 'rtg' ] = outsample_daily_df['rtg0_ma'] * outsample_daily_df['rtg0_ma_coef']
@@ -254,7 +256,7 @@ if __name__=="__main__":
         daily_df = pd.read_hdf(pname+"_daily.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

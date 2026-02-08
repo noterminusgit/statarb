@@ -107,6 +107,8 @@ Notes:
 - Beta adjustment removes market-driven effects from order flow
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -219,7 +221,7 @@ def calc_bd_intra(intra_df):
           * Clipping and directional filters
           * Time-of-day decay scaling
     """
-    print "Calculating bd intra..."
+    print("Calculating bd intra...")
     result_df = filter_expandable(intra_df)
 
     result_df['cur_log_ret'] = np.log(result_df['iclose']/result_df['bopen'])
@@ -229,11 +231,11 @@ def calc_bd_intra(intra_df):
 #    decile = lambda x: 10.0 * x.rank()/float(len(x))
 #    result_df['cur_log_ret_decile'] = result_df[['cur_log_ret', 'giclose_ts']].groupby(['giclose_ts'], sort=False).transform(decile)['cur_log_ret']
 
-    print "Calulating bdC..."    
+    print("Calulating bdC..."    )
     result_df['bdC'] = (result_df['askHitDollars'] - result_df['bidHitDollars']) / (result_df['askHitDollars'] + result_df['midHitDollars'] + result_df['bidHitDollars'])
     result_df['bdC_B'] = winsorize_by_ts(result_df['bdC'])
 
-    print "Calulating bdC_ma..."
+    print("Calulating bdC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['bdC_B', 'giclose_ts', 'ind1']].groupby(['giclose_ts', 'ind1'], sort=False).transform(demean)
     result_df['bdC_B_ma'] = indgroups['bdC_B']
@@ -324,7 +326,7 @@ def bd_fits(intra_df, horizon, name, middate):
     coefs[4] = unstacked.between_time('12:30', '13:31').stack().index
     coefs[5] = unstacked.between_time('13:30', '14:31').stack().index
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
-    print fits_df.head()
+    print(fits_df.head())
     for ii in range(1,7):
         outsample_intra_df.ix[ coefs[ii], 'bdC_B_ma_coef' ] = fits_df.ix['bdC_B_ma'].ix[ii].ix['coef']
 
@@ -392,7 +394,7 @@ if __name__=="__main__":
         intra_df = pd.read_hdf(pname+"_intra.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

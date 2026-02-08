@@ -103,6 +103,8 @@ Performance Notes:
     - Recommended date range: 6-12 months for development, longer for production
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *
@@ -187,9 +189,9 @@ pnl_df = pd.merge(mu_df, pnl_df, how='left', left_index=True, right_index=True)
 # Sanity check: Compare incremental VWAP vs. bar close price
 # Large differences indicate data quality issues
 maxpdiff = np.abs(pnl_df['bvwap_n'] - pnl_df['iclose']).idxmax()
-print "VWAP Diff"
-print maxpdiff
-print pnl_df[ [ 'ticker', 'vwap_n', 'iclose'] ].ix[ maxpdiff ]
+print("VWAP Diff")
+print(maxpdiff)
+print(pnl_df[ [ 'ticker', 'vwap_n', 'iclose'] ].ix[ maxpdiff ])
 
 # P&L aggregation buckets for stratified analysis
 # Each bucket stores P&L by (stratification key) -> {date/time: pnl_value}
@@ -272,7 +274,7 @@ pnl_df['forecast_abs'] = np.abs(pnl_df['forecast'])
 if 'bvolume' in pnl_df.columns:
     pnl_df['adj_vol'] = pnl_df[ 'bvolume_d_n' ] * .01  # 1% of next bar's incremental volume
 else:
-    print "WARNING: using tradable_volume instead of bvolume"
+    print("WARNING: using tradable_volume instead of bvolume")
     # Fallback: use daily volume / 14 bars (approximate 30-min volume)
     pnl_df['adj_vol'] = 0.01 * pnl_df[ ['tradable_volume', 'tradable_med_volume_21_y']  ].min(axis=1) / 14.0
 
@@ -352,9 +354,9 @@ for name, date_group in pnl_df.groupby(level='iclose_ts'):
 
     # Print decile cutoffs on first iteration for reference
     if it == 0:
-        print "Decile cutoffs"
+        print("Decile cutoffs")
         for dd in range(10):
-            print "Decile {}: {}".format(dd, date_group[ date_group['decile'] == dd ][args.cond].max())
+            print("Decile {}: {}".format(dd, date_group[ date_group['decile'] == dd ][args.cond].max()))
 
     # Extract time stratification keys
     dayname = name.strftime("%Y%m%d")      # Calendar date
@@ -408,38 +410,38 @@ for name, date_group in pnl_df.groupby(level='iclose_ts'):
 
 # Debug output: export one stock's full history for inspection
 pnl_df.xs(testid, level=1).to_csv("debug.csv")
-print "Delta Sum {}".format(delta_sum)
+print("Delta Sum {}".format(delta_sum))
 
-print
-print
+print()
+print()
 
 # ============================================================================
 # DIAGNOSTICS: Forecast analysis and visualization
 # ============================================================================
 
 # Forecast correlation matrix: check if forecasts are independent
-print "Forecast correlations..."
-print pnl_df[ forecasts ].corr()
-print
+print("Forecast correlations...")
+print(pnl_df[ forecasts ].corr())
+print()
 
 # Forecast strength over time: plot standard deviation of alphas by bar
 # Declining strength may indicate alpha decay
-print "Forecast strength..."
+print("Forecast strength...")
 plt.figure()
-print pnl_df[ forecasts ].groupby(level='iclose_ts').std().plot()
+print(pnl_df[ forecasts ].groupby(level='iclose_ts').std().plot())
 plt.savefig("forecast_strength.png")
-print
+print()
 
 # Alpha distribution histograms: visualize forecast distributions
-print "Generating Total Alpha histogram..."
+print("Generating Total Alpha histogram...")
 for forecast in forecasts:
-    print "Looking at forecast: {} ".format(forecast)
+    print("Looking at forecast: {} ".format(forecast))
     fig1 = plt.figure()
     fig1.canvas.set_window_title("Histogram")
     pnl_df[ forecast ].dropna().hist(bins=100)
     plt.savefig(forecast + "__hist.png")
-    print pnl_df[forecast].describe()
-print
+    print(pnl_df[forecast].describe())
+print()
 
 # Per-stock P&L distribution: identify outliers and concentration risk
 pnlbystock = pnl_df.groupby(level='sid')['day_pnl1'].sum()
@@ -449,7 +451,7 @@ plt.savefig("stocks.png")
 maxid = pnlbystock.idxmax()
 
 # Drill into highest P&L stock to check for anomalies
-print "Max pnl stock pnl distribution: {}".format(pnlbystock.ix[ maxid ])
+print("Max pnl stock pnl distribution: {}".format(pnlbystock.ix[ maxid ]))
 plt.figure()
 maxstock_df = pnl_df.xs(maxid, level=1)
 maxstock_df['day_pnl1'].hist(bins=100)
@@ -467,13 +469,13 @@ plt.figure()
 nots.plot()
 plt.savefig("notional_bias.png")
 notbiasmax_idx = nots.idxmax()
-print "Maximum Notional bias on {}".format(notbiasmax_idx)
-print "Bias: {}, Long: {}, Short: {}".format(nots.ix[ notbiasmax_idx ], longs.ix[ notbiasmax_idx ], shorts.ix[ notbiasmax_idx ])
+print("Maximum Notional bias on {}".format(notbiasmax_idx))
+print("Bias: {}, Long: {}, Short: {}".format(nots.ix[ notbiasmax_idx ], longs.ix[ notbiasmax_idx ], shorts.ix[ notbiasmax_idx ]))
 plt.figure()
 pnl_df.xs(notbiasmax_idx, level=0)['notional'].hist(bins=100)
 pnl_df.xs(notbiasmax_idx, level=0).to_csv("max_notional_day.csv")
 plt.savefig("maxnotional")
-print
+print()
 
 # Alpha bias analysis: ratio of positive to negative forecasts
 # Balanced alphas should have ~1:1 ratio (50% long, 50% short)
@@ -484,11 +486,11 @@ plt.figure()
 ratio.plot()
 plt.savefig("alpha_bias.png")
 maxalpha_idx = ratio.idxmax()
-print "Maximum Alpha bias on {} of {}".format(maxalpha_idx, ratio.ix[ maxalpha_idx ])
+print("Maximum Alpha bias on {} of {}".format(maxalpha_idx, ratio.ix[ maxalpha_idx ]))
 plt.figure()
 pnl_df.xs(maxalpha_idx, level=0)['forecast'].hist(bins=100)
 plt.savefig("maxalphabias.png")
-print
+print()
 
 # Free memory: done with full DataFrame
 pnl_df = None
@@ -498,7 +500,7 @@ pnl_df = None
 # ============================================================================
 
 for ii in range(horizon+1):
-    print "Running horizon " + str(ii)
+    print("Running horizon " + str(ii))
     #    pnl_df = pnl_df.dropna(subset=['cum_ret' + str(ii), 'forecast'])
     #    results_ols = sm.OLS(pnl_df['cum_ret' + str(ii)], sm.add_constant(pnl_df['forecast'])).fit()
     #    print results_ols.summary()
@@ -516,7 +518,7 @@ for ii in range(horizon+1):
     rets.set_index(keys=['date'], inplace=True)
 
     rets = pd.merge(rets, nots, left_index=True, right_index=True)
-    print "Total Pnl: ${:.0f}K".format(rets['pnl'].sum()/1000.0)
+    print("Total Pnl: ${:.0f}K".format(rets['pnl'].sum()/1000.0))
 
     # Normalize P&L by horizon length (so different horizons are comparable)
     if ii > 0:
@@ -550,7 +552,7 @@ for ii in range(horizon+1):
     std = rets['day_rets'].std() * math.sqrt(252)
 
     sharpe =  mean/std
-    print "Day " + str(ii) + " mean: {:.4f} std: {:.4f} sharpe: {:.4f} avg Notional: ${:.0f}K".format(mean, std, sharpe, rets['notional'].mean()/1000.0)
+    print("Day " + str(ii) + " mean: {:.4f} std: {:.4f} sharpe: {:.4f} avg Notional: ${:.0f}K".format(mean, std, sharpe, rets['notional'].mean()/1000.0))
     print
 
 # ============================================================================
@@ -560,44 +562,44 @@ for ii in range(horizon+1):
 # Conditioning variable (decile) breakdown
 # Shows which market cap / volume / other deciles perform best
 if args.cond is not None:
-    print "Cond {}  breakdown Bps".format(args.cond)
+    print("Cond {}  breakdown Bps".format(args.cond))
     totnot = 0
-    for k, v in cond_bucket_not_day.iteritems():
+    for k, v in cond_bucket_not_day.items():
         totnot += v
 
     for dec in sorted(cond_bucket_day.keys()):
         notional = cond_bucket_not_day[dec] / 10000.0
         if notional > 0:
-            print "Decile {}: {:.4f} {:.4f} {:.4f} {:.2f}%".format(dec, cond_bucket_day[dec]/notional, cond_bucket_day[dec]/notional, cond_bucket_day[dec]/notional, 100.0 * cond_bucket_not_day[dec]/totnot)
+            print("Decile {}: {:.4f} {:.4f} {:.4f} {:.2f}%".format(dec, cond_bucket_day[dec]/notional, cond_bucket_day[dec]/notional, cond_bucket_day[dec]/notional, 100.0 * cond_bucket_not_day[dec]/totnot))
     print
 
 # Monthly breakdown: identify seasonal patterns
-print "Month breakdown Bps"
+print("Month breakdown Bps")
 for month in sorted(month_bucket['not'].keys()):
     notional = month_bucket['not'][month] / 10000.0
     if notional > 0:
         # Shows P&L in bps for horizons 0, 1, 2, 3, 5
-        print "Month {}: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(month, month_bucket[0][month]/notional, month_bucket[1][month]/notional, month_bucket[2][month]/notional, month_bucket[3][month]/notional, month_bucket[5][month]/notional)
-print
+        print("Month {}: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(month, month_bucket[0][month]/notional, month_bucket[1][month]/notional, month_bucket[2][month]/notional, month_bucket[3][month]/notional, month_bucket[5][month]/notional))
+print()
 
 # Time-of-day breakdown: critical for intraday strategies
 # Identifies which 30-minute bars have best/worst performance
-print "Time breakdown Bps"
+print("Time breakdown Bps")
 for time in sorted(time_bucket['not'].keys()):
     notional = time_bucket['not'][time] / 10000.0
     if notional > 0:
-        print "Time {}: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(time, time_bucket[0][time]/notional, time_bucket[1][time]/notional, time_bucket[2][time]/notional, time_bucket[3][time]/notional, time_bucket[5][time]/notional)
-print
+        print("Time {}: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(time, time_bucket[0][time]/notional, time_bucket[1][time]/notional, time_bucket[2][time]/notional, time_bucket[3][time]/notional, time_bucket[5][time]/notional))
+print()
 
 # Day-of-week breakdown: Monday effect, Friday effect, etc.
-print "Dayofweek breakdown Bps"
+print("Dayofweek breakdown Bps")
 for dayofweek in sorted(dayofweek_bucket['not'].keys()):
     notional = dayofweek_bucket['not'][dayofweek] / 10000.0
     if notional > 0:
-        print "Dayofweek {}: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(dayofweek, dayofweek_bucket[0][dayofweek]/notional, dayofweek_bucket[1][dayofweek]/notional, dayofweek_bucket[2][dayofweek]/notional, dayofweek_bucket[3][dayofweek]/notional, dayofweek_bucket[5][dayofweek]/notional)
-print
+        print("Dayofweek {}: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(dayofweek, dayofweek_bucket[0][dayofweek]/notional, dayofweek_bucket[1][dayofweek]/notional, dayofweek_bucket[2][dayofweek]/notional, dayofweek_bucket[3][dayofweek]/notional, dayofweek_bucket[5][dayofweek]/notional))
+print()
 
 # Win rate: percentage of positions that were profitable
-print "Up %: {:.4f}".format(float(upnames)/(upnames+downnames))
+print("Up %: {:.4f}".format(float(upnames)/(upnames+downnames)))
 
 

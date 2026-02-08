@@ -219,15 +219,17 @@ The industry demeaning is critical because:
     - Without demeaning, momentum would dominate signal
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
 
 def calc_rev_daily(daily_df, horizon, lag):
-    print "Caculating daily rev..."
+    print("Caculating daily rev...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating rev0..."
+    print("Calculating rev0...")
     result_df['rev0'] = pd.rolling_sum(result_df['log_ret'], lag)
 
     demean = lambda x: (x - x.mean())
@@ -253,7 +255,7 @@ def rev_fits(daily_df, horizon, name, middate=None):
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
     coef0 = fits_df.ix['rev1_ma'].ix[horizon].ix['coef']
-    print "Coef{}: {}".format(0, coef0)
+    print("Coef{}: {}".format(0, coef0))
     outsample_daily_df[ 'rev1_ma_coef' ] = coef0
 
     outsample_daily_df[ 'rev_' + name ] = outsample_daily_df['rev1_ma'] * outsample_daily_df['rev1_ma_coef']
@@ -293,7 +295,7 @@ if __name__=="__main__":
         daily_df = pd.read_hdf(pname+"_daily.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

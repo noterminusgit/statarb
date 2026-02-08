@@ -92,6 +92,8 @@ Notes:
     - HTB strategy ('htb') always uses weight 0.5 regardless of performance
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *
@@ -142,7 +144,7 @@ parser.add_argument("--maxforecast",action="store",dest="maxforecast",default=0.
 parser.add_argument("--nonegutil",action="store",dest="nonegutil",default=True)
 args = parser.parse_args()
 
-print args
+print(args)
 
 mkdir_p("opt")
 
@@ -192,7 +194,7 @@ pnl_df['forecast_abs'] = np.nan
 fcast_rets = dict()
 fcast_weights = dict()
 for fcast in forecastargs:
-    print "Loading {}".format(fcast)
+    print("Loading {}".format(fcast))
     fdir, name, mult, weight = fcast.split(":")
     mu_df = load_mus(fdir, name, start, end)
     pnl_df = pd.merge(pnl_df, mu_df, how='left', left_index=True, right_index=True)
@@ -296,14 +298,14 @@ for name, date_group in groups:
     hour = int(name.strftime("%H"))
     if hour >= 16: continue
 
-    print "Looking at {}".format(name)
+    print("Looking at {}".format(name))
     monthname = name.strftime("%Y%m")
     timename = name.strftime("%H%M%S")
     weekdayname = name.weekday()
 
     date_group = date_group[ (date_group['iclose'] > 0) & (date_group['bvolume_d'] > 0) & (date_group['mdvp_y'] > 0) ].sort()
     if len(date_group) == 0:
-        print "No data for {}".format(name)
+        print("No data for {}".format(name))
         continue
 
     date_group = pd.merge(date_group.reset_index(), last_pos.reset_index(), how='outer', left_on=['sid'], right_on=['sid'], suffixes=['', '_last'])
@@ -339,7 +341,7 @@ for name, date_group in groups:
         date_group[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] <= 0)]['max_notional'] = 0
         date_group[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] <= 0)]['min_notional'] = date_group['position_last']
 
-    print "Weights:"
+    print("Weights:")
     for fcast in fcast_weights.keys():
         weight = fcast_weights[fcast]
 
@@ -357,13 +359,13 @@ for name, date_group in groups:
                 pass
 
             if fcast == "htb": weight = .5 
-            print "{}: {}".format(fcast, weight)
+            print("{}: {}".format(fcast, weight))
             fcast_weights[fcast] = weight
 
         date_group['forecast'] = date_group['forecast'] + date_group[fcast + "_adj"].fillna(0) * weight
     
     date_group['forecast'] = (ALPHA_MULT * date_group['forecast']).clip(-max_forecast, max_forecast)
-    print date_group['forecast'].describe()
+    print(date_group['forecast'].describe())
         
     #OPTIMIZATION
     opt.num_secs = len(date_group)

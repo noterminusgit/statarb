@@ -183,6 +183,8 @@ Notes
 #from regress import *
 #from loaddata import *
 
+from __future__ import division, print_function
+
 import openopt
 
 from collections import defaultdict
@@ -236,7 +238,7 @@ def sharpe_fcn(weights, start, end):
     for ii in range(0,10):
         pret += weights[ii] * ret_df.values[ii]
 
-    print "{} {} {}".format((pret * 252) / np.sqrt(pvar * 252), pret * 252, np.sqrt(pvar * 252))
+    print("{} {} {}".format((pret * 252) / np.sqrt(pvar * 252), pret * 252, np.sqrt(pvar * 252)))
     return (pret * 252) / np.sqrt(pvar * 252)
 
 mean = 0 
@@ -257,13 +259,13 @@ while end < pd.to_datetime("20130101"):
     p.maxFunEvals = 300
     r = p.solve('ralg')
     if (r.stopcase == -1 or r.isFeasible == False):
-        print objective_detail(target, *g_params)
+        print(objective_detail(target, *g_params))
         raise Exception("Optimization failed")
 
-    print r.xf
+    print(r.xf)
 
     for ii in range(0,10):
-        print "{}: {}".format(cols[ii], r.xf[ii])
+        print("{}: {}".format(cols[ii], r.xf[ii]))
         ii += 1
 
     wtrecent = r.xf
@@ -274,13 +276,13 @@ while end < pd.to_datetime("20130101"):
     p.maxFunEvals = 300
     r = p.solve('ralg')
     if (r.stopcase == -1 or r.isFeasible == False):
-        print objective_detail(target, *g_params)
+        print(objective_detail(target, *g_params))
         raise Exception("Optimization failed")
 
-    print r.xf
+    print(r.xf)
 
     for ii in range(0,10):
-        print "{}: {}".format(cols[ii], r.xf[ii])
+        print("{}: {}".format(cols[ii], r.xf[ii]))
         ii += 1
 
     wtall = r.xf
@@ -293,9 +295,9 @@ while end < pd.to_datetime("20130101"):
     start = end
     end = end + timedelta(days=30)
     sharpe = sharpe_fcn(wts, start, end)
-    print "OS: {} {}".format(end, sharpe)
+    print("OS: {} {}".format(end, sharpe))
     mean += sharpe
     cnt += 1
 
-print mean/cnt
+print(mean/cnt)
 

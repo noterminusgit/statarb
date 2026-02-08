@@ -244,6 +244,8 @@ Notes
 - Does not model intraday price volatility within bars
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *
@@ -302,21 +304,21 @@ forecasts = list()
 fcasts = args.fcast.split(",")
 for pair in fcasts:
     fdir, fcast = pair.split(":")
-    print "Loading {} {}".format(fdir, fcast)
+    print("Loading {} {}".format(fdir, fcast))
     forecasts.append(fcast)
 
     # Load all CSV files for this forecast within date range
     flist = list()
     for ff in sorted(glob.glob( "./" + fdir + "/opt/opt." + fcast + ".*.csv")):
         # Parse date from filename: opt.{fcast}.YYYYMMDD_HHMMSS.csv
-        m = re.match(r".*opt\." + fcast + "\.(\d{8})_\d{6}.csv", str(ff))
+        m = re.match(r".*opt\." + fcast + r"\.(\d{8})_\d{6}.csv", str(ff))
         if m is None: continue
 
         # Filter by date range
         d1 = int(m.group(1))
         if d1 < int(args.start) or d1 > int(args.end): continue
 
-        print "Loading {}".format(ff)
+        print("Loading {}".format(ff))
         flist.append(pd.read_csv(ff, parse_dates=True))
 
     # Concatenate all files for this forecast
@@ -365,14 +367,14 @@ trades_df['day_pnl'] = 0
 
 # Set fill prices based on strategy
 if args.fill == "vwap":
-    print "Filling at vwap..."
+    print("Filling at vwap...")
     trades_df['fillprice'] = trades_df['bvwap_b_n']
 
     # Count and replace bad VWAP values (<=0 or null)
-    print "Bad count: {}".format( len(trades_df) - len(trades_df[ trades_df['fillprice'] > 0 ]) )
+    print("Bad count: {}".format( len(trades_df) - len(trades_df[ trades_df['fillprice'] > 0 ]) ))
     trades_df.ix[  (trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice' ] = trades_df['iclose']
 else:
-    print "Filling at mid..."
+    print("Filling at mid...")
     trades_df['fillprice'] = trades_df['iclose']
 
 # Clean up infinite values
@@ -441,7 +443,7 @@ def objective(weights):
 
     ii = 0
     for fcast in forecasts:
-        print "Weight {}: {}".format(fcast, weights[ii])
+        print("Weight {}: {}".format(fcast, weights[ii]))
         ii += 1
 
     day_bucket = {
@@ -560,7 +562,7 @@ def objective(weights):
             notional2 = np.sum(np.abs((group_df['close'] * group_df['position'] / group_df['iclose'])))
 
             # Print daily summary: timestamp, notional, cum_pnl, daily_pnl, return, turnover
-            print "{}: {} {} {} {:.4f} {:.2f} {}".format(ts, notional, pnl_tot, delta, ret, daytraded/notional, notional2 )
+            print("{}: {} {} {} {:.4f} {:.2f} {}".format(ts, notional, pnl_tot, delta, ret, daytraded/notional, notional2 ))
 
             # Store daily metrics in buckets
             day_bucket['pnl'][dayname] = delta
@@ -581,7 +583,7 @@ def objective(weights):
 
     rets = pd.merge(pnl_df, nots, left_index=True, right_index=True)
 
-    print "Total Pnl: ${:.0f}K".format(rets['pnl'].sum()/1000.0)
+    print("Total Pnl: ${:.0f}K".format(rets['pnl'].sum()/1000.0))
 
     # Compute daily returns and cumulative returns
     rets['day_rets'] = rets['pnl'] / rets['notional']
@@ -596,11 +598,11 @@ def objective(weights):
     # Compute Sharpe ratio
     sharpe =  mean/std
 
-    print "Day mean: {:.4f} std: {:.4f} sharpe: {:.4f} avg Notional: ${:.0f}K".format(mean, std, sharpe, rets['notional'].mean()/1000.0)
+    print("Day mean: {:.4f} std: {:.4f} sharpe: {:.4f} avg Notional: ${:.0f}K".format(mean, std, sharpe, rets['notional'].mean()/1000.0))
 
     # Weight diversity penalty (encourages balanced weights)
     penalty = 0.05 * np.std(weights)
-    print "penalty: {}".format(penalty)
+    print("penalty: {}".format(penalty))
     print
 
     return sharpe - penalty
@@ -628,13 +630,13 @@ r = p.solve('ralg')
 
 # Check for optimization failure
 if (r.stopcase == -1 or r.isFeasible == False):
-    print objective_detail(target, *g_params)
+    print(objective_detail(target, *g_params))
     raise Exception("Optimization failed")
 
 # Print optimal weights
-print r.xf
+print(r.xf)
 ii = 0
 for fcast in forecasts:
-    print "{}: {}".format(fcast, r.xf[ii])
+    print("{}: {}".format(fcast, r.xf[ii]))
     ii += 1
 

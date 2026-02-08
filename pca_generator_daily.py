@@ -43,6 +43,8 @@ Usage:
     python pca_generator_daily.py --start=20130101 --end=20130630
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -85,7 +87,7 @@ def calc_pca_daily(daily_df):
           primarily serves as analysis/diagnostics rather than signal generation.
           To generate 'pca0' signal column, uncomment residual calculation lines.
     """
-    print "Caculating daily pca..."
+    print("Caculating daily pca...")
     result_df = filter_expandable(daily_df)
 
     demean = lambda x: (x - x.mean())
@@ -117,12 +119,12 @@ def calc_pca_daily(daily_df):
         df = df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
         rets = unstacked_overnight_df.xs(dt)
-        print "Average correlation: {} {} {}".format(dt, df.unstack().mean(), df.unstack().std())
+        print("Average correlation: {} {} {}".format(dt, df.unstack().mean(), df.unstack().std()))
         try:
             pcafit =  pca.fit(np.asarray(df))
         except:
             pcafit = lastpcafit
-        print "PCA explained variance {}: {}".format(dt, pcafit.explained_variance_ratio_)
+        print("PCA explained variance {}: {}".format(dt, pcafit.explained_variance_ratio_))
 
         pcarets = pca.transform(rets)
         pr = np.dot(pcarets, pcafit.components_)

@@ -66,6 +66,8 @@ Note:
     as it captures valuation-driven rather than earnings-driven drift.
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -98,7 +100,7 @@ def wavg(group):
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
-    print "Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum()))
+    print("Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum())))
     res = b * ((d * w).sum() / w.sum())
     return res
 
@@ -146,13 +148,13 @@ def calc_tgt_daily(daily_df, horizon):
         This was tested but not used in final implementation.
         Industry neutralization alone provides sufficient risk control.
     """
-    print "Caculating daily tgt..."
+    print("Caculating daily tgt...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating tgt0..."
+    print("Calculating tgt0...")
     halflife = horizon / 2
 #    result_df['dk'] = np.exp( -1.0 * halflife *  (result_df['gdate'] - result_df['last']).astype('timedelta64[D]').astype(int) )
-    print result_df.columns
+    print(result_df.columns)
     result_df['bret'] = result_df[['log_ret', 'pbeta', 'mkt_cap_y', 'gdate']].groupby('gdate').apply(wavg).reset_index(level=0)['pbeta']
     result_df['badjret'] = result_df['log_ret'] - result_df['bret']
     result_df['badj0_B'] = winsorize_by_date(result_df[ 'badjret' ])
@@ -251,13 +253,13 @@ def tgt_fits(daily_df, horizon, name, middate=None, intercepts=None):
 
     coef0 = fits_df.ix['tgt0_ma'].ix[horizon].ix['coef']
 #    intercept0 = fits_df.ix['tgt0_ma'].ix[horizon].ix['intercept']
-    print "Coef{}: {}".format(0, coef0)
+    print("Coef{}: {}".format(0, coef0))
     outsample_daily_df[ 'tgt0_ma_coef' ] = coef0
     outsample_daily_df[ 'tgt0_ma_intercept' ] = 0 # intercept0
     for lag in range(1,horizon):
         coef = coef0 - fits_df.ix['tgt0_ma'].ix[lag].ix['coef'] 
 #        intercept = intercept0 - fits_df.ix['tgt0_ma'].ix[lag].ix['intercept'] 
-        print "Coef{}: {}".format(lag, coef)
+        print("Coef{}: {}".format(lag, coef))
         outsample_daily_df[ 'tgt'+str(lag)+'_ma_coef' ] = coef
  #       outsample_daily_df[ 'tgt'+str(lag)+'_ma_intercept' ] = intercept
 
@@ -422,7 +424,7 @@ if __name__=="__main__":
         daily_df = pd.read_hdf(pname+"_daily.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)
