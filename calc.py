@@ -44,8 +44,6 @@ import gc
 import logging
 
 from scipy import stats
-from pandas.stats.api import ols
-from pandas.stats import moments
 from lmfit import minimize, Parameters, Parameter, report_errors
 from collections import defaultdict
 
@@ -94,8 +92,8 @@ def calc_vol_profiles(full_df):
         timeslice_df = timeslice_df.unstack().between_time(timeslice, timeslice).stack()
         timeslice_df = timeslice_df.dropna()
         if len(timeslice_df) == 0: continue
-        timeslice_df['dpvolume_med_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: pd.rolling_median(x.shift(1), 21))
-        timeslice_df['dpvolume_std_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: pd.rolling_std(x.shift(1), 21))
+        timeslice_df['dpvolume_med_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: x.shift(1).rolling(21).median())
+        timeslice_df['dpvolume_std_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: x.shift(1).rolling(21).std())
         m_df = timeslice_df.dropna()
         print(m_df.head())
         print("Average dvol frac at {}: {}".format(timeslice, (m_df['dpvolume_med_21'] / (m_df['tradable_med_volume_21'] * m_df['close'])).mean()))
@@ -183,7 +181,7 @@ def calc_forward_returns(daily_df, horizon):
     results_df = pd.DataFrame( index=daily_df.index )
     for ii in range(1, horizon+1):
         retname = 'cum_ret'+str(ii)
-        cum_rets = daily_df['log_ret'].groupby(level='sid').apply(lambda x: pd.rolling_sum(x, ii))
+        cum_rets = daily_df['log_ret'].groupby(level='sid').apply(lambda x: x.rolling(ii).sum())
         shift_df = cum_rets.unstack().shift(-ii).stack()
         results_df[retname] = shift_df
     return results_df
@@ -311,35 +309,36 @@ def rolling_ew_corr_pairwise(df, halflife):
     Calculate exponentially-weighted pairwise correlations for all column pairs.
 
     Computes time-varying correlation matrix using exponential weighting with
-    specified halflife. Returns 3D panel with correlation time series.
+    specified halflife. Returns 3D structure (dict of dicts) with correlation time series.
 
     Args:
         df: DataFrame with time series columns
         halflife: Halflife for exponential weighting (days)
 
     Returns:
-        Panel with dimensions (time, col1, col2) containing correlation series
+        Dict of dicts with dimensions (col1, col2) containing correlation series
         for each column pair
 
     Notes:
-        - Uses pandas.stats.moments.ewmcorr (deprecated in newer pandas)
+        - Uses pandas.Series.ewm().corr() (modern pandas API)
         - Span parameter = (halflife-1)/2.0 for ewm calculation
         - Returns full symmetric correlation matrix at each timestamp
         - Used for analyzing factor co-movement and regime changes
+        - Note: Returns dict instead of deprecated Panel (Panel removed in pandas 1.0+)
 
     Example:
         If df has columns ['alpha1', 'alpha2', 'alpha3']:
-        Returns Panel[t, 'alpha1', 'alpha2'] = corr(alpha1, alpha2) at time t
+        Returns ret['alpha1']['alpha2'] = corr(alpha1, alpha2) time series
     """
     all_results = {}
-    for col, left in df.items():
-        all_results[col] = col_results = {}
-        for col, right in df.items():
-            col_results[col] = moments.ewmcorr(left, right, span=(halflife-1)/2.0)
+    span = (halflife - 1) / 2.0
+    for col1, left in df.items():
+        all_results[col1] = col_results = {}
+        for col2, right in df.items():
+            # Modern pandas API: Series.ewm(span=...).corr(other_series)
+            col_results[col2] = left.ewm(span=span, adjust=True).corr(right)
 
-    ret = pd.Panel(all_results)
-    ret = ret.swapaxes(0,1, copy=False)
-    return ret
+    return all_results
 
 def push_data(df, col):
     """
@@ -431,7 +430,7 @@ def calc_resid_vol(daily_df):
         Requires barraResidRet column from calc_factors()
     """
     lookback = 20
-    daily_df['barraResidVol'] = np.sqrt(pd.rolling_var(daily_df['barraResidRet'], lookback))
+    daily_df['barraResidVol'] = np.sqrt(daily_df['barraResidRet'].rolling(lookback).var())
     return daily_df['barraResidVol']
 
 def calc_factor_vol(factor_df):
@@ -453,7 +452,7 @@ def calc_factor_vol(factor_df):
         - Halflife = 20 days for exponential weighting
         - Covers all 73 factors (13 Barra + 58 industries + 2 proprietary)
         - Returns symmetric covariance matrix: cov(A,B) = cov(B,A)
-        - Uses pandas.stats.moments.ewmcov (deprecated in newer pandas)
+        - Uses pandas.Series.ewm().cov() (modern pandas API)
         - Commented-out code shows alternative: 20-day rolling covariance
         - Used by opt.py for portfolio risk calculations
 
@@ -472,7 +471,7 @@ def calc_factor_vol(factor_df):
         for factor2 in factors:
             key = (factor1, factor2)
             if key not in ret.keys():
-                ret[key] = moments.ewmcov(factor_df.xs(factor1, level=1)['ret'], factor_df.xs(factor2, level=1)['ret'], span=(halflife-1)/2.0)
+                ret[key] = factor_df.xs(factor1, level=1)['ret'].ewm(span=(halflife-1)/2.0, adjust=False).cov(factor_df.xs(factor2, level=1)['ret'])
 #                ret[key] = pd.rolling_cov(factor_df.xs(factor1, level=1)['ret'], factor_df.xs(factor2, level=1)['ret'], window=20)
 #                print "Created factor Cov on {} from {} to {}".format(key, min(ret[key].index), max(ret[key].index))
     return ret

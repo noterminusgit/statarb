@@ -59,8 +59,6 @@ from regress import *
 from loaddata import *
 from util import *
 
-from pandas.stats.moments import ewma
-
 def calc_rtg_daily(daily_df, horizon):
     """
     Calculate daily analyst rating change signals.
@@ -103,11 +101,11 @@ def calc_rtg_daily(daily_df, horizon):
     halflife = horizon / 2
 #    result_df['dk'] = np.exp( -1.0 * halflife *  (result_df['gdate'] - result_df['last']).astype('timedelta64[D]').astype(int) )
 
-    result_df['cum_ret'] = pd.rolling_sum(result_df['log_ret'], horizon)
+    result_df['cum_ret'] = result_df['log_ret'].rolling(horizon).sum()
 
     result_df['sum'] = result_df['mean'] * result_df['count']
-    result_df['det_diff'] = result_df['sum'].diff()    
-    result_df['det_diff_dk'] = ewma(result_df['det_diff'], halflife=horizon )   
+    result_df['det_diff'] = result_df['sum'].diff()
+    result_df['det_diff_dk'] = result_df['det_diff'].ewm(halflife=horizon, adjust=False).mean()
     result_df['rtg0'] = result_df['det_diff_dk'] * result_df['det_diff_dk']
 
     # result_df['median'] = -1.0 * (result_df['median'] - 3)

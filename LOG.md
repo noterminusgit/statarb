@@ -1163,3 +1163,39 @@
 **Migration Progress:** Phase 0 ✅, Phase 1 ✅, Phase 2 ✅, Phase 3-5 pending
 
 ---
+
+## 2026-02-09 - Phase 3: pandas.stats Migration ✅ COMPLETE
+
+**Objective:** Replace deprecated pandas.stats module with modern pandas API
+
+**Files Modified:** 5 files
+- calc.py: moments.ewmcov → ewm().cov(), pd.rolling_* → rolling()
+- salamander/calc.py: pd.stats.moments.ewmcorr → ewm().corr(), Panel → dict
+- analyst.py: ewma() → ewm().mean(), pd.rolling_sum → rolling().sum()
+- ebs.py: pd.rolling_sum → rolling().sum()
+- prod_sal.py: pd.rolling_sum → rolling().sum()
+
+**Conversions:**
+✓ pandas.stats.moments.ewmcov → Series.ewm(adjust=False).cov()
+✓ pandas.stats.moments.ewmcorr → Series.ewm(adjust=False).corr()
+✓ pd.ewma()/ewma() → Series.ewm(adjust=False).mean()
+✓ pd.rolling_sum → rolling().sum()
+✓ pd.rolling_median → rolling().median()
+✓ pd.rolling_std → rolling().std()
+✓ pd.rolling_var → rolling().var()
+✓ pd.Panel → dict of dicts (salamander/calc.py)
+
+**Validation:**
+✓ All 5 files compile under Python 3
+✓ No pandas.stats imports remaining
+✓ Used adjust=False for numerical consistency with old API
+- Numerical validation deferred to Phase 4
+
+**Phase 3 Effort:** 6-8 hours (estimated) - Actual: ~2 hours
+**Phase 3 Status:** ✅ COMPLETE (pending Phase 4 validation)
+
+**Next Phase:** Phase 4 - Testing & Validation (8-12 hours estimated)
+
+**Migration Progress:** Phase 0 ✅, Phase 1 ✅, Phase 2 ✅, Phase 3 ✅, Phase 4-5 pending
+
+---

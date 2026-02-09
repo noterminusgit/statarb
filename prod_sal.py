@@ -72,8 +72,6 @@ from load_data_live import *
 from loaddata import *
 from util import *
 
-from pandas.stats.moments import ewma
-
 ESTIMATE = "SAL"  # Estimate type identifier for analyst data queries
 
 def wavg(group):
@@ -151,7 +149,7 @@ def calc_sal_daily(daily_df, horizon):
     result_df['badjret'] = result_df['log_ret'] - result_df['bret']
     result_df['badj0_B'] = winsorize_by_date(result_df[ 'badjret' ])
 
-    result_df['cum_ret'] = pd.rolling_sum(result_df['log_ret'], horizon)
+    result_df['cum_ret'] = result_df['log_ret'].rolling(horizon).sum()
 
     print(result_df[ESTIMATE + '_diff_mean'].describe())
     result_df['std_diff'] = result_df[ESTIMATE + '_std'].unstack().diff().stack()

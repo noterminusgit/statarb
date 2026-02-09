@@ -111,7 +111,7 @@ def calc_vol_profiles(full_df):
         - Uses shifted data (shift(1)) to avoid look-ahead bias
         - Prints average volume fraction at each timeslice for debugging
         - Groups by 'gvkey' instead of 'sid' (difference from main calc.py)
-        - Uses deprecated pd.rolling_median/std (works in older pandas)
+        - Uses modern .rolling() syntax (Python 3 compatible)
 
     Implementation:
         For each timeslice:
@@ -133,9 +133,9 @@ def calc_vol_profiles(full_df):
         timeslice_df = timeslice_df.dropna()
         if len(timeslice_df) == 0: continue
         timeslice_df['dpvolume_med_21'] = timeslice_df['dpvolume'].groupby(level='gvkey').apply(
-            lambda x: pd.rolling_median(x.shift(1), 21))
+            lambda x: x.shift(1).rolling(21).median())
         timeslice_df['dpvolume_std_21'] = timeslice_df['dpvolume'].groupby(level='gvkey').apply(
-            lambda x: pd.rolling_std(x.shift(1), 21))
+            lambda x: x.shift(1).rolling(21).std())
         m_df = timeslice_df.dropna()
         print(m_df.head())
         print("Average dvol frac at {}: {}".format(timeslice, (
@@ -377,27 +377,22 @@ def rolling_ew_corr_pairwise(df, halflife):
     Calculate exponentially-weighted pairwise correlations for all column pairs.
 
     Computes time-varying correlation matrix using exponential weighting with
-    specified halflife. Returns 3D panel with correlation time series.
+    specified halflife. Returns 3D structure (dict of dicts) with correlation time series.
 
     Args:
         df: DataFrame with time series columns
         halflife: Halflife for exponential weighting (days)
 
     Returns:
-        Panel with dimensions (time, col1, col2) containing correlation series
+        Dict of dicts with dimensions (col1, col2) containing correlation series
         for each column pair
 
     Notes:
-        - Uses deprecated pd.stats.moments.ewmcorr (only works in older pandas)
+        - Uses pandas.Series.ewm().corr() (modern pandas API)
         - Span parameter = (halflife-1)/2.0 for ewm calculation
         - Returns full symmetric correlation matrix at each timestamp
         - Used for analyzing factor co-movement and regime changes
-        - Returns pd.Panel (deprecated in pandas >= 0.25)
-
-    WARNING:
-        This function uses deprecated pandas APIs (pd.stats.moments, pd.Panel)
-        that were removed in pandas 0.25+. For modern pandas, use:
-        df.ewm(span=span).corr() or pairwise correlation methods.
+        - Note: Returns dict instead of deprecated Panel (Panel removed in pandas 1.0+)
 
     Mathematical Formula:
         ρ_t(X,Y) = Cov_t(X,Y) / (σ_t(X) * σ_t(Y))
@@ -407,18 +402,18 @@ def rolling_ew_corr_pairwise(df, halflife):
 
     Example:
         If df has columns ['alpha1', 'alpha2', 'alpha3']:
-        Returns Panel[t, 'alpha1', 'alpha2'] = corr(alpha1, alpha2) at time t
-        Panel['2020-01-01', 'alpha1', 'alpha2'] = 0.73
+        Returns ret['alpha1']['alpha2'] = corr(alpha1, alpha2) time series
+        ret['alpha1']['alpha2']['2020-01-01'] = 0.73
     """
     all_results = {}
-    for col, left in df.iteritems():
-        all_results[col] = col_results = {}
-        for col, right in df.iteritems():
-            col_results[col] = pd.stats.moments.ewmcorr(left, right, span=(halflife - 1) / 2.0)
+    span = (halflife - 1) / 2.0
+    for col1, left in df.items():
+        all_results[col1] = col_results = {}
+        for col2, right in df.items():
+            # Modern pandas API: Series.ewm(span=...).corr(other_series)
+            col_results[col2] = left.ewm(span=span, adjust=False).corr(right)
 
-    ret = pd.Panel(all_results)
-    ret = ret.swapaxes(0, 1, copy=False)
-    return ret
+    return all_results
 
 
 def push_data(df, col):
