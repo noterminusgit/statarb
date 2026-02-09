@@ -233,8 +233,14 @@ def calc_forward_returns(daily_df, horizon):
     results_df = pd.DataFrame(index=daily_df.index)
     for ii in range(1, horizon + 1):
         retname = 'cum_ret' + str(ii)
+        # Calculate rolling sum per security
+        # groupby(level='gvkey').apply() creates 3-level index: (gvkey, date, gvkey)
+        # We need to drop the first level to get back to (date, gvkey)
         cum_rets = daily_df['log_ret'].groupby(level='gvkey').apply(lambda x: x.rolling(ii).sum())
+        cum_rets = cum_rets.droplevel(0)
+        # Unstack to wide format (dates x gvkeys), shift forward, stack back
         shift_df = cum_rets.unstack().shift(-ii).stack()
+        # Now shift_df has (date, gvkey) MultiIndex matching results_df
         results_df[retname] = shift_df
     return results_df
 
@@ -280,7 +286,8 @@ def winsorize(data, std_level=5):
         winsorize([1, 2, 3, 100], std_level=2)
         → [1, 2, 3, mean+2*std] (caps 100 to threshold)
     """
-    result = data.copy()
+    # Convert to float to avoid pandas 2.x dtype issues when assigning float values
+    result = data.copy().astype(float)
     std = result.std() * std_level
     mean = result.mean()
     result[result > mean + std] = mean + std

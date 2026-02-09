@@ -1248,6 +1248,15 @@ This completes pandas API deprecation migrations for Python 3 compatibility.
 
 ---
 
+2026-02-09 - Fixed pandas 2.x compatibility issues (Phase 3.96)
+
+**Files Fixed:** calc.py, salamander/calc.py
+**Issues Resolved:** calc_forward_returns() MultiIndex handling (added .droplevel(0)), winsorize() dtype conversion (added .astype(float))
+**Test Improvement:** 80.4% → 86.3% pass rate (+6 tests fixed)
+**Status:** Core calculation functions now pandas 2.x compatible ✅
+
+---
+
 2026-02-09 - Completed Python 3 migration for salamander module (opt.py, osim.py)
 
 **Files Migrated:** salamander/opt.py, salamander/osim.py
