@@ -82,8 +82,6 @@ from loaddata import *
 from load_data_live import *
 from util import *
 
-from pandas.stats.moments import ewma
-
 def wavg(group):
     """Calculate market-cap weighted average return scaled by beta.
 

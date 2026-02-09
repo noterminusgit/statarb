@@ -84,8 +84,6 @@ from regress import *
 from loaddata import *
 from util import *
 
-from pandas.stats.moments import ewma
-
 def wavg(group):
     """
     Calculate market-cap weighted average beta-adjusted return.
