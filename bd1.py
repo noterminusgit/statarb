@@ -209,11 +209,11 @@ def bd_fits(daily_df, intra_df, full_df, name):
     plot_fit(fits_df[ fits_df['indep'] == 'bd1_B' ], name + "_intra_" + df_dates(daily_df))
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['bd1_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['bd1_B_ma'].loc[horizon].loc['coef']
     full_df[ 'bd1_B_ma_coef' ] = coef0
     full_df['bd1ma'] = full_df['bd1_B_ma'] * full_df['bd1_B_ma_coef']
 
-    coef0 = fits_df.ix['bd1_B'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['bd1_B'].loc[horizon].loc['coef']
     full_df[ 'bd1_B_coef' ] = coef0
     full_df['bd1'] = full_df['bd1_B'] * full_df['bd1_B_coef']
 

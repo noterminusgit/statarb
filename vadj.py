@@ -362,7 +362,7 @@ def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
     print(fits_df.head(10))
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'vadjC_B_ma_coef' ] = fits_df.ix['vadjC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'vadjC_B_ma_coef' ] = fits_df.loc['vadjC_B_ma'].loc[ii].loc['coef']
     
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
     for lag in range(1,horizon+1):
@@ -371,10 +371,10 @@ def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
     plot_fit(fits_df, "vadj_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['vadj0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['vadj0_B_ma'].loc[horizon].loc['coef']
     print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['vadj0_B_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['vadj0_B_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'vadj'+str(lag)+'_B_ma_coef' ] = coef
 

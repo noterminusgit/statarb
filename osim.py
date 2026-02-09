@@ -372,7 +372,7 @@ if args.fill == "vwap":
 
     # Count and replace bad VWAP values (<=0 or null)
     print("Bad count: {}".format( len(trades_df) - len(trades_df[ trades_df['fillprice'] > 0 ]) ))
-    trades_df.ix[  (trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice' ] = trades_df['iclose']
+    trades_df.loc[  (trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice' ] = trades_df['iclose']
 else:
     print("Filling at mid...")
     trades_df['fillprice'] = trades_df['iclose']

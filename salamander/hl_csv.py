@@ -112,7 +112,7 @@ def hl_fits(daily_df, full_df, horizon, name, reg_st, reg_ed, out_dir):
         - Uses regress_alpha() with median=True instead of regress_alpha_daily()
         - Restricts regression to [reg_st, reg_ed] window
         - Saves plots to configurable out_dir
-        - Uses .loc[] instead of .ix[] for modern pandas compatibility
+        - Uses .loc[] instead of .loc[] for modern pandas compatibility
     """
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
 
@@ -122,7 +122,7 @@ def hl_fits(daily_df, full_df, horizon, name, reg_st, reg_ed, out_dir):
     plot_fit(fits_df, out_dir + "/" + "hl_daily_" + name + "_" + df_dates(daily_df))
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
-    coef0 = fits_df.ix['hl0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['hl0_B_ma'].loc[horizon].loc['coef']
 
     if 'hl' not in full_df.columns:
         print("Creating forecast columns...")
@@ -132,7 +132,7 @@ def hl_fits(daily_df, full_df, horizon, name, reg_st, reg_ed, out_dir):
             full_df['hl' + str(lag) + '_B_ma_coef'] = np.nan
 
     for lag in range(1, horizon + 1):
-        full_df.loc[daily_df.index, 'hl' + str(lag) + '_B_ma_coef'] = coef0 - fits_df.ix['hl0_B_ma'].ix[lag].ix['coef']
+        full_df.loc[daily_df.index, 'hl' + str(lag) + '_B_ma_coef'] = coef0 - fits_df.loc['hl0_B_ma'].loc[lag].loc['coef']
 
     for lag in range(1, horizon):
         full_df.loc[daily_df.index, 'hl'] += full_df['hl' + str(lag) + '_B_ma'] * full_df[

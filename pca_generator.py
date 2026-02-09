@@ -102,7 +102,7 @@ def calc_pca_intra(intra_df):
 
         rets = unstacked_rets_df.xs(dt)
         ids = rets.index.droplevel(0)
-        df = df[ ids ].ix[ ids ]
+        df = df[ ids ].loc[ ids ]
 
         try:
             pcafit =  pca.fit(np.asarray(df))
@@ -112,7 +112,7 @@ def calc_pca_intra(intra_df):
         pcarets = pca.transform(rets)
         pr = np.dot(pcarets, pcafit.components_)
         resids = rets - pr.T.reshape(len(df))
-        result_df.ix[ grp.index, 'pcaC' ] = resids.values
+        result_df.loc[ grp.index, 'pcaC' ] = resids.values
         lastpcafit = pcafit
 
     print("Calulating pcaC_ma...")

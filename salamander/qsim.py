@@ -280,8 +280,8 @@ maxpdiff = np.abs(pnl_df['close_n'] - pnl_df['close']).idxmax()
 
 print("VWAP Diff")
 print(maxpdiff)
-# print(pnl_df[[ 'ticker', 'vwap_n', 'close']].ix[ maxpdiff ])
-print(pnl_df[['symbol', 'close_n', 'close']].ix[maxpdiff])  # new
+# print(pnl_df[[ 'ticker', 'vwap_n', 'close']].loc[ maxpdiff ])
+print(pnl_df[['symbol', 'close_n', 'close']].loc[maxpdiff])  # new
 day_bucket = {
     'delta': defaultdict(int),
     'not': defaultdict(int),
@@ -351,7 +351,7 @@ else:
 # pnl_df['forecast'] = np.abs(pnl_df['forecast'])
 # pnl_df['cur_ret'] = np.log(pnl_df['iclose']/pnl_df['bopen'])
 # pnl_df['cdec'] = pnl_df['cur_ret'].rank()/float(len(pnl_df)) * 10
-# pnl_df.ix[ np.abs(pnl_df['cur_ret']) > .05, 'forecast'] = 0
+# pnl_df.loc[ np.abs(pnl_df['cur_ret']) > .05, 'forecast'] = 0
 
 pnl_df['fill_shares'] = fill_shares = ALPHA_MULT * pnl_df['forecast']
 
@@ -471,7 +471,7 @@ pnlbystock.hist(bins=1800)
 plt.savefig("stocks.png")
 maxid = pnlbystock.idxmax()
 
-print("Max pnl stock pnl distribution: {}".format(pnlbystock.ix[maxid]))
+print("Max pnl stock pnl distribution: {}".format(pnlbystock.loc[maxid]))
 plt.figure()
 maxstock_df = pnl_df.xs(maxid, level=1)
 maxstock_df['day_pnl1'].hist(bins=100)
@@ -488,8 +488,8 @@ nots.plot()
 plt.savefig("notional_bias.png")
 notbiasmax_idx = nots.idxmax()
 print("Maximum Notional bias on {}".format(notbiasmax_idx))
-print("Bias: {}, Long: {}, Short: {}".format(nots.ix[notbiasmax_idx], longs.ix[notbiasmax_idx],
-                                             shorts.ix[notbiasmax_idx]))
+print("Bias: {}, Long: {}, Short: {}".format(nots.loc[notbiasmax_idx], longs.loc[notbiasmax_idx],
+                                             shorts.loc[notbiasmax_idx]))
 plt.figure()
 pnl_df.xs(notbiasmax_idx, level=0)['notional'].hist(bins=100)
 pnl_df.xs(notbiasmax_idx, level=0).to_csv("max_notional_day.csv")
@@ -503,7 +503,7 @@ plt.figure()
 ratio.plot()
 plt.savefig("alpha_bias.png")
 maxalpha_idx = ratio.idxmax()
-print("Maximum Alpha bias on {} of {}".format(maxalpha_idx, ratio.ix[maxalpha_idx]))
+print("Maximum Alpha bias on {} of {}".format(maxalpha_idx, ratio.loc[maxalpha_idx]))
 plt.figure()
 pnl_df.xs(maxalpha_idx, level=0)['forecast'].hist(bins=100)
 plt.savefig("maxalphabias.png")

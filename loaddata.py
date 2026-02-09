@@ -742,7 +742,7 @@ def load_earnings_dates(uni_df, start, end):
     result_df['earndate'] = pd.to_datetime(result_df['earn_rpt_date'].apply(str))
     f = lambda x: len(pd.bdate_range(x['date'], x['earndate']))
     result_df['daysToEarn'] = result_df.apply(f, axis=1)
-    result_df.ix[ result_df['earn_rpt_time_norm'] == "AFTMKT", 'daysToEarn' ] = result_df.ix[ result_df['earn_rpt_time_norm'] == "AFTMKT", 'daysToEarn' ] + 1
+    result_df.loc[ result_df['earn_rpt_time_norm'] == "AFTMKT", 'daysToEarn' ] = result_df.loc[ result_df['earn_rpt_time_norm'] == "AFTMKT", 'daysToEarn' ] + 1
     result_df.set_index(keys=['date', 'sid'], inplace=True)
     result_df = remove_dup_cols(result_df)
     return result_df
@@ -1054,8 +1054,8 @@ def load_qb_orders(ofile, date):
     df.set_index(['ts', 'sid'], inplace=True)
     del df['time']
     del df['state']
-    df.ix[ df['side'] == "Short", 'qty' ] = -1 * df['qty'] 
-    df.ix[ df['side'] == "SellShort", 'qty' ] = -1 * df['qty'] 
+    df.loc[ df['side'] == "Short", 'qty' ] = -1 * df['qty']
+    df.loc[ df['side'] == "SellShort", 'qty' ] = -1 * df['qty'] 
     del df['side']
     return df
 
@@ -1076,8 +1076,8 @@ def load_qb_exec(efile, date):
     df = pd.read_csv(efile, usecols=['time', 'symbol', 'sid', 'order_id', 'side', 'qty', 'px'])
     df['ts'] = pd.to_datetime( date + " " + df['time'])
     del df['time']
-    df.ix[ df['side'] == "Short", 'qty' ] = -1 * df['qty'] 
-    df.ix[ df['side'] == "SellShort", 'qty' ] = -1 * df['qty'] 
+    df.loc[ df['side'] == "Short", 'qty' ] = -1 * df['qty']
+    df.loc[ df['side'] == "SellShort", 'qty' ] = -1 * df['qty'] 
     del df['side']
     return df
 

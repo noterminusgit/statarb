@@ -196,16 +196,16 @@ def vadj_fits(daily_df, intra_df, full_df, horizon, name):
     plot_fit(fits_df, "vadj_daily_"+name+"_" + df_dates(regress_daily_df))
     
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['vadj0_B_ma'].ix[horizon].ix['coef']
-    full_df.ix[ intra_df.index, 'vadjC_B_ma_coef' ] = coef0
+    coef0 = fits_df.loc['vadj0_B_ma'].loc[horizon].loc['coef']
+    full_df.loc[ intra_df.index, 'vadjC_B_ma_coef' ] = coef0
     for lag in range(1,horizon+1):
-        coef = coef0 - fits_df.ix['vadj0_B_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['vadj0_B_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
-        full_df.ix[ intra_df.index, 'vadj'+str(lag)+'_B_ma_coef' ] = coef
+        full_df.loc[ intra_df.index, 'vadj'+str(lag)+'_B_ma_coef' ] = coef
 
-    full_df.ix[ intra_df.index, 'vadj'] = full_df['vadjC_B_ma'] * full_df['vadjC_B_ma_coef']
+    full_df.loc[ intra_df.index, 'vadj'] = full_df['vadjC_B_ma'] * full_df['vadjC_B_ma_coef']
     for lag in range(1,horizon):
-        full_df.ix[ intra_df.index, 'vadj'] += full_df['vadj'+str(lag)+'_B_ma'] * full_df['vadj'+str(lag)+'_B_ma_coef']
+        full_df.loc[ intra_df.index, 'vadj'] += full_df['vadj'+str(lag)+'_B_ma'] * full_df['vadj'+str(lag)+'_B_ma_coef']
     
     return full_df
 

@@ -150,7 +150,7 @@ def calc_pca_daily(daily_df, horizon):
         pcafit =  pca.fit(np.asarray(std_df.T))
 
 
-        actual = window_df.ix[:,WINDOW-1]        
+        actual = window_df.loc[:,WINDOW-1]        
         pcarets = pca.transform(window_df)
         pr = np.dot(pcarets, pcafit.components_)
         pr = pr[:,[WINDOW-1]].reshape(-1)
@@ -165,7 +165,7 @@ def calc_pca_daily(daily_df, horizon):
         print("PCA explained variance {}: {} {}".format(dt, predicted_sigma, pcafit.explained_variance_ratio_))
 
         resids.index = result_df[ result_df['gdate'] == dt].index
-        result_df.ix[ result_df[ result_df['gdate'] == dt].index , 'pca0'] = resids 
+        result_df.loc[ result_df[ result_df['gdate'] == dt].index , 'pca0'] = resids 
 
         last_sigma = predicted_sigma
 
@@ -254,11 +254,11 @@ def calc_pca_intra(intra_df):
         window_df = cache[dt].T
 
         for ts in result_df[ result_df['gdate'] == dt ]['giclose_ts'].unique():
-            today = unstacked_rets_df.ix[ts]
+            today = unstacked_rets_df.loc[ts]
             today.index = today.index.droplevel(0)
 
             orig = result_df[ result_df['giclose_ts'] == ts ]
-            today = today.ix[ orig.index.droplevel(0) ]            
+            today = today.loc[ orig.index.droplevel(0) ]            
 
             del window_df[window_df.columns.max()]
             window_df.index.name = 'sid'
@@ -273,7 +273,7 @@ def calc_pca_intra(intra_df):
             pcafit =  pca.fit(np.asarray(std_df))
 #            print "PCA explained variance {}: {}".format(ts, pcafit.explained_variance_ratio_)
         
-            actual = window_df.ix[:,WINDOW-1]        
+            actual = window_df.loc[:,WINDOW-1]        
             pcarets = pca.transform(window_df)
             pr = np.dot(pcarets, pcafit.components_)
             pr = pr[:,[WINDOW-1]].reshape(-1)
@@ -286,7 +286,7 @@ def calc_pca_intra(intra_df):
             #     resids = resids * 0.0
 
             resids.index = result_df[ result_df['giclose_ts'] == ts].index
-            result_df.ix[ result_df[ result_df['giclose_ts'] == ts].index , 'pcaC'] = resids 
+            result_df.loc[ result_df[ result_df['giclose_ts'] == ts].index , 'pcaC'] = resids 
             last_sigma = predicted_sigma
 
     print("Calulating pcaC_ma...")
@@ -386,7 +386,7 @@ def pca_fits(daily_df, intra_df, horizon, name, middate):
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
     print(fits_df.head())
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'pcaC_B_ma_coef' ] = fits_df.ix['pcaC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'pcaC_B_ma_coef' ] = fits_df.loc['pcaC_B_ma'].loc[ii].loc['coef']
     
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'], dtype=float)
     for lag in range(1,horizon+1):
@@ -395,10 +395,10 @@ def pca_fits(daily_df, intra_df, horizon, name, middate):
     plot_fit(fits_df, "pca_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['pca0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['pca0_B_ma'].loc[horizon].loc['coef']
 #    outsample_intra_df[ 'pcaC_B_ma_coef' ] = coef0
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['pca0_B_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['pca0_B_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'pca'+str(lag)+'_B_ma_coef' ] = coef
 

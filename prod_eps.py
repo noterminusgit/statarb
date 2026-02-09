@@ -207,12 +207,12 @@ def generate_coefs(daily_df, horizon, name, coeffile=None):
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['eps0_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['eps0_ma'].loc[horizon].loc['coef']
     print("Coef{}: {}".format(0, coef0)               )
     coef_list = list()
     coef_list.append( { 'name': 'eps0_ma_coef', 'coef': coef0 } )
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['eps0_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['eps0_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
         coef_list.append( { 'name': 'eps' + str(lag) + '_ma_coef', 'coef': coef } )
 
@@ -244,11 +244,11 @@ def eps_alpha(daily_df, horizon, name, coeffile):
     outsample_daily_df = daily_df
     outsample_daily_df['eps'] = 0.0
 
-    coef0 = coef_df.ix['eps0_ma_coef'].ix['coef']
+    coef0 = coef_df.loc['eps0_ma_coef'].loc['coef']
     print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df[ 'eps0_ma_coef' ] = coef0
     for lag in range(0,horizon):
-        coef = coef_df.ix[ 'eps'+str(lag)+'_ma_coef' ].ix['coef']
+        coef = coef_df.loc[ 'eps'+str(lag)+'_ma_coef' ].loc['coef']
         outsample_daily_df[ 'eps'+str(lag)+'_ma_coef' ] = coef
 
     outsample_daily_df[ 'eps' ] = (outsample_daily_df['eps0_ma'].fillna(0) * outsample_daily_df['eps0_ma_coef']).fillna(0)

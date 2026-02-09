@@ -254,7 +254,7 @@ def rev_fits(daily_df, horizon, name, middate=None):
     plot_fit(fits_df, "rev_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['rev1_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['rev1_ma'].loc[horizon].loc['coef']
     print("Coef{}: {}".format(0, coef0))
     outsample_daily_df[ 'rev1_ma_coef' ] = coef0
 

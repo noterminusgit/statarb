@@ -418,17 +418,17 @@ def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
     plot_fit(fits_df, "badj_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['o2c0_B_ma'].ix[horizon].ix['coef']
-    full_df.ix[ outsample_intra_df.index, 'o2cC_B_ma_coef' ] = 0#coef0
+    coef0 = fits_df.loc['o2c0_B_ma'].loc[horizon].loc['coef']
+    full_df.loc[ outsample_intra_df.index, 'o2cC_B_ma_coef' ] = 0#coef0
     print("{} Coef0: {}".format(name, coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['o2c0_B_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['o2c0_B_ma'].loc[lag].loc['coef'] 
         print("{} Coef{}: {}".format(name, lag, coef))
-        full_df.ix[ outsample_intra_df.index, 'o2c'+str(lag)+'_B_ma_coef' ] = coef
+        full_df.loc[ outsample_intra_df.index, 'o2c'+str(lag)+'_B_ma_coef' ] = coef
 
-    full_df.ix[ outsample_intra_df.index, 'badj2_m'] = full_df['o2cC_B_ma'] * full_df['o2cC_B_ma_coef']
+    full_df.loc[ outsample_intra_df.index, 'badj2_m'] = full_df['o2cC_B_ma'] * full_df['o2cC_B_ma_coef']
     for lag in range(1,horizon):
-        full_df.ix[ outsample_intra_df.index, 'badj2_m'] += full_df['o2c'+str(lag)+'_B_ma'] * full_df['o2c'+str(lag)+'_B_ma_coef']
+        full_df.loc[ outsample_intra_df.index, 'badj2_m'] += full_df['o2c'+str(lag)+'_B_ma'] * full_df['o2c'+str(lag)+'_B_ma_coef']
 
     return full_df
 

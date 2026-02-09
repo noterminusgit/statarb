@@ -358,7 +358,7 @@ pnl_df['min_notional'] = (-1 * pnl_df['tradable_med_volume_21_y'] * pnl_df['clos
 if args.locates is not None:
     pnl_df['borrow_notional'] = pnl_df['borrow_qty'] * pnl_df['iclose']
     pnl_df['min_notional'] = pnl_df[ ['borrow_notional', 'min_notional'] ].max(axis=1)  # Less negative = tighter constraint
-    pnl_df.ix[ pnl_df['fee_rate'] > 0, 'min_notional' ] = 0  # If borrow fee > 0, don't short at all
+    pnl_df.loc[ pnl_df['fee_rate'] > 0, 'min_notional' ] = 0  # If borrow fee > 0, don't short at all
     
 # Initialize position tracker
 # Maintains last known position for each security across simulation
@@ -427,24 +427,24 @@ for name, date_group in groups:
 
     # Data quality checks: zero out position bounds for securities with missing/invalid data
     # Prevents optimizer from trading securities with unreliable data
-    date_group.ix[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'max_notional' ] = 0
-    date_group.ix[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'min_notional' ] = 0
+    date_group.loc[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'max_notional' ] = 0
+    date_group.loc[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'min_notional' ] = 0
 
     # Optional: exclude securities by attribute threshold
     # if args.exclude is not None:
     #     attr, val = args.exclude.split(":")
     #     val = float(val)
-    #     date_group.ix[ date_group[attr] < val, 'forecast' ] = 0
-    #     date_group.ix[ date_group[attr] < val, 'max_notional' ] = 0
-    #     date_group.ix[ date_group[attr] < val, 'min_notional' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'forecast' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'max_notional' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'min_notional' ] = 0
 
     # Universe filters: exclude small cap, high price, and pharma stocks
     # - Market cap < $1.6B: too illiquid and risky
     # - Price > $500: options may be better vehicle
     # - PHARMA industry: high regulatory risk and volatility
-    date_group.ix[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA") , 'forecast' ] = 0
-    date_group.ix[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'max_notional' ] = 0
-    date_group.ix[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'min_notional' ] = 0
+    date_group.loc[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA") , 'forecast' ] = 0
+    date_group.loc[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'max_notional' ] = 0
+    date_group.loc[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'min_notional' ] = 0
 
 
     # Earnings avoidance logic (if enabled)
@@ -454,18 +454,18 @@ for name, date_group in groups:
 
         # Scale up residual volatility near earnings to reduce optimizer position sizes
         # Closer to earnings = higher volatility multiplier (3 days: 1.5x, 2 days: 2x, 1 day: 3x)
-        date_group.ix[ date_group['daysToEarn'] == 3, 'residVol'] = date_group.ix[ date_group['daysToEarn'] == 3, 'residVol'] * 1.5
-        date_group.ix[ date_group['daysToEarn'] == 2, 'residVol'] = date_group.ix[ date_group['daysToEarn'] == 2, 'residVol'] * 2
-        date_group.ix[ date_group['daysToEarn'] == 1, 'residVol'] = date_group.ix[ date_group['daysToEarn'] == 1, 'residVol'] * 3
+        date_group.loc[ date_group['daysToEarn'] == 3, 'residVol'] = date_group.loc[ date_group['daysToEarn'] == 3, 'residVol'] * 1.5
+        date_group.loc[ date_group['daysToEarn'] == 2, 'residVol'] = date_group.loc[ date_group['daysToEarn'] == 2, 'residVol'] * 2
+        date_group.loc[ date_group['daysToEarn'] == 1, 'residVol'] = date_group.loc[ date_group['daysToEarn'] == 1, 'residVol'] * 3
 
         # Within earnings window: allow only exit trades (no new positions, no increasing existing)
         # For longs (position_last >= 0): max_notional capped at position_last (can only sell down)
         date_group.ix [ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] >= 0), 'max_notional'] =   date_group.ix [ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] >= 0), 'position_last']
-        date_group.ix[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] >= 0), 'min_notional'] = 0
+        date_group.loc[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] >= 0), 'min_notional'] = 0
 
         # For shorts (position_last <= 0): min_notional capped at position_last (can only cover)
-        date_group.ix[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] <= 0), 'max_notional'] = 0
-        date_group.ix[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] <= 0), 'min_notional'] =   date_group.ix [ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] >= 0), 'position_last']
+        date_group.loc[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] <= 0), 'max_notional'] = 0
+        date_group.loc[ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] <= 0), 'min_notional'] =   date_group.loc [ ( (date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (date_group['position_last'] >= 0), 'position_last']
 
     # PORTFOLIO OPTIMIZATION
     # Setup optimizer with current universe and constraints
@@ -502,10 +502,10 @@ for name, date_group in groups:
         find2 = 0
         for factor2 in factors:
             try:
-                factor_cov = factor_df[(factor1, factor2)].fillna(0).ix[pd.to_datetime(dayname)]
+                factor_cov = factor_df[(factor1, factor2)].fillna(0).loc[pd.to_datetime(dayname)]
                 # Uncomment to print factor correlations for debugging:
-                # factor1_sig = np.sqrt(factor_df[(factor1, factor1)].fillna(0).ix[pd.to_datetime(dayname)])
-                # factor2_sig = np.sqrt(factor_df[(factor2, factor2)].fillna(0).ix[pd.to_datetime(dayname)])
+                # factor1_sig = np.sqrt(factor_df[(factor1, factor1)].fillna(0).loc[pd.to_datetime(dayname)])
+                # factor2_sig = np.sqrt(factor_df[(factor2, factor2)].fillna(0).loc[pd.to_datetime(dayname)])
                 # print "Factor Correlation {}, {}: {}".format(factor1, factor2, factor_cov/(factor1_sig*factor2_sig))
             except:
                 # Missing covariance data - assume zero correlation
@@ -540,12 +540,12 @@ for name, date_group in groups:
 
     # Legacy: these were used when keeping full pnl_df in memory
     # Now we process date by date to save memory
-    # pnl_df.ix[ date_group.index, 'target'] = optresults_df['target']
-    # pnl_df.ix[ date_group.index, 'eslip'] = optresults_df['eslip']
-    # pnl_df.ix[ date_group.index, 'dutil'] = optresults_df['dutil']
-    # pnl_df.ix[ date_group.index, 'dsrisk'] = optresults_df['dsrisk']
-    # pnl_df.ix[ date_group.index, 'dfrisk'] = optresults_df['dfrisk']
-    # pnl_df.ix[ date_group.index, 'dmu'] = optresults_df['dmu']
+    # pnl_df.loc[ date_group.index, 'target'] = optresults_df['target']
+    # pnl_df.loc[ date_group.index, 'eslip'] = optresults_df['eslip']
+    # pnl_df.loc[ date_group.index, 'dutil'] = optresults_df['dutil']
+    # pnl_df.loc[ date_group.index, 'dsrisk'] = optresults_df['dsrisk']
+    # pnl_df.loc[ date_group.index, 'dfrisk'] = optresults_df['dfrisk']
+    # pnl_df.loc[ date_group.index, 'dmu'] = optresults_df['dmu']
 
     date_group['target'] = optresults_df['target']
     date_group['dutil'] = optresults_df['dutil']
@@ -554,7 +554,7 @@ for name, date_group in groups:
     # Negative utility means the trade would reduce expected risk-adjusted returns
     # Keep last position instead of making a value-destroying trade
     if args.nonegutil:
-        date_group.ix[ date_group['dutil'] <= 0, 'target'] = date_group.ix[ date_group['dutil'] <= 0, 'position_last']
+        date_group.loc[ date_group['dutil'] <= 0, 'target'] = date_group.loc[ date_group['dutil'] <= 0, 'position_last']
 
     # Apply participation constraints to limit trading rate
     # max_trade_shares = participation_rate * today's_volume

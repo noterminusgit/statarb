@@ -544,17 +544,17 @@ def qhl_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
     print(df_dates(full_df))
     print(df_dates(intra_df))
 
-    coef0 = fits_df.ix['qhl0_B_ma'].ix[horizon].ix['coef']
-    full_df.ix[ outsample_intra_df.index, 'qhlC_B_ma_coef' ] = 0 #coef0
+    coef0 = fits_df.loc['qhl0_B_ma'].loc[horizon].loc['coef']
+    full_df.loc[ outsample_intra_df.index, 'qhlC_B_ma_coef' ] = 0 #coef0
     print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['qhl0_B_ma'].ix[lag].ix['coef']
+        coef = coef0 - fits_df.loc['qhl0_B_ma'].loc[lag].loc['coef']
         print("Coef{}: {}".format(lag, coef))
-        full_df.ix[ outsample_intra_df.index, 'qhl'+str(lag)+'_B_ma_coef' ] = coef
+        full_df.loc[ outsample_intra_df.index, 'qhl'+str(lag)+'_B_ma_coef' ] = coef
 
-    full_df.ix[ outsample_intra_df.index, 'qhl_m'] = full_df['qhlC_B_ma'] * full_df['qhlC_B_ma_coef']
+    full_df.loc[ outsample_intra_df.index, 'qhl_m'] = full_df['qhlC_B_ma'] * full_df['qhlC_B_ma_coef']
     for lag in range(1,horizon):
-        full_df.ix[ outsample_intra_df.index, 'qhl_m'] += full_df['qhl'+str(lag)+'_B_ma'] * full_df['qhl'+str(lag)+'_B_ma_coef']
+        full_df.loc[ outsample_intra_df.index, 'qhl_m'] += full_df['qhl'+str(lag)+'_B_ma'] * full_df['qhl'+str(lag)+'_B_ma_coef']
 
     return full_df
 

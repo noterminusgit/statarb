@@ -279,7 +279,7 @@ if args.fill == "vwap":
     print("Filling at vwap...")
     trades_df['fillprice'] = trades_df['bvwap_b_n']
     print("Bad count: {}".format( len(trades_df) - len(trades_df[ trades_df['fillprice'] > 0 ]) ))
-    trades_df.ix[  (trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice' ] = trades_df['iclose']
+    trades_df.loc[  (trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice' ] = trades_df['iclose']
 else:
     print("Filling at mid...")
     trades_df['fillprice'] = trades_df['iclose']
@@ -333,7 +333,7 @@ for ts, group_df in trades_df.groupby(level='iclose_ts'):
         if dayname != lastday:
             retdf = fcast_rets[fcast]
             try:
-                last_ret = retdf.ix[ pd.to_datetime(dayname), 'rollingret']
+                last_ret = retdf.loc[ pd.to_datetime(dayname), 'rollingret']
                 if last_ret > 0:
                     weight *= 1.1
                     weight = min(weight, 1.0)

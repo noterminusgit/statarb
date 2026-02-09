@@ -239,11 +239,11 @@ def eps_fits(daily_df, horizon, name, middate=None):
     plot_fit(fits_df, "eps_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['eps0_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['eps0_ma'].loc[horizon].loc['coef']
     print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df[ 'eps0_ma_coef' ] = coef0
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['eps0_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['eps0_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_daily_df[ 'eps'+str(lag)+'_ma_coef' ] = coef
 

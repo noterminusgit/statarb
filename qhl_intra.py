@@ -233,7 +233,7 @@ def qhl_fits(daily_df, intra_df, horizon, name, middate=None):
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
     print(fits_df.head())
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'qhlC_B_ma_coef' ] = fits_df.ix['qhlC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'qhlC_B_ma_coef' ] = fits_df.loc['qhlC_B_ma'].loc[ii].loc['coef']
 
     outsample_intra_df[ 'qhl_i'] = outsample_intra_df['qhlC_B_ma'] * outsample_intra_df['qhlC_B_ma_coef']
     return outsample_intra_df

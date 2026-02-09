@@ -311,7 +311,7 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
     horizon = 1
-    coef0 = fits_df.ix['hlC_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['hlC_B_ma'].loc[horizon].loc['coef']
 
     #should only set where key in daily_df
     full_df[ 'hlC_B_ma_coef' ] = coef0

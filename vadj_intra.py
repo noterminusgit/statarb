@@ -211,7 +211,7 @@ def vadj_fits(daily_df, intra_df, horizon, name, middate=None):
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
     print(fits_df.head(10))
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'vadjC_B_ma_coef' ] = fits_df.ix['vadjC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'vadjC_B_ma_coef' ] = fits_df.loc['vadjC_B_ma'].loc[ii].loc['coef']
     
     outsample_intra_df[ 'vadj_i'] = outsample_intra_df['vadjC_B_ma'] * outsample_intra_df['vadjC_B_ma_coef']
     

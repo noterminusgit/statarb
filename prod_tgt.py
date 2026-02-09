@@ -252,14 +252,14 @@ def generate_coefs(daily_df, horizon, fitfile=None):
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['tgt0_ma'].ix[horizon].ix['coef']
-#    intercept0 = fits_df.ix['tgt0_ma'].ix[horizon].ix['intercept']
+    coef0 = fits_df.loc['tgt0_ma'].loc[horizon].loc['coef']
+#    intercept0 = fits_df.loc['tgt0_ma'].loc[horizon].loc['intercept']
     print("Coef{}: {}".format(0, coef0))
     coef_list = list()
     coef_list.append( { 'name': 'tgt0_ma_coef', 'coef': coef0 } )
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['tgt0_ma'].ix[lag].ix['coef'] 
-#        intercept = intercept0 - fits_df.ix['tgt0_ma'].ix[lag].ix['intercept'] 
+        coef = coef0 - fits_df.loc['tgt0_ma'].loc[lag].loc['coef'] 
+#        intercept = intercept0 - fits_df.loc['tgt0_ma'].loc[lag].loc['intercept'] 
         print("Coef{}: {}".format(lag, coef))
         coef_list.append( { 'name': 'tgt'+str(lag)+'_ma_coef', 'coef': coef } )
 
@@ -324,7 +324,7 @@ def tgt_alpha(daily_df, horizon, fitfile=None):
     outsample_daily_df['tgt'] = 0.0
 
     for lag in range(0,horizon):
-        coef = coef_df.ix[ 'tgt'+str(lag)+'_ma_coef' ]['coef']
+        coef = coef_df.loc[ 'tgt'+str(lag)+'_ma_coef' ]['coef']
         print("Coef: {}".format(coef))
         outsample_daily_df[ 'tgt'+str(lag)+'_ma_coef' ] = coef
 
@@ -502,7 +502,7 @@ if __name__=="__main__":
             Reads CSV with current intraday prices
 
         Line 189: Merges live prices into daily_df
-            daily_df.ix[lastday, 'prc'] = daily_df['close_i']
+            daily_df.loc[lastday, 'prc'] = daily_df['close_i']
             Uses intraday price (close_i) for most recent day
 
     Output Format:
@@ -583,7 +583,7 @@ if __name__=="__main__":
     daily_df['prc'] = daily_df['close']
     if not args.fit:
         lastday = daily_df['gdate'].max()
-        daily_df.ix[ daily_df['gdate'] == lastday, 'prc'] = daily_df['close_i'] 
+        daily_df.loc[ daily_df['gdate'] == lastday, 'prc'] = daily_df['close_i'] 
 
     result_df = calc_tgt_forecast(daily_df, horizon, coeffile, args.fit)
     if not args.fit:

@@ -299,17 +299,17 @@ def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
     for day, daygroup in insample_daily_df.groupby('dow'):
         idx = outsample_intra_df[ outsample_intra_df['dow'] == day ].index
         day = int(day)
-        coef0 = fits_df.ix['o2c0_B_ma'].ix[horizon * 10 + day].ix['coef']
-        full_df.ix[ idx, 'o2cC_B_ma_coef' ] = 0#coef0
+        coef0 = fits_df.loc['o2c0_B_ma'].loc[horizon * 10 + day].loc['coef']
+        full_df.loc[ idx, 'o2cC_B_ma_coef' ] = 0#coef0
         print("{} {} Coef0: {}".format(name, day, coef0))
         for lag in range(1,horizon):
-            coef = coef0 - fits_df.ix['o2c0_B_ma'].ix[lag * 10 + day].ix['coef'] 
+            coef = coef0 - fits_df.loc['o2c0_B_ma'].loc[lag * 10 + day].loc['coef'] 
             print("{} {} Coef{}: {}".format(name, day, lag, coef))
-            full_df.ix[ idx, 'o2c'+str(lag)+'_B_ma_coef' ] = coef
+            full_df.loc[ idx, 'o2c'+str(lag)+'_B_ma_coef' ] = coef
 
-    full_df.ix[ outsample_intra_df.index, 'badj_m'] = full_df['o2cC_B_ma'] * full_df['o2cC_B_ma_coef']
+    full_df.loc[ outsample_intra_df.index, 'badj_m'] = full_df['o2cC_B_ma'] * full_df['o2cC_B_ma_coef']
     for lag in range(1,horizon):
-        full_df.ix[ outsample_intra_df.index, 'badj_m'] += full_df['o2c'+str(lag)+'_B_ma'] * full_df['o2c'+str(lag)+'_B_ma_coef']
+        full_df.loc[ outsample_intra_df.index, 'badj_m'] += full_df['o2c'+str(lag)+'_B_ma'] * full_df['o2c'+str(lag)+'_B_ma_coef']
 
     return full_df
 

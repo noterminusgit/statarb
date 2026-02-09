@@ -129,11 +129,11 @@ def htb_fits(daily_df, intra_df, horizon, name, middate=None):
     plot_fit(fits_df, "htb_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
 
-    coef0 = fits_df.ix['htb0_B'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['htb0_B'].loc[horizon].loc['coef']
     outsample_intra_df['htbC_B_coef'] = coef0
     print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['htb0_B'].ix[lag].ix['coef']
+        coef = coef0 - fits_df.loc['htb0_B'].loc[lag].loc['coef']
         print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'htb'+str(lag)+'_B_coef' ] = coef
 

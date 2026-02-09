@@ -13,7 +13,7 @@ Differences from Main ssim.py:
    - Print statements use function syntax: print() not print
    - Dictionary iteration: .items() instead of .iteritems()
    - String formatting uses .format() instead of %
-   - Pandas indexing: .loc[] and .iloc[] instead of .ix[]
+   - Pandas indexing: .loc[] and .iloc[] instead of .loc[]
 
 2. **Simplified Data Pipeline**
    - Uses standalone loaddata.py for HDF5/CSV loading
@@ -432,7 +432,7 @@ if args.fill == "vwap":
     print("Filling at vwap...")
     trades_df['fillprice'] = trades_df['bvwap_b_n']
     print("Bad count: {}".format(len(trades_df) - len(trades_df[trades_df['fillprice'] > 0])))
-    trades_df.ix[(trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice'] = trades_df['close']
+    trades_df.loc[(trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice'] = trades_df['close']
 else:
     print("Filling at mid...")
     trades_df['fillprice'] = trades_df['close']
@@ -509,7 +509,7 @@ for ts, group_df in trades_df.groupby(level='date'):
     group_df['slip'] = np.abs(group_df['traded']).fillna(0) * float(args.slipbps)
     totslip += group_df['slip'].sum()
     group_df['cash'] = group_df['cash'] - group_df['slip']
-    group_df['pnl'] = trades_df.ix[group_df.index, 'cum_pnl'] = group_df['shares'] * group_df[markPrice] + group_df[
+    group_df['pnl'] = trades_df.loc[group_df.index, 'cum_pnl'] = group_df['shares'] * group_df[markPrice] + group_df[
         'cash']
     notional = np.abs(group_df['shares'] * group_df[markPrice]).dropna().sum()
     group_df['lsnot'] = group_df['shares'] * group_df[markPrice]
@@ -550,7 +550,7 @@ for ts, group_df in trades_df.groupby(level='date'):
         day_bucket['short'][dayname] = np.abs(group_df[group_df['lsnot'] < 0]['lsnot'].dropna().sum())
         month_bucket['not'][monthname] += notional
         dayofweek_bucket['not'][weekdayname] += notional
-        trades_df.ix[group_df.index, 'day_pnl'] = group_df['pnl'] - group_df['pnl_last']
+        trades_df.loc[group_df.index, 'day_pnl'] = group_df['pnl'] - group_df['pnl_last']
         pnl_last_day_tot = pnl_tot
         totturnover += daytraded / notional
         short_names += len(group_df[group_df['traded'] < 0])
@@ -604,8 +604,8 @@ plt.savefig("stocks.png")
 maxpnlid = pnlbystock.idxmax()
 minpnlid = pnlbystock.idxmin()
 
-print("Max pnl stock pnl distribution: {} {}".format(maxpnlid, pnlbystock.ix[maxpnlid]))
-print("Min pnl stock pnl distribution: {} {}".format(minpnlid, pnlbystock.ix[minpnlid]))
+print("Max pnl stock pnl distribution: {} {}".format(maxpnlid, pnlbystock.loc[maxpnlid]))
+print("Min pnl stock pnl distribution: {} {}".format(minpnlid, pnlbystock.loc[minpnlid]))
 plt.figure()
 maxstock_df = trades_df.xs(maxpnlid, level=1)
 maxstock_df['day_pnl'].hist(bins=100)

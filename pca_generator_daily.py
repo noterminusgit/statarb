@@ -129,7 +129,7 @@ def calc_pca_daily(daily_df):
         pcarets = pca.transform(rets)
         pr = np.dot(pcarets, pcafit.components_)
         resids = rets - pr.T.reshape(len(df))
-        result_df.ix[ grp.index, 'pca0' ] = resids.values
+        result_df.loc[ grp.index, 'pca0' ] = resids.values
         lastpcafit = pcafit
 
     return result_df

@@ -178,11 +178,11 @@ def rrb_fits(daily_df, intra_df, horizon, name, middate):
     plot_fit(fits_df, "rrb_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
 
-    coef0 = fits_df.ix['rrb0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['rrb0_B_ma'].loc[horizon].loc['coef']
     outsample_intra_df[ 'rrbC_B_ma_coef' ] = coef0
     print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['rrb0_B_ma'].ix[lag].ix['coef']
+        coef = coef0 - fits_df.loc['rrb0_B_ma'].loc[lag].loc['coef']
         print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'rrb'+str(lag)+'_B_ma_coef' ] = coef
 

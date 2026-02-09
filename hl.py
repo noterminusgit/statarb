@@ -332,7 +332,7 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
     plot_fit(fits_df, "hl_daily_" +name+"_"+ df_dates(daily_df))
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
-    coef0 = fits_df.ix['hl0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['hl0_B_ma'].loc[horizon].loc['coef']
 
     if 'hl' not in full_df.columns:
         print("Creating forecast columns...")
@@ -341,16 +341,16 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
         for lag in range(0, horizon+1):
             full_df[ 'hl' + str(lag) + '_B_ma_coef' ] = np.nan
 
-    full_df.ix[ intra_df.index, 'hlC_B_ma_coef' ] = coef0
-    full_df.ix[ intra_df.index, 'hl0_B_ma_coef' ] = coef0
+    full_df.loc[ intra_df.index, 'hlC_B_ma_coef' ] = coef0
+    full_df.loc[ intra_df.index, 'hl0_B_ma_coef' ] = coef0
     for lag in range(1,horizon+1):
-        full_df.ix[ intra_df.index, 'hl'+str(lag)+'_B_ma_coef' ] = coef0 - fits_df.ix['hl0_B_ma'].ix[lag].ix['coef']
+        full_df.loc[ intra_df.index, 'hl'+str(lag)+'_B_ma_coef' ] = coef0 - fits_df.loc['hl0_B_ma'].loc[lag].loc['coef']
 
-    full_df.ix[ intra_df.index, 'hl'] = full_df['hlC_B_ma'] * full_df['hlC_B_ma_coef']
+    full_df.loc[ intra_df.index, 'hl'] = full_df['hlC_B_ma'] * full_df['hlC_B_ma_coef']
     for lag in range(0,horizon):
-        full_df.ix[ intra_df.index, 'hl'] += full_df['hl'+str(lag)+'_B_ma'] * full_df['hl'+str(lag)+'_B_ma_coef']
+        full_df.loc[ intra_df.index, 'hl'] += full_df['hl'+str(lag)+'_B_ma'] * full_df['hl'+str(lag)+'_B_ma_coef']
 
-    full_df.ix[ intra_df.index, 'hl'] = 4.0
+    full_df.loc[ intra_df.index, 'hl'] = 4.0
 
     return full_df
 

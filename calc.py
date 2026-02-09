@@ -97,8 +97,8 @@ def calc_vol_profiles(full_df):
         m_df = timeslice_df.dropna()
         print(m_df.head())
         print("Average dvol frac at {}: {}".format(timeslice, (m_df['dpvolume_med_21'] / (m_df['tradable_med_volume_21'] * m_df['close'])).mean()))
-        full_df.ix[ timeslice_df.index, 'dpvolume_med_21'] = timeslice_df['dpvolume_med_21']
-        full_df.ix[ timeslice_df.index, 'dpvolume_std_21'] = timeslice_df['dpvolume_std_21']
+        full_df.loc[ timeslice_df.index, 'dpvolume_med_21'] = timeslice_df['dpvolume_med_21']
+        full_df.loc[ timeslice_df.index, 'dpvolume_std_21'] = timeslice_df['dpvolume_std_21']
 
     return full_df
 
@@ -612,7 +612,7 @@ def calc_factors(daily_df, barraOnly=False):
         fdf = pd.DataFrame([ [i,v] for i, v in fRets.items() ], columns=['factor', 'ret'])
         fdf['date'] = name
         factorrets.append( fdf )
-        allreturns_df.ix[ group.index, 'barraResidRet'] = residRets
+        allreturns_df.loc[ group.index, 'barraResidRet'] = residRets
 
         fRets = residRets = None
         gc.collect()
@@ -720,7 +720,7 @@ def calc_intra_factors(intra_df, barraOnly=False):
         fdf = pd.DataFrame([ [i,v] for i, v in fRets.items() ], columns=['factor', 'ret'])
         fdf['iclose_ts'] = name
         factorrets.append( fdf )
-        allreturns_df.ix[ group.index, 'barraResidRetI'] = residRets
+        allreturns_df.loc[ group.index, 'barraResidRetI'] = residRets
 
         fRets = residRets = None
         gc.collect()

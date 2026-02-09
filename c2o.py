@@ -130,7 +130,7 @@ def calc_c2o_daily(daily_df, horizon):
 
    # result_df['c2o0_B'] = result_df['log_ret'] * (1 + np.abs(result_df['badjret'])) ** 3
     result_df['c2o0'] = result_df['badjret']
-    result_df.ix[ np.abs(result_df['c2o0']) < .02 , 'c2o0'] = 0
+    result_df.loc[ np.abs(result_df['c2o0']) < .02 , 'c2o0'] = 0
     result_df['c2o0_B'] = winsorize_by_date(result_df['c2o0'])
 
     result_df = result_df.dropna(subset=['c2o0_B'])
@@ -182,7 +182,7 @@ def calc_c2o_intra(intra_df):
 
 #    result_df['c2oC_B'] = result_df['badjretC'] * (1 + np.abs(result_df['badjret'])) ** 3
     result_df['c2oC'] = result_df['badjret']
-    result_df.ix[ np.abs(result_df['c2oC']) < .02 , 'c2oC'] = 0
+    result_df.loc[ np.abs(result_df['c2oC']) < .02 , 'c2oC'] = 0
     result_df['c2oC_B'] = winsorize_by_ts(result_df['c2oC'])
     result_df = result_df.dropna(subset=['c2oC_B'])
 
@@ -253,7 +253,7 @@ def c2o_fits(daily_df, intra_df, horizon, name, middate):
     unstacked = None
 
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'c2oC_B_ma_coef' ] = fits_df.ix['c2oC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'c2oC_B_ma_coef' ] = fits_df.loc['c2oC_B_ma'].loc[ii].loc['coef']
 
     #DAILY...
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
@@ -265,16 +265,16 @@ def c2o_fits(daily_df, intra_df, horizon, name, middate):
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
     # for dow in range(0,2):       
-    #     coef0 = fits_df.ix['c2o0_B_ma'].ix[horizon * 10 + dow].ix['coef']
+    #     coef0 = fits_df.loc['c2o0_B_ma'].loc[horizon * 10 + dow].loc['coef']
     #     for lag in range(1,horizon):
-    #         coef = coef0 - fits_df.ix['c2o0_B_ma'].ix[lag * 10 + dow].ix['coef'] 
+    #         coef = coef0 - fits_df.loc['c2o0_B_ma'].loc[lag * 10 + dow].loc['coef'] 
     #         print "Coef{}: {}".format(lag, coef)
     #         dowidx = outsample_intra_df[ outsample_intra_df['dow'] == dow ].index
-    #         outsample_intra_df.ix[ dowidx, 'c2o'+str(lag)+'_B_ma_coef' ] = coef
+    #         outsample_intra_df.loc[ dowidx, 'c2o'+str(lag)+'_B_ma_coef' ] = coef
 
-    coef0 = fits_df.ix['c2o0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['c2o0_B_ma'].loc[horizon].loc['coef']
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['c2o0_B_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['c2o0_B_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'c2o'+str(lag)+'_B_ma_coef' ] = coef
 

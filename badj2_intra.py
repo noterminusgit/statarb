@@ -396,9 +396,9 @@ def o2c_fits(daily_df, intra_df, full_df, horizon, name, middate=None):
     unstacked = None
 
     for ii in range(1,7):
-        full_df.ix[ coefs[ii], 'o2cC_B_ma_coef' ] = fits_df.ix['o2cC_B_ma'].ix[ii].ix['coef']
+        full_df.loc[ coefs[ii], 'o2cC_B_ma_coef' ] = fits_df.loc['o2cC_B_ma'].loc[ii].loc['coef']
 
-    full_df.ix[ outsample_intra_df.index, 'badj2_i'] = full_df['o2cC_B_ma'] * full_df['o2cC_B_ma_coef']
+    full_df.loc[ outsample_intra_df.index, 'badj2_i'] = full_df['o2cC_B_ma'] * full_df['o2cC_B_ma_coef']
     
     return full_df
 

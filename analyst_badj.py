@@ -270,11 +270,11 @@ def rtg_fits(daily_df, intra_df, horizon, name, middate=None, intercepts=None):
     plot_fit(fits_df, "rtg_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
     
-    coef0 = fits_df.ix['rtg0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['rtg0_B_ma'].loc[horizon].loc['coef']
     outsample_daily_df[ 'rtg0_B_ma_coef' ] = coef0
     print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['rtg0_B_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['rtg0_B_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_daily_df[ 'rtg'+str(lag)+'_B_ma_coef' ] = coef
 

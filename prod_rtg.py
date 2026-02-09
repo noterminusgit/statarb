@@ -226,7 +226,7 @@ def generate_coefs(daily_df, horizon, fitfile=None):
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
 
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
     print("Coef{}: {}".format(0, coef0))
 
     coef_list = list()
@@ -281,7 +281,7 @@ def rtg_alpha(daily_df, horizon, coeffile=None):
     outsample_daily_df['rtg'] = 0
 
     for lag in range(0,horizon):
-        coef = coef_df.ix[ 'rtg'+str(lag)+'_ma_coef' ]['coef']
+        coef = coef_df.loc[ 'rtg'+str(lag)+'_ma_coef' ]['coef']
         print("Coef: {}".format(coef))
         outsample_daily_df[ 'rtg'+str(lag)+'_ma_coef' ] = coef
     print(outsample_daily_df['rtg'].describe())

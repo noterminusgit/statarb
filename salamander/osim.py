@@ -267,7 +267,7 @@ if args.fill == "vwap":
     trades_df['fillprice'] = trades_df['bvwap_b_n']
     print
     "Bad count: {}".format(len(trades_df) - len(trades_df[trades_df['fillprice'] > 0]))
-    trades_df.ix[(trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice'] = trades_df['iclose']
+    trades_df.loc[(trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice'] = trades_df['iclose']
 else:
     print
     "Filling at mid..."
@@ -447,7 +447,7 @@ def objective(weights):
             #            day_bucket['short'][dayname] = np.abs(group_df[ group_df['lsnot'] < 0 ]['lsnot'].dropna().sum())
             #            month_bucket['not'][monthname] += notional
             #            dayofweek_bucket['not'][weekdayname] += notional
-            #            trades_df.ix[ group_df.index, 'day_pnl'] = group_df['pnl'] - group_df['pnl_last']
+            #            trades_df.loc[ group_df.index, 'day_pnl'] = group_df['pnl'] - group_df['pnl_last']
             pnl_last_day_tot = pnl_tot
         #            totturnover += daytraded/notional
         #            short_names += len(group_df[ group_df['traded'] < 0 ])

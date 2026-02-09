@@ -396,7 +396,7 @@ if args.fill == "vwap":
     print("Bad count: {}".format(len(trades_df) - len(trades_df[trades_df['fillprice'] > 0])))
 
     # Fallback to interval close if VWAP is missing or invalid
-    trades_df.ix[(trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice'] = trades_df['iclose']
+    trades_df.loc[(trades_df['fillprice'] <= 0) | (trades_df['fillprice'].isnull()), 'fillprice'] = trades_df['iclose']
 else:
     # Fill at interval close (mid price approximation)
     print("Filling at mid...")
@@ -521,7 +521,7 @@ for ts, group_df in trades_df.groupby(level='iclose_ts'):
     group_df['cash'] = group_df['cash'] - group_df['slip']
 
     # Calculate P&L: position value (shares * mark price) + cash balance
-    group_df['pnl'] = trades_df.ix[group_df.index, 'cum_pnl'] = group_df['shares'] * group_df[markPrice] + group_df['cash']
+    group_df['pnl'] = trades_df.loc[group_df.index, 'cum_pnl'] = group_df['shares'] * group_df[markPrice] + group_df['cash']
 
     # Calculate notional exposure (sum of absolute position values)
     notional = np.abs(group_df['shares'] * group_df[markPrice]).dropna().sum()
@@ -571,7 +571,7 @@ for ts, group_df in trades_df.groupby(level='iclose_ts'):
         dayofweek_bucket['not'][weekdayname] += notional
 
         # Store daily P&L change in main dataframe
-        trades_df.ix[group_df.index, 'day_pnl'] = group_df['pnl'] - group_df['pnl_last']
+        trades_df.loc[group_df.index, 'day_pnl'] = group_df['pnl'] - group_df['pnl_last']
 
         # Update running totals and counters
         pnl_last_day_tot = pnl_tot
@@ -659,8 +659,8 @@ plt.savefig("stocks.png")
 maxpnlid = pnlbystock.idxmax()
 minpnlid = pnlbystock.idxmin()
 
-print("Max pnl stock: {} with P&L {}".format(maxpnlid, pnlbystock.ix[maxpnlid]))
-print("Min pnl stock: {} with P&L {}".format(minpnlid, pnlbystock.ix[minpnlid]))
+print("Max pnl stock: {} with P&L {}".format(maxpnlid, pnlbystock.loc[maxpnlid]))
+print("Min pnl stock: {} with P&L {}".format(minpnlid, pnlbystock.loc[minpnlid]))
 
 # Generate daily P&L distribution for best-performing stock
 plt.figure()

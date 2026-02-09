@@ -275,14 +275,14 @@ def rtg_fits(daily_df, horizon, name, middate=None, intercepts=None):
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     plot_fit(fits_df, "rtg_up_"+name+"_" + df_dates(insample_up_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
-    intercept0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['intercept']
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
+    intercept0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['intercept']
     print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg0_ma_coef' ] = coef0
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg0_ma_intercept' ] =  intercept0
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['rtg0_ma'].ix[lag].ix['coef'] 
-        intercept = intercept0 - fits_df.ix['rtg0_ma'].ix[lag].ix['intercept'] 
+        coef = coef0 - fits_df.loc['rtg0_ma'].loc[lag].loc['coef'] 
+        intercept = intercept0 - fits_df.loc['rtg0_ma'].loc[lag].loc['intercept'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg'+str(lag)+'_ma_coef' ] = coef
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg'+str(lag)+'_ma_intercept' ] = intercept
@@ -296,21 +296,21 @@ def rtg_fits(daily_df, horizon, name, middate=None, intercepts=None):
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     plot_fit(fits_df, "rtg_dn_"+name+"_" + df_dates(insample_dn_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
-    intercept0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['intercept']
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
+    intercept0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['intercept']
     print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg0_ma_coef' ] = coef0
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg0_ma_intercept' ] =  intercept0
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['rtg0_ma'].ix[lag].ix['coef'] 
-        intercept = intercept0 - fits_df.ix['rtg0_ma'].ix[lag].ix['intercept'] 
+        coef = coef0 - fits_df.loc['rtg0_ma'].loc[lag].loc['coef'] 
+        intercept = intercept0 - fits_df.loc['rtg0_ma'].loc[lag].loc['intercept'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg'+str(lag)+'_ma_coef' ] = coef
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg'+str(lag)+'_ma_intercept' ] = intercept
 
 
 
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
     print("Coef{}: {}".format(0, coef0))
     outsample_daily_df[ 'rtg0_ma_coef' ] = coef0
 

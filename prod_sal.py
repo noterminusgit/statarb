@@ -233,15 +233,15 @@ def generate_coefs(daily_df, horizon, name, coeffile=None, intercepts=None):
         fitresults_df['intercept'] = fitresults_df['intercept'] - float(intercepts[ii])
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['sal0_ma'].ix[horizon].ix['coef']
-    intercept0 = fits_df.ix['sal0_ma'].ix[horizon].ix['intercept']
+    coef0 = fits_df.loc['sal0_ma'].loc[horizon].loc['coef']
+    intercept0 = fits_df.loc['sal0_ma'].loc[horizon].loc['intercept']
     coef_list = list()
     coef_list.append( { 'name': 'tgt0_ma_coef', 'group': "up", 'coef': coef0 } )
     coef_list.append( { 'name': 'tgt0_ma_intercept', 'group': 'up', 'coef': intercept0 } )
     print("Coef{}: {}".format(0, coef0)               )
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['sal0_ma'].ix[lag].ix['coef'] 
-        intercept = intercept0 - fits_df.ix['sal0_ma'].ix[lag].ix['intercept'] 
+        coef = coef0 - fits_df.loc['sal0_ma'].loc[lag].loc['coef'] 
+        intercept = intercept0 - fits_df.loc['sal0_ma'].loc[lag].loc['intercept'] 
         print("Coef{}: {}".format(lag, coef))
         coef_list.append( { 'name': 'sal' + str(lag) + '_ma_coef', 'group': "up", 'coef': coef } )
         coef_list.append( { 'name': 'sal' + str(lag) + '_ma_intercept', 'group': "up", 'coef': intercept } )
@@ -253,15 +253,15 @@ def generate_coefs(daily_df, horizon, name, coeffile=None, intercepts=None):
         fitresults_df['intercept'] = fitresults_df['intercept'] - intercepts[ii]
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['sal0_ma'].ix[horizon].ix['coef']
-    intercept0 = fits_df.ix['sal0_ma'].ix[horizon].ix['intercept']
+    coef0 = fits_df.loc['sal0_ma'].loc[horizon].loc['coef']
+    intercept0 = fits_df.loc['sal0_ma'].loc[horizon].loc['intercept']
     coef_list.append( { 'name': 'tgt0_ma_coef', 'group': "dn", 'coef': coef0 } )
     coef_list.append( { 'name': 'tgt0_ma_intercept', 'group': 'dn', 'coef': intercept0 } )
 
     print("Coef{}: {}".format(0, coef0)               )
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['sal0_ma'].ix[lag].ix['coef'] 
-        intercept = intercept0 - fits_df.ix['sal0_ma'].ix[lag].ix['intercept'] 
+        coef = coef0 - fits_df.loc['sal0_ma'].loc[lag].loc['coef'] 
+        intercept = intercept0 - fits_df.loc['sal0_ma'].loc[lag].loc['intercept'] 
         print("Coef{}: {}".format(lag, coef))
         coef_list.append( { 'name': 'sal' + str(lag) + '_ma_coef', 'group': "dn", 'coef': coef } )
         coef_list.append( { 'name': 'sal' + str(lag) + '_ma_intercept', 'group': "dn", 'coef': intercept } )
@@ -308,25 +308,25 @@ def sal_alpha(daily_df, horizon, name, coeffile):
     outsample_daily_df = daily_df
     outsample_daily_df['sal'] = 0.0
 
-    coef0 = coef_df.ix['sal0_ma_coef'].ix["up"].ix['coef']
-    intercept0 = coef_df.ix['sal0_ma_intercept'].ix["up"].ix['coef']
+    coef0 = coef_df.loc['sal0_ma_coef'].loc["up"].loc['coef']
+    intercept0 = coef_df.loc['sal0_ma_intercept'].loc["up"].loc['coef']
     print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'sal0_ma_coef' ] = coef0
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'sal0_ma_intercept' ] =  intercept0
     for lag in range(1,horizon):
-        coef = coef_df.ix['sal' + str(lag) + '0_ma_coef'].ix["up"].ix['coef']
-        intercept = coef_df.ix['sal' + str(lag) + '_ma_intercept'].ix["up"].ix['coef']
+        coef = coef_df.loc['sal' + str(lag) + '0_ma_coef'].loc["up"].loc['coef']
+        intercept = coef_df.loc['sal' + str(lag) + '_ma_intercept'].loc["up"].loc['coef']
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'sal'+str(lag)+'_ma_coef' ] = coef
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'sal'+str(lag)+'_ma_intercept' ] = intercept
 
-    coef0 = coef_df.ix['sal0_ma_coef'].ix["dn"].ix['coef']
-    intercept0 = coef_df.ix['sal0_ma_intercept'].ix["dn"].ix['coef']
+    coef0 = coef_df.loc['sal0_ma_coef'].loc["dn"].loc['coef']
+    intercept0 = coef_df.loc['sal0_ma_intercept'].loc["dn"].loc['coef']
     print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'sal0_ma_coef' ] = coef0
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'sal0_ma_intercept' ] =  intercept0
     for lag in range(1,horizon):
-        coef = coef_df.ix['sal' + str(lag) + '0_ma_coef'].ix["dn"].ix['coef']
-        intercept = coef_df.ix['sal' + str(lag) + '_ma_intercept'].ix["dn"].ix['coef']
+        coef = coef_df.loc['sal' + str(lag) + '0_ma_coef'].loc["dn"].loc['coef']
+        intercept = coef_df.loc['sal' + str(lag) + '_ma_intercept'].loc["dn"].loc['coef']
         print("Coef{}: {}".format(lag, coef))
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'sal'+str(lag)+'_ma_coef' ] = coef
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'sal'+str(lag)+'_ma_intercept' ] = intercept

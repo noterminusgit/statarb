@@ -242,7 +242,7 @@ def calc_bd_intra(intra_df):
 #    result_df['bdC_B_ma'] = result_df['bdC_B_ma'] * np.abs(result_df['badjret'])
 
 #    result_df['bdC_B_ma'] =  result_df['bdC_B_ma'].clip(0,1000) * np.sign(result_df['cur_log_ret'])
-#    result_df.ix[ (result_df['cur_log_ret_decile'] < 1) | (result_df['cur_log_ret_decile'] == 9), 'bdC_B_ma'] = np.nan
+#    result_df.loc[ (result_df['cur_log_ret_decile'] < 1) | (result_df['cur_log_ret_decile'] == 9), 'bdC_B_ma'] = np.nan
 #    result_df['bdC_B_ma'] = result_df['bdC_B_ma'] * (2 - result_df['cur_log_ret_r'])
 
     # result_df['eod_ts'] = result_df['date'].apply(lambda x: x + timedelta(hours=15, minutes=30))
@@ -328,7 +328,7 @@ def bd_fits(intra_df, horizon, name, middate):
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
     print(fits_df.head())
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'bdC_B_ma_coef' ] = fits_df.ix['bdC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'bdC_B_ma_coef' ] = fits_df.loc['bdC_B_ma'].loc[ii].loc['coef']
 
     outsample_intra_df[ 'bdma_i'] = outsample_intra_df['bdC_B_ma'] * outsample_intra_df['bdC_B_ma_coef']
     return outsample_intra_df

@@ -127,7 +127,7 @@ def insd_fits(daily_df, intra_df, horizon, name, middate):
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
     print(fits_df.head())
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'insdC_B_ma_coef' ] = fits_df.ix['insdC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'insdC_B_ma_coef' ] = fits_df.loc['insdC_B_ma'].loc[ii].loc['coef']
 
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
     for lag in range(1,horizon+1):
@@ -136,11 +136,11 @@ def insd_fits(daily_df, intra_df, horizon, name, middate):
     plot_fit(fits_df, "insd_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['insd0_B_ma'].ix[horizon].ix['coef']
-#    full_df.ix[ outsample_intra_df.index, 'insdC_B_ma_coef' ] = coef0
+    coef0 = fits_df.loc['insd0_B_ma'].loc[horizon].loc['coef']
+#    full_df.loc[ outsample_intra_df.index, 'insdC_B_ma_coef' ] = coef0
     print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['insd0_B_ma'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['insd0_B_ma'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'insd'+str(lag)+'_B_ma_coef' ] = coef
 

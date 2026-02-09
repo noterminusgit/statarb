@@ -1,3 +1,15 @@
+2026-02-09 - Phase 3.5: pandas .ix[] indexer replacement ✅ COMPLETE
+
+**Deprecated Indexer Replaced:** pandas .ix[] → .loc[] across entire codebase (63 files, 526 replacements)
+
+**Impact:** Critical for pandas 1.0+ compatibility (.ix[] removed in pandas 1.0)
+**Files Modified:** Core modules (calc.py, loaddata.py, regress.py, bsim.py, osim.py, ssim.py, qsim.py), 48 alpha strategies, 8 salamander files
+**Validation:** All modified files compile successfully under Python 3
+
+This completes pandas API deprecation migrations for Python 3 compatibility.
+
+---
+
 2026-02-08 - Phase 0: Python 3 migration preparation ✅ COMPLETE
 
 **Infrastructure Created:** Python 3 migration preparation files and branch

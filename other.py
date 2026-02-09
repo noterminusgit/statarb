@@ -132,20 +132,20 @@ def other_fits(daily_df, intra_df, full_df, horizon, name):
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['other0_B'].ix[horizon].ix['coef']
-    full_df.ix[ intra_df.index, 'otherC_B_coef' ] = coef0
+    coef0 = fits_df.loc['other0_B'].loc[horizon].loc['coef']
+    full_df.loc[ intra_df.index, 'otherC_B_coef' ] = coef0
     print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['other0_B'].ix[lag].ix['coef'] 
+        coef = coef0 - fits_df.loc['other0_B'].loc[lag].loc['coef'] 
         print("Coef{}: {}".format(lag, coef))
-        full_df.ix[ intra_df.index, 'other'+str(lag)+'_B_coef' ] = coef
+        full_df.loc[ intra_df.index, 'other'+str(lag)+'_B_coef' ] = coef
 
-    full_df.ix[ intra_df.index, 'other'] = full_df['otherC_B'] * full_df['otherC_B_coef']
+    full_df.loc[ intra_df.index, 'other'] = full_df['otherC_B'] * full_df['otherC_B_coef']
     for lag in range(1,horizon):
-        full_df.ix[ intra_df.index, 'other'] += full_df['other'+str(lag)+'_B'] * full_df['other'+str(lag)+'_B_coef']
+        full_df.loc[ intra_df.index, 'other'] += full_df['other'+str(lag)+'_B'] * full_df['other'+str(lag)+'_B_coef']
      
     #erase the forecast during the fit period
-#    full_df.ix[ full_df['date'] < middate, 'qhl' ]  = np.nan
+#    full_df.loc[ full_df['date'] < middate, 'qhl' ]  = np.nan
     
     return full_df
 
