@@ -134,6 +134,9 @@ def merge_barra_data(price_df, barra_df):
         4. Merge with price data on index
         5. Remove duplicate columns from merge
     """
+    # Handle empty Barra DataFrame edge case
+    if len(barra_df) == 0:
+        return price_df
     barra_df = barra_df.unstack(level=-1).shift(1).stack()
     full_df = pd.merge(price_df, barra_df, left_index=True, right_index=True, sort=True, suffixes=['', '_dead'])
     full_df = remove_dup_cols(full_df)
@@ -267,6 +270,10 @@ def filter_expandable(df):
         - Min ADV: $5M (vs $1M for tradable)
     """
     origsize = len(df)
+    # Handle empty DataFrame edge case
+    if len(df) == 0:
+        print("Restricting forecast to expandables: {} -> {}".format(origsize, 0))
+        return df
     result_df = df.dropna(subset=['expandable'])
     result_df = result_df[ result_df['expandable'] ]
     newsize = len(result_df)

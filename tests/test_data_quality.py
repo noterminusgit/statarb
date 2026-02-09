@@ -583,6 +583,8 @@ class TestDataQualityValidators:
     def test_check_no_nan_inf_with_inf(self, sample_price_df):
         """Validation should FAIL when inf values are injected."""
         corrupted = sample_price_df.copy()
+        # Convert volume column to float64 to allow inf values
+        corrupted['volume'] = corrupted['volume'].astype(float)
         # Inject inf into volume column
         corrupted.iloc[0, corrupted.columns.get_loc('volume')] = np.inf
         corrupted.iloc[1, corrupted.columns.get_loc('volume')] = -np.inf
@@ -824,7 +826,8 @@ class TestBarraFactors:
         # Find an industry column
         ind_cols = [col for col in corrupted.columns if col.startswith('ind_')]
         if ind_cols:
-            # Set some values to 0.5 (not binary)
+            # Ensure column is float dtype, then set some values to 0.5 (not binary)
+            corrupted[ind_cols[0]] = corrupted[ind_cols[0]].astype(float)
             corrupted.iloc[:3, corrupted.columns.get_loc(ind_cols[0])] = 0.5
 
             result = check_barra_factors(corrupted)
@@ -942,7 +945,9 @@ class TestProductionUsage:
         # Corrupt the data in multiple ways
         corrupted_price = sample_price_df.copy()
         corrupted_price.iloc[0, corrupted_price.columns.get_loc('close')] = np.nan
-        corrupted_price.iloc[1, corrupted_price.columns.get_loc('volume')] = -1000
+        # Convert volume to float to allow negative values
+        corrupted_price['volume'] = corrupted_price['volume'].astype(float)
+        corrupted_price.iloc[1, corrupted_price.columns.get_loc('volume')] = -1000.0
 
         corrupted_barra = sample_barra_df.copy()
         corrupted_barra.iloc[0, corrupted_barra.columns.get_loc('beta')] = 100.0
@@ -965,7 +970,7 @@ class TestProductionUsage:
         # Should detect multiple errors
         assert len(errors) > 0, "Should detect corrupted data"
         assert any('NaN' in err for err in errors), "Should detect NaN"
-        assert any('negative' in err.lower() for err in errors), "Should detect negative volume"
+        assert any('negative' in err.lower() or 'below minimum' in err.lower() for err in errors), "Should detect negative volume"
         assert any('beta' in err for err in errors), "Should detect extreme beta"
 
     def test_validation_as_assertion(self, sample_price_df):

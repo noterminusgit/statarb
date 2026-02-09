@@ -50,11 +50,20 @@ def sample_price_df():
     close_prices = 50.0 + np.random.randn(n_rows) * 5.0
     close_prices = np.maximum(close_prices, 10.0)  # Floor at $10
 
+    # Generate OHLC data with proper constraints: high >= max(open, close), low <= min(open, close)
+    open_prices = close_prices * (1.0 + np.random.randn(n_rows) * 0.01)
+
+    # High must be >= both open and close
+    high_prices = np.maximum(open_prices, close_prices) * (1.0 + np.abs(np.random.randn(n_rows)) * 0.02)
+
+    # Low must be <= both open and close
+    low_prices = np.minimum(open_prices, close_prices) * (1.0 - np.abs(np.random.randn(n_rows)) * 0.02)
+
     df = pd.DataFrame({
         'close': close_prices,
-        'open': close_prices * (1.0 + np.random.randn(n_rows) * 0.01),
-        'high': close_prices * (1.0 + np.abs(np.random.randn(n_rows)) * 0.02),
-        'low': close_prices * (1.0 - np.abs(np.random.randn(n_rows)) * .02),
+        'open': open_prices,
+        'high': high_prices,
+        'low': low_prices,
         'volume': np.random.randint(100000, 1000000, n_rows),
     }, index=index)
 
@@ -154,10 +163,10 @@ def sample_barra_df():
         'growth': np.random.randn(n_rows) * 0.1,
     }, index=index)
 
-    # Add industry dummies (one-hot encoded)
+    # Add industry dummies (one-hot encoded) - use float64 to allow modifications in tests
     industries = ['ind_tech', 'ind_finance', 'ind_health', 'ind_energy']
     for ind in industries:
-        df[ind] = np.random.choice([0, 1], n_rows, p=[0.7, 0.3])
+        df[ind] = np.random.choice([0.0, 1.0], n_rows, p=[0.7, 0.3])
 
     return df
 
