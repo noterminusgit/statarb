@@ -111,11 +111,11 @@ The simulation outputs:
 Optimization Details:
 =====================
 
-OpenOpt NSP (Nonlinear Solver Package) Configuration:
-  - Solver: 'ralg' (reduced gradient algorithm)
+scipy.optimize.minimize Configuration:
+  - Method: L-BFGS-B (bounded optimization)
   - Goal: Maximize Sharpe ratio - 0.05 * std(weights)
   - ftol: 0.001 (function tolerance for convergence)
-  - maxFunEvals: 150 (maximum objective evaluations)
+  - maxfun: 150 (maximum objective evaluations)
   - Bounds: [0, 1] for each forecast weight
 
 The weight penalty (0.05 * std(weights)) prevents:
@@ -175,7 +175,7 @@ from util import *
 from regress import *
 from loaddata import *
 
-import openopt
+from scipy.optimize import minimize
 
 from collections import defaultdict
 
@@ -216,7 +216,7 @@ for pair in fcasts:
     forecasts.append(fcast)
     flist = list()
     for ff in sorted(glob.glob("./" + fdir + "/opt/opt." + fcast + ".*.csv")):
-        m = re.match(r".*opt\." + fcast + "\.(\d{8})_\d{6}.csv", str(ff))
+        m = re.match(r".*opt\." + fcast + r"\.(\d{8})_\d{6}.csv", str(ff))
         if m is None: continue
         d1 = int(m.group(1))
         if d1 < int(args.start) or d1 > int(args.end): continue
@@ -332,7 +332,7 @@ def objective(weights):
         - Total turnover tracked for cost analysis
 
     Notes:
-        - OpenOpt calls this function 50-150 times during optimization
+        - scipy.optimize calls this function 50-150 times during optimization
         - Each call simulates entire backtest period (~6 months)
         - Optimization runtime: typically 5-20 minutes
         - Weight penalty prevents overfitting to single forecast
@@ -488,23 +488,30 @@ if args.weights is None:
     initial_weights = np.ones(len(forecasts)) * .5
 else:
     initial_weights = np.array([float(x) for x in args.weights.split(",")])
+
 lb = np.ones(len(forecasts)) * 0.0
 ub = np.ones(len(forecasts))
-plotit = False
-p = openopt.NSP(goal='max', f=objective, x0=initial_weights, lb=lb, ub=ub, plot=plotit)
-p.ftol = 0.001
-p.maxFunEvals = 150
-r = p.solve('ralg')
 
-if (r.stopcase == -1 or r.isFeasible == False):
-    print
-    objective_detail(target, *g_params)
-    raise Exception("Optimization failed")
+# Setup scipy.optimize.minimize optimizer
+# Note: scipy minimizes, so we negate the objective
+bounds = [(lb[i], ub[i]) for i in range(len(lb))]
 
-print
-r.xf
+result = minimize(
+    fun=lambda w: -objective(w),  # Negate to maximize
+    x0=initial_weights,
+    method='L-BFGS-B',  # Bounded optimization
+    bounds=bounds,
+    options={'ftol': 0.001, 'maxfun': 150}
+)
+
+# Check for optimization failure
+if not result.success:
+    print("Optimization failed: {}".format(result.message))
+    raise Exception("Optimization failed: {}".format(result.message))
+
+# Print optimal weights
+print(result.x)
 ii = 0
 for fcast in forecasts:
-    print
-    "{}: {}".format(fcast, r.xf[ii])
+    print("{}: {}".format(fcast, result.x[ii]))
     ii += 1

@@ -1,12 +1,13 @@
 """
 Portfolio Optimization Module (Python 3)
 
-This module implements portfolio optimization using OpenOpt NLP solver to
+This module implements portfolio optimization using scipy.optimize to
 maximize risk-adjusted returns while respecting trading constraints.
 
 This is the Python 3 version of opt.py from the main codebase. Key differences:
 - Python 3 syntax (print functions, range instead of xrange)
 - Uses np alias for numpy (instead of full 'numpy')
+- Uses scipy.optimize.minimize instead of OpenOpt (migrated in Phase 2)
 - Otherwise functionally identical to main opt.py
 
 Objective Function:
@@ -53,11 +54,10 @@ Parameters:
     hard_limit: Multiplier allowing constraint violations (1.02 = 2% buffer)
 
 Solver Configuration:
-    - Algorithm: OpenOpt RALG (gradient-based NLP solver)
-    - Typical solve time: 1-5 seconds for 1400 securities
-    - Max iterations: 500 (both min and max set to 500)
-    - Convergence tolerance: ftol = 1e-6
-    - Early stopping: Custom Terminator callback (50 iter lookback, threshold=10)
+    - Algorithm: scipy.optimize.minimize with trust-constr method
+    - Typical solve time: 1-10 seconds for 1400 securities
+    - Max iterations: 500
+    - Convergence tolerances: gtol=1e-6, xtol=1e-6, barrier_tol=1e-6
 
 Global Variables:
     g_positions: Current positions (dollars)
@@ -94,9 +94,13 @@ Example:
 import sys
 import numpy as np
 import math
-import openopt
+import logging
+from scipy.optimize import minimize, LinearConstraint, NonlinearConstraint
 
 import util
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 max_sumnot = 50.0e6
 max_expnot = 0.048
@@ -140,6 +144,10 @@ g_advpt = None
 np.set_printoptions(threshold=float('nan'))
 
 p = None
+
+# Note: scipy.optimize.minimize uses different callback mechanism than OpenOpt.
+# The Terminator class functionality is replaced by scipy's built-in convergence
+# criteria (gtol, xtol, barrier_tol) and maxiter parameter.
 
 
 class Terminator():
@@ -779,24 +787,24 @@ def constrain_by_trdnot(target, positions, max_sumnot, factors, lbexp, ubexp, ma
     return ret
 
 
-def setupProblem(positions, mu, rvar, factors, fcov, advp, advpt, vol, mktcap, borrowRate, price, lb, ub, Ac, bc, lbexp,
-                 ubexp, untradeable_info, sumnot, zero_start):
-    """Configure OpenOpt NLP problem for portfolio optimization.
+def setupProblem_scipy(positions, mu, rvar, factors, fcov, advp, advpt, vol, mktcap, borrowRate, price, lb, ub, Ac, bc, lbexp,
+                       ubexp, untradeable_info, sumnot, zero_start):
+    """Configure scipy.optimize.minimize problem for portfolio optimization.
 
     Sets up the constrained nonlinear programming problem with:
     - Objective function and gradient
     - Position bounds (box constraints)
-    - Factor exposure limits (linear constraints via A matrix)
+    - Factor exposure limits (linear constraints)
     - Capital constraint (nonlinear constraint)
-    - Solver parameters and termination callback
+    - Solver parameters
 
     Args:
         positions: Current positions (dollars) - also used as x0 if zero_start=0
         mu: Expected returns (alpha signals)
-        rvar: Residual variance (specific risk)
-        factors: Factor loadings matrix (num_factors × num_secs)
+        rvar: Residual variance
+        factors: Factor loadings matrix
         fcov: Factor covariance matrix
-        advp: Average daily volume (dollars)
+        advp: Average daily volume
         advpt: Average daily tradeable volume
         vol: Daily volatility
         mktcap: Market capitalization
@@ -804,57 +812,82 @@ def setupProblem(positions, mu, rvar, factors, fcov, advp, advpt, vol, mktcap, b
         price: Stock prices
         lb: Lower bounds on positions (per security)
         ub: Upper bounds on positions (per security)
-        Ac: Linear constraint matrix for factor exposures (2*num_factors × num_secs)
-        bc: Linear constraint RHS vector (2*num_factors)
+        Ac: Linear constraint matrix for factor exposures (unused - we construct directly)
+        bc: Linear constraint RHS vector (unused - we construct directly)
         lbexp: Lower bounds on factor exposures
         ubexp: Upper bounds on factor exposures
-        untradeable_info: Tuple of (mu, rvar, loadings) for untradeable securities
+        untradeable_info: (mu, rvar, loadings) for untradeable securities
         sumnot: Maximum total notional
-        zero_start: If > 0, initialize optimizer at zero positions instead of current
+        zero_start: If > 0, initialize optimizer at zero positions
 
     Returns:
-        openopt.NLP: Configured OpenOpt NLP problem ready for solve()
+        Dict containing all components needed for scipy.optimize.minimize call:
+            - x0: Initial positions
+            - bounds: Box constraints
+            - constraints: List of LinearConstraint and NonlinearConstraint
+            - options: Solver options
+            - obj_args: Arguments for objective function
+            - grad_args: Arguments for gradient function
 
     Solver Configuration:
-        - Algorithm: RALG (Gradient-based)
-        - Goal: Maximize utility
+        - Method: trust-constr (designed for large-scale constrained optimization)
         - Max iterations: max_iter (default 500)
-        - Min iterations: min_iter (default 500)
-        - Tolerance: ftol = 1e-6
-        - Max function evaluations: 1e9
-        - Early stopping: Terminator callback (50 iter lookback, threshold=10)
-
-    Constraints:
-        - Box constraints: lb <= x <= ub (per security position limits)
-        - Linear constraints: Ac·x <= bc (factor exposure limits)
-        - Nonlinear constraint: constrain_by_capital (total notional limit)
-
-    Notes:
-        - zero_start useful when current positions infeasible
-        - Gradient-based solver requires df (objective_grad) and dc (constraint grads)
-        - Linear constraints more efficient than nonlinear when possible
+        - Tolerances: gtol=1e-6, xtol=1e-6, barrier_tol=1e-6
     """
-    if zero_start > 0:
-        p = openopt.NLP(goal='max', f=objective, df=objective_grad, x0=np.zeros(len(positions)), lb=lb, ub=ub, A=Ac,
-                        b=bc, plot=plotit)
-    else:
-        p = openopt.NLP(goal='max', f=objective, df=objective_grad, x0=positions, lb=lb, ub=ub, A=Ac, b=bc, plot=plotit)
-    p.args.f = (
-    kappa, slip_gamma, slip_nu, positions, mu, rvar, factors, fcov, advp, advpt, vol, mktcap, borrowRate, price,
-    execFee, untradeable_info)
-    p.args.df = (
-    kappa, slip_gamma, slip_nu, positions, mu, rvar, factors, fcov, advp, advpt, vol, mktcap, borrowRate, price,
-    execFee, untradeable_info)
-    p.c = [constrain_by_capital]
-    p.dc = [constrain_by_capital_grad]
-    p.args.c = (positions, sumnot, factors, lbexp, ubexp, sumnot)
-    p.args.dc = (positions, sumnot, factors, lbexp, ubexp, sumnot)
-    p.ftol = 1e-6
-    p.maxFunEvals = 1e9
-    p.maxIter = max_iter
-    p.minIter = min_iter
-    p.callback = Terminator(50, 10, p.minIter)
-    return p
+    # Initial guess
+    x0 = np.zeros(len(positions)) if zero_start > 0 else positions.copy()
+
+    # Box constraints (position bounds)
+    bounds = [(lb[i], ub[i]) for i in range(len(lb))]
+
+    # Linear constraints: Ac @ x <= bc
+    # Factor exposures must satisfy: lbexp <= factors @ x <= ubexp
+    # Reformulate as: factors @ x <= ubexp and -factors @ x <= -lbexp
+    # This is already done in Ac, bc by the caller
+    A_linear = Ac
+    b_linear = bc
+    linear_constraint = LinearConstraint(
+        A=A_linear,
+        lb=-np.inf * np.ones(len(b_linear)),
+        ub=b_linear
+    )
+
+    # Nonlinear constraint: sum(abs(x)) <= sumnot
+    def capital_constraint_func(x):
+        return abs(x).sum() - sumnot
+
+    def capital_constraint_grad(x):
+        return np.sign(x)
+
+    nonlinear_constraint = NonlinearConstraint(
+        fun=capital_constraint_func,
+        lb=-np.inf,
+        ub=0.0,
+        jac=capital_constraint_grad
+    )
+
+    constraints = [linear_constraint, nonlinear_constraint]
+
+    # Solver options
+    options = {
+        'maxiter': max_iter,
+        'verbose': 2,
+        'gtol': 1e-6,
+        'xtol': 1e-6,
+        'barrier_tol': 1e-6
+    }
+
+    # Arguments for objective and gradient functions
+    obj_args = (kappa, slip_gamma, slip_nu, positions, mu, rvar, factors, fcov,
+                advp, advpt, vol, mktcap, borrowRate, price, execFee, untradeable_info)
+
+    return {
+        'x0': x0,
+        'bounds': bounds,
+        'constraints': constraints,
+        'options': options,
+        'obj_args': obj_args
+    }
 
 
 def optimize():
@@ -972,29 +1005,75 @@ def optimize():
     untradeable_rvar = np.dot(u_positions * u_rvar, u_positions)
     untradeable_loadings = untradeable_exposures
     untradeable_info = (untradeable_mu, untradeable_rvar, untradeable_loadings)
-    p = setupProblem(t_positions, t_mu, t_rvar, t_factors, g_fcov, t_advp, t_advpt, t_vol, t_mktcap, t_borrowRate,
-                     t_price, lb, ub, Ac, bc, lbexp, ubexp, untradeable_info, sumnot, zero_start)
-    r = p.solve('ralg')
 
-    # XXX need to check for small number of iterations!!!
-    if (r.stopcase == -1 or r.isFeasible == False) and zero_start > 0:
-        # try again with zero_start = 0
-        p = setupProblem(t_positions, t_mu, t_rvar, t_factors, g_fcov, t_advp, t_advpt, t_vol, t_mktcap, t_borrowRate,
-                         t_price, lb, ub, Ac, bc, lbexp, ubexp, untradeable_info, sumnot, 0)
-        r = p.solve('ralg')
+    # Validate sumnot constraint
+    if sumnot <= 0:
+        raise ValueError("Capital constraint sumnot must be positive, got: {}".format(sumnot))
+
+    # Objective function wrapper for scipy (negated for minimization)
+    def obj_scipy(x):
+        return -objective(x, kappa, slip_gamma, slip_nu, t_positions, t_mu, t_rvar,
+                         t_factors, g_fcov, t_advp, t_advpt, t_vol, t_mktcap,
+                         t_borrowRate, t_price, execFee, untradeable_info)
+
+    def grad_scipy(x):
+        return -objective_grad(x, kappa, slip_gamma, slip_nu, t_positions, t_mu, t_rvar,
+                              t_factors, g_fcov, t_advp, t_advpt, t_vol, t_mktcap,
+                              t_borrowRate, t_price, execFee, untradeable_info)
+
+    try:
+        problem_setup = setupProblem_scipy(t_positions, t_mu, t_rvar, t_factors, g_fcov,
+                                          t_advp, t_advpt, t_vol, t_mktcap, t_borrowRate,
+                                          t_price, lb, ub, Ac, bc, lbexp, ubexp,
+                                          untradeable_info, sumnot, zero_start)
+
+        # Solve with scipy.optimize.minimize
+        result = minimize(
+            fun=obj_scipy,
+            x0=problem_setup['x0'],
+            method='trust-constr',
+            jac=grad_scipy,
+            bounds=problem_setup['bounds'],
+            constraints=problem_setup['constraints'],
+            options=problem_setup['options']
+        )
+    except Exception as e:
+        raise ValueError("Optimization setup or solve failed: {}".format(str(e)))
+
+    # Retry with current positions as starting point if failed and zero_start was used
+    if not result.success and zero_start > 0:
+        logging.warning("Optimization failed with zero_start, retrying with current positions")
+        problem_setup = setupProblem_scipy(t_positions, t_mu, t_rvar, t_factors, g_fcov,
+                                          t_advp, t_advpt, t_vol, t_mktcap, t_borrowRate,
+                                          t_price, lb, ub, Ac, bc, lbexp, ubexp,
+                                          untradeable_info, sumnot, 0)
+
+        result = minimize(
+            fun=obj_scipy,
+            x0=problem_setup['x0'],
+            method='trust-constr',
+            jac=grad_scipy,
+            bounds=problem_setup['bounds'],
+            constraints=problem_setup['constraints'],
+            options=problem_setup['options']
+        )
 
     target = np.zeros(num_secs)
     g_params = [kappa, slip_gamma, slip_nu, g_positions, g_mu, g_rvar, g_factors, g_fcov, g_advp, g_advpt, g_vol,
                 g_mktcap, g_borrowRate, g_price, execFee, (0.0, 0.0, np.zeros_like(untradeable_loadings))]
 
-    if (r.stopcase == -1 or r.isFeasible == False):
+    if not result.success:
+        logging.error("Optimization failed: {}".format(result.message))
         print(objective_detail(target, *g_params))
-        raise Exception("Optimization failed")
+        raise Exception("Optimization failed: {}".format(result.message))
 
-    # the target is the zipping of the opt result and the untradeable securities
-    opt = np.array(r.xf)
-    #    print("SEAN: " + str(r.xf))
-    #    print(str(r.ff))
+    logging.info("Optimization succeeded: {} iterations, final objective = {:.2f}".format(
+        result.nit, -result.fun))
+
+    # Extract optimized positions
+    opt = result.x
+    #    print("SEAN: " + str(result.x))
+    #    print(str(result.fun))
     targetIndex = 0
     optIndex = 0
     tradeable = set(tradeable)

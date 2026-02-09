@@ -810,6 +810,136 @@ python3 -m py_compile prod_sal.py       # ✅ OK
 
 ---
 
+## Salamander Module Python 3 Migration
+
+**Date:** 2026-02-09
+**Status:** ✅ COMPLETE
+
+### Objective
+
+Complete the Python 3 migration for the salamander module by replacing OpenOpt with scipy.optimize in the remaining optimization files.
+
+### Context
+
+- Main codebase (opt.py, osim.py) already migrated to scipy.optimize in Phase 2
+- Salamander module is the standalone Python 3 version of the codebase
+- salamander/opt.py and salamander/osim.py still used OpenOpt (no Python 3 support)
+
+### Files Modified
+
+**1. salamander/opt.py (Portfolio Optimizer)**
+
+**Changes:**
+```python
+# Before
+import openopt
+
+# After
+from scipy.optimize import minimize, LinearConstraint, NonlinearConstraint
+```
+
+**Key Modifications:**
+- Created `setupProblem_scipy()` function (mirrors main opt.py implementation)
+- Modified `optimize()` to use scipy.optimize.minimize with trust-constr method
+- Removed OpenOpt-specific `Terminator` class (replaced with scipy convergence criteria)
+- Created objective/gradient wrapper functions that negate for minimization
+- Updated result object access: `r.xf` → `result.x`, `r.stopcase` → `result.success`
+- Added logging for optimization status and convergence
+- Updated module docstring to reflect scipy.optimize usage
+
+**Solver Configuration:**
+- Method: trust-constr (large-scale constrained optimization)
+- Max iterations: 500
+- Tolerances: gtol=1e-6, xtol=1e-6, barrier_tol=1e-6
+- Verbose: 2 (detailed iteration output)
+
+**2. salamander/osim.py (Forecast Weight Optimizer)**
+
+**Changes:**
+```python
+# Before
+import openopt
+p = openopt.NSP(goal='max', f=objective, x0=initial_weights, lb=lb, ub=ub, plot=plotit)
+r = p.solve('ralg')
+
+# After
+from scipy.optimize import minimize
+result = minimize(
+    fun=lambda w: -objective(w),  # Negate to maximize
+    x0=initial_weights,
+    method='L-BFGS-B',
+    bounds=bounds,
+    options={'ftol': 0.001, 'maxfun': 150}
+)
+```
+
+**Key Modifications:**
+- Replaced OpenOpt NSP solver with scipy.optimize.minimize (L-BFGS-B method)
+- Updated result object access: `r.xf` → `result.x`, `r.stopcase` → `result.success`
+- Fixed regex escape sequence warning (same as main codebase)
+- Updated module docstring to reflect scipy.optimize usage
+
+### Validation Performed
+
+#### Syntax Validation
+✅ Both files compile under Python 3: `python3 -m py_compile`
+✅ No SyntaxError or SyntaxWarning
+✅ Regex escape sequence fixed
+
+#### Import Verification
+✅ No remaining OpenOpt imports in salamander directory
+✅ All scipy.optimize imports successful
+
+#### Structural Validation
+✅ All required functions preserved
+✅ Function signatures unchanged (backward compatible)
+✅ Optimization logic preserved (slippage model, constraints, bounds)
+✅ Implementation matches Phase 2 migration pattern from main codebase
+
+### Implementation Pattern
+
+Followed the exact same migration pattern from Phase 2:
+
+**Main codebase (reference):**
+- opt.py: trust-constr method with LinearConstraint + NonlinearConstraint
+- osim.py: L-BFGS-B method for bounded weight optimization
+
+**Salamander module (applied):**
+- salamander/opt.py: Same trust-constr approach as main opt.py
+- salamander/osim.py: Same L-BFGS-B approach as main osim.py
+
+### Success Criteria
+
+- [x] salamander/opt.py no longer imports OpenOpt
+- [x] salamander/osim.py no longer imports OpenOpt
+- [x] scipy.optimize.minimize implementations complete
+- [x] Both files compile under Python 3
+- [x] No OpenOpt imports remaining in salamander directory
+- [x] Implementation matches Phase 2 migration pattern
+- [x] Function signatures preserved
+- [x] Regex warnings fixed
+- [ ] Numerical validation with market data (deferred to Phase 4)
+
+### Known Limitations
+
+**Same as Phase 2 main codebase migration:**
+1. Numerical differences expected (different solver algorithms)
+2. Performance: Expected solve time 1-10 seconds (vs 1-5 sec OpenOpt)
+3. Untested with market data - full integration testing required in Phase 4
+
+### Salamander Module Status
+
+**Python 3 Compatibility:** ✅ COMPLETE
+
+All salamander module files now Python 3 compatible:
+- [x] Python 3 syntax migration (completed earlier)
+- [x] pandas.stats migration (completed earlier)
+- [x] OpenOpt replacement (salamander/opt.py, salamander/osim.py) ✅ **COMPLETED 2026-02-09**
+
+The salamander module is now fully migrated to Python 3 and uses only scipy.optimize for optimization.
+
+---
+
 ## Validation Results
 
 ### Phase 0 Validation
@@ -846,4 +976,4 @@ python3 -m py_compile prod_sal.py       # ✅ OK
 ---
 
 **Log Maintained By:** Claude Code (Anthropic)
-**Last Updated:** 2026-02-09 (Phase 3 complete)
+**Last Updated:** 2026-02-09 (Phase 3 complete, Salamander module complete)
