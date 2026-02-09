@@ -92,12 +92,12 @@ Note:
     coefficients and performing only lightweight predictions on live data.
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from load_data_live import *
 from util import *
-
-from pandas.stats.moments import ewma
 
 def wavg(group):
     """
@@ -123,7 +123,7 @@ def wavg(group):
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
-    print "Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum()))
+    print("Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum())))
     res = b * ((d * w).sum() / w.sum())
     return res
 
@@ -159,10 +159,10 @@ def calc_tgt_daily(daily_df, horizon):
         Industry neutralization alone provides sufficient risk control for
         live trading while reducing computation time.
     """
-    print "Caculating daily tgt..."
+    print("Caculating daily tgt...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating tgt0..."
+    print("Calculating tgt0...")
     halflife = horizon / 2
 #    result_df['dk'] = np.exp( -1.0 * halflife *  (result_df['gdate'] - result_df['last']).astype('timedelta64[D]').astype(int) )
     # print result_df.columns
@@ -195,7 +195,7 @@ def calc_tgt_daily(daily_df, horizon):
 
 def generate_coefs(daily_df, horizon, fitfile=None):
     """
-    Fit WLS regression models and save coefficients to CSV file (Fit Mode).
+    Fit WLS regression models and save coefficients to CSV open(Fit Mode).
 
     This function is called in --fit mode to estimate how the price target
     signal predicts forward returns. Runs regressions for horizons 1 through
@@ -252,15 +252,15 @@ def generate_coefs(daily_df, horizon, fitfile=None):
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['tgt0_ma'].ix[horizon].ix['coef']
-#    intercept0 = fits_df.ix['tgt0_ma'].ix[horizon].ix['intercept']
-    print "Coef{}: {}".format(0, coef0)
+    coef0 = fits_df.loc['tgt0_ma'].loc[horizon].loc['coef']
+#    intercept0 = fits_df.loc['tgt0_ma'].loc[horizon].loc['intercept']
+    print("Coef{}: {}".format(0, coef0))
     coef_list = list()
     coef_list.append( { 'name': 'tgt0_ma_coef', 'coef': coef0 } )
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['tgt0_ma'].ix[lag].ix['coef'] 
-#        intercept = intercept0 - fits_df.ix['tgt0_ma'].ix[lag].ix['intercept'] 
-        print "Coef{}: {}".format(lag, coef)
+        coef = coef0 - fits_df.loc['tgt0_ma'].loc[lag].loc['coef'] 
+#        intercept = intercept0 - fits_df.loc['tgt0_ma'].loc[lag].loc['intercept'] 
+        print("Coef{}: {}".format(lag, coef))
         coef_list.append( { 'name': 'tgt'+str(lag)+'_ma_coef', 'coef': coef } )
 
     coef_df = pd.DataFrame(coef_list)
@@ -324,18 +324,18 @@ def tgt_alpha(daily_df, horizon, fitfile=None):
     outsample_daily_df['tgt'] = 0.0
 
     for lag in range(0,horizon):
-        coef = coef_df.ix[ 'tgt'+str(lag)+'_ma_coef' ]['coef']
-        print "Coef: {}".format(coef)
+        coef = coef_df.loc[ 'tgt'+str(lag)+'_ma_coef' ]['coef']
+        print("Coef: {}".format(coef))
         outsample_daily_df[ 'tgt'+str(lag)+'_ma_coef' ] = coef
 
-    print outsample_daily_df['tgt'].describe()
+    print(outsample_daily_df['tgt'].describe())
 
     outsample_daily_df[ 'tgt' ] = (outsample_daily_df['tgt0_ma'] * outsample_daily_df['tgt0_ma_coef']).fillna(0) #+ outsample_daily_df['tgt0_ma_intercept']
     for lag in range(1,horizon):
-        print outsample_daily_df['tgt'].describe()
+        print(outsample_daily_df['tgt'].describe())
         outsample_daily_df[ 'tgt'] += (outsample_daily_df['tgt'+str(lag)+'_ma'] * outsample_daily_df['tgt'+str(lag)+'_ma_coef']).fillna(0) #+ outsample_daily_df['tgt'+str(lag)+'_ma_intercept']
     
-    print outsample_daily_df['tgt'].describe() 
+    print(outsample_daily_df['tgt'].describe() )
     return outsample_daily_df
 
 def calc_tgt_forecast(daily_df, horizon, coeffile, fit):
@@ -469,7 +469,7 @@ if __name__=="__main__":
             Fit mode: Date to name coefficient file
             Predict mode: Date for alpha generation
 
-        --inputfile: Path to live price CSV file (predict mode only)
+        --inputfile: Path to live price CSV open(predict mode only)
             Format: ticker, close_i, time columns
             Contains intraday prices for all universe stocks
 
@@ -502,7 +502,7 @@ if __name__=="__main__":
             Reads CSV with current intraday prices
 
         Line 189: Merges live prices into daily_df
-            daily_df.ix[lastday, 'prc'] = daily_df['close_i']
+            daily_df.loc[lastday, 'prc'] = daily_df['close_i']
             Uses intraday price (close_i) for most recent day
 
     Output Format:
@@ -556,20 +556,20 @@ if __name__=="__main__":
     horizon = int(15)
     end = datetime.strptime(args.asof, "%Y%m%d")
     if args.fit:
-        print "Fitting..."
+        print("Fitting...")
         coeffile = args.coeffile + "/" + args.asof + ".tgt.csv"
         lookback = timedelta(days=720)    
         start = end - lookback
         uni_df = get_uni(start, end, 30)
     else:
-        print "Not fitting..."
+        print("Not fitting...")
         coeffile = args.coeffile
         lookback = timedelta(days=horizon+5)    
         start = end - lookback
         uni_df = load_live_file(args.inputfile)
         end = datetime.strptime(args.asof + '_' + uni_df['time'].min(), '%Y%m%d_%H:%M:%S')
     
-    print "Running between {} and {}".format(start, end)
+    print("Running between {} and {}".format(start, end))
 
     BARRA_COLS = ['ind1', 'pbeta']
     barra_df = load_barra(uni_df, start, end, BARRA_COLS)
@@ -583,11 +583,11 @@ if __name__=="__main__":
     daily_df['prc'] = daily_df['close']
     if not args.fit:
         lastday = daily_df['gdate'].max()
-        daily_df.ix[ daily_df['gdate'] == lastday, 'prc'] = daily_df['close_i'] 
+        daily_df.loc[ daily_df['gdate'] == lastday, 'prc'] = daily_df['close_i'] 
 
     result_df = calc_tgt_forecast(daily_df, horizon, coeffile, args.fit)
     if not args.fit:
-        print result_df.head()
+        print(result_df.head())
         dump_prod_alpha(result_df, 'tgt', args.outputfile)
 
 

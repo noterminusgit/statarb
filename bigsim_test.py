@@ -186,6 +186,8 @@ Notes
 - Email notification sent on completion (requires email() function)
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *
@@ -222,7 +224,7 @@ parser.add_argument("--maxforecast",action="store",dest="maxforecast",default=0.
 parser.add_argument("--nonegutil",action="store",dest="nonegutil",default=True)
 args = parser.parse_args()
 
-print args
+print(args)
 
 mkdir_p("opt")
 
@@ -270,7 +272,7 @@ pnl_df.index.names = ['iclose_ts', 'sid']
 pnl_df['forecast'] = np.nan
 pnl_df['forecast_abs'] = np.nan
 for fcast in forecastargs:
-    print "Loading {}".format(fcast)
+    print("Loading {}".format(fcast))
     fdir, name, mult, weight = fcast.split(":")
     mu_df = load_mus(fdir, name, start, end)
     pnl_df = pd.merge(pnl_df, mu_df, how='left', left_index=True, right_index=True)
@@ -372,18 +374,18 @@ for name, date_group in groups:
     hour = int(name.strftime("%H"))
     if hour >= 16: continue
 
-    print "Looking at {}".format(name)
+    print("Looking at {}".format(name))
     monthname = name.strftime("%Y%m")
     timename = name.strftime("%H%M%S")
     weekdayname = name.weekday()
 
-    print pca_df.ix[ dateparser.parse(dayname), 'eig' ]
+    print(pca_df.loc[ dateparser.parse(dayname), 'eig' ])
     eig = 1
     try:
-        eig = float(pca_df.ix[ dateparser.parse(dayname), 'eig' ][0])
+        eig = float(pca_df.loc[ dateparser.parse(dayname), 'eig' ][0])
     except:
         try:
-            eig = float(pca_df.ix[ dateparser.parse(dayname), 'eig' ])
+            eig = float(pca_df.loc[ dateparser.parse(dayname), 'eig' ])
         except:
             pass
     
@@ -391,7 +393,7 @@ for name, date_group in groups:
 
     date_group = date_group[ (date_group['iclose'] > 0) & (date_group['bvolume_d'] > 0) & (date_group['mdvp_y'] > 0) ].sort()
     if len(date_group) == 0:
-        print "No data for {}".format(name)
+        print("No data for {}".format(name))
         continue
 
     date_group = pd.merge(date_group.reset_index(), last_pos.reset_index(), how='outer', left_on=['sid'], right_on=['sid'], suffixes=['', '_last'])
@@ -401,19 +403,19 @@ for name, date_group in groups:
     if lastday is not None and lastday != dayname:
         date_group['shares_last'] = date_group['shares_last'] * date_group['split']
     date_group['position_last'] = (date_group['shares_last'] * date_group['iclose']).fillna(0)
-    date_group.ix[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'max_notional' ] = 0
-    date_group.ix[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'min_notional' ] = 0
+    date_group.loc[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'max_notional' ] = 0
+    date_group.loc[ date_group['iclose'].isnull() | date_group['mdvp_y'].isnull() | (date_group['mdvp_y'] == 0) | date_group['bvolume_d'].isnull() | (date_group['bvolume_d'] == 0) | date_group['residVol'].isnull(), 'min_notional' ] = 0
 
     # if args.exclude is not None:
     #     attr, val = args.exclude.split(":")
     #     val = float(val)
-    #     date_group.ix[ date_group[attr] < val, 'forecast' ] = 0
-    #     date_group.ix[ date_group[attr] < val, 'max_notional' ] = 0
-    #     date_group.ix[ date_group[attr] < val, 'min_notional' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'forecast' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'max_notional' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'min_notional' ] = 0
 
-    date_group.ix[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA") , 'forecast' ] = 0
-    date_group.ix[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'max_notional' ] = 0
-    date_group.ix[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'min_notional' ] = 0
+    date_group.loc[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA") , 'forecast' ] = 0
+    date_group.loc[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'max_notional' ] = 0
+    date_group.loc[ (date_group['mkt_cap_y'] < 1.6e9) | (date_group['iclose'] > 500.0) | (date_group['indname1'] == "PHARMA"), 'min_notional' ] = 0
 
 
     if args.earnings is not None:
@@ -453,9 +455,9 @@ for name, date_group in groups:
         find2 = 0
         for factor2 in factors:
             try:
-                factor_cov = factor_df[(factor1, factor2)].fillna(0).ix[pd.to_datetime(dayname)]
-                #                factor1_sig = np.sqrt(factor_df[(factor1, factor1)].fillna(0).ix[pd.to_datetime(dayname)])
-                #               factor2_sig = np.sqrt(factor_df[(factor2, factor2)].fillna(0).ix[pd.to_datetime(dayname)])
+                factor_cov = factor_df[(factor1, factor2)].fillna(0).loc[pd.to_datetime(dayname)]
+                #                factor1_sig = np.sqrt(factor_df[(factor1, factor1)].fillna(0).loc[pd.to_datetime(dayname)])
+                #               factor2_sig = np.sqrt(factor_df[(factor2, factor2)].fillna(0).loc[pd.to_datetime(dayname)])
                 #                print "Factor Correlation {}, {}: {}".format(factor1, factor2, factor_cov/(factor1_sig*factor2_sig))
             except:
                 #                print "No cov found for {} {}".format(factor1, factor2)
@@ -483,12 +485,12 @@ for name, date_group in groups:
     optresults_df['costs'] = costs
     optresults_df['dutil2'] = dutil2
     
-    # pnl_df.ix[ date_group.index, 'target'] = optresults_df['target']
-    # pnl_df.ix[ date_group.index, 'eslip'] = optresults_df['eslip']
-    # pnl_df.ix[ date_group.index, 'dutil'] = optresults_df['dutil']
-    # pnl_df.ix[ date_group.index, 'dsrisk'] = optresults_df['dsrisk']
-    # pnl_df.ix[ date_group.index, 'dfrisk'] = optresults_df['dfrisk']
-    # pnl_df.ix[ date_group.index, 'dmu'] = optresults_df['dmu']
+    # pnl_df.loc[ date_group.index, 'target'] = optresults_df['target']
+    # pnl_df.loc[ date_group.index, 'eslip'] = optresults_df['eslip']
+    # pnl_df.loc[ date_group.index, 'dutil'] = optresults_df['dutil']
+    # pnl_df.loc[ date_group.index, 'dsrisk'] = optresults_df['dsrisk']
+    # pnl_df.loc[ date_group.index, 'dfrisk'] = optresults_df['dfrisk']
+    # pnl_df.loc[ date_group.index, 'dmu'] = optresults_df['dmu']
 
     date_group['target'] = optresults_df['target']
     date_group['dutil'] = optresults_df['dutil']
@@ -496,7 +498,7 @@ for name, date_group in groups:
     #    date_group['last_position'] = tmp.set_index(['iclose_ts', 'sid'])['position']
 
     if args.nonegutil:
-        date_group.ix[ date_group['dutil'] <= 0, 'target'] = date_group['position_last']
+        date_group.loc[ date_group['dutil'] <= 0, 'target'] = date_group['position_last']
 
     date_group['max_move'] = date_group['position_last'] + date_group['max_trade_shares'] * date_group['iclose'] 
     date_group['min_move'] = date_group['position_last'] - date_group['max_trade_shares'] * date_group['iclose'] 
@@ -510,12 +512,12 @@ for name, date_group in groups:
     
     date_group['traded'] = date_group['position'] - date_group['position_last']
     date_group['shares'] = date_group['position'] / date_group['iclose']
-    #    pnl_df.ix[ date_group.index, 'traded'] = date_group['traded']
+    #    pnl_df.loc[ date_group.index, 'traded'] = date_group['traded']
 
     postmp = pd.merge(last_pos.reset_index(), date_group['shares'].reset_index(), how='outer', left_on=['sid'], right_on=['sid']).set_index('sid')
     last_pos['shares_last'] = postmp['shares'].fillna(0)
     postmp = None
-#    pnl_df.ix[ date_group.index, 'position'] = date_group['position']
+#    pnl_df.loc[ date_group.index, 'position'] = date_group['position']
 
     optresults_df['forecast'] = date_group['forecast']
     optresults_df['traded'] = date_group['traded']

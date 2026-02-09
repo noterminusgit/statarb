@@ -61,6 +61,8 @@ analyzing realized slippage from actual executions. The QuantBook platform
 was presumably used for live trading or paper trading during system development.
 """
 
+from __future__ import division, print_function
+
 from loaddata import *
 from util import *
 

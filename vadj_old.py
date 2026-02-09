@@ -69,6 +69,8 @@ Creates alpha forecast file: vadj.h5
 Creates fit diagnostic plots: vadj_daily_*.png, vadj_intra_*.png
 """
 
+from __future__ import division, print_function
+
 from alphacalc import *
 
 from dateutil import parser as dateparser
@@ -86,13 +88,13 @@ def calc_vadj(full_df, horizon):
     Returns:
         DataFrame: Original data plus vadj0_B_ma and lagged columns
     """
-    print "Caculating daily vadj..."
+    print("Caculating daily vadj...")
     result_df = full_df.reset_index()
     result_df = filter_expandable(result_df)
 
     result_df = result_df[ ['close', 'pbeta', 'tradable_volume', 'tradable_med_volume_21', 'log_ret', 'date', 'ind1', 'sid' ] ]
 
-    print "Calculating vadj0..."
+    print("Calculating vadj0...")
     rv = np.log(result_df['tradable_volume'] / result_df['tradable_med_volume_21'])
     result_df['vadj0'] = rv * result_df['log_ret'] / result_df['pbeta']
     result_df['vadj0_B'] = winsorize(result_df['vadj0'])
@@ -102,7 +104,7 @@ def calc_vadj(full_df, horizon):
     result_df['vadj0_B_ma'] = indgroups['vadj0_B']
     result_df.set_index(keys=['date', 'sid'], inplace=True)
 
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['vadj' + str(lag) + '_B_ma'] = shift_df['vadj0_B_ma']
@@ -123,19 +125,19 @@ def calc_vadj_intra(full_df):
     Returns:
         DataFrame: Original data plus vadjC_B_ma column
     """
-    print "Calculating vadj intra..."
+    print("Calculating vadj intra...")
     result_df = full_df.reset_index()
     result_df = filter_expandable(result_df)
 
     result_df = result_df[ ['iclose_ts', 'dopen', 'iclose', 'pbeta', 'dvolume', 'overnight_log_ret', 'tradable_med_volume_21_y', 'dvol_frac_med_21', 'date', 'ind1', 'sid' ] ]
     result_df = result_df.dropna(how='any')
 
-    print "Calulating vadjC..."
+    print("Calulating vadjC...")
     rv = np.log((result_df['dvolume'] / result_df['dvol_frac_med_21']) / result_df['tradable_med_volume_21_y'])
     result_df['vadjC'] = rv * (result_df['overnight_log_ret'] + (np.log(result_df['iclose']/result_df['dopen']))) / result_df['pbeta']
     result_df['vadjC_B'] = winsorize(result_df['vadjC'])
 
-    print "Calulating vadjC_ma..."
+    print("Calulating vadjC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['vadjC_B', 'date', 'ind1']].groupby(['date', 'ind1'], sort=False).transform(demean)
     result_df['vadjC_B_ma'] = indgroups['vadjC_B']
@@ -143,7 +145,7 @@ def calc_vadj_intra(full_df):
     #important for keeping NaTs out of the following merge
     del result_df['date']
 
-    print "Merging..."
+    print("Merging...")
     result_df.set_index(keys=['iclose_ts', 'sid'], inplace=True)
     result_df = pd.merge(full_df, result_df, how='left', left_index=True, right_index=True, sort=True, suffixes=['_dead', ''])
     result_df = remove_dup_cols(result_df)
@@ -181,7 +183,7 @@ def vadj_fits(daily_df, intra_df, full_df, horizon, name):
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
 
     if 'vadj' not in full_df.columns:
-        print "Creating forecast columns..."
+        print("Creating forecast columns...")
         full_df[name] = np.nan
         full_df[ 'vadjC_B_ma_coef' ] = np.nan
         for lag in range(0, horizon+1):
@@ -194,16 +196,16 @@ def vadj_fits(daily_df, intra_df, full_df, horizon, name):
     plot_fit(fits_df, "vadj_daily_"+name+"_" + df_dates(regress_daily_df))
     
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['vadj0_B_ma'].ix[horizon].ix['coef']
-    full_df.ix[ intra_df.index, 'vadjC_B_ma_coef' ] = coef0
+    coef0 = fits_df.loc['vadj0_B_ma'].loc[horizon].loc['coef']
+    full_df.loc[ intra_df.index, 'vadjC_B_ma_coef' ] = coef0
     for lag in range(1,horizon+1):
-        coef = coef0 - fits_df.ix['vadj0_B_ma'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
-        full_df.ix[ intra_df.index, 'vadj'+str(lag)+'_B_ma_coef' ] = coef
+        coef = coef0 - fits_df.loc['vadj0_B_ma'].loc[lag].loc['coef'] 
+        print("Coef{}: {}".format(lag, coef))
+        full_df.loc[ intra_df.index, 'vadj'+str(lag)+'_B_ma_coef' ] = coef
 
-    full_df.ix[ intra_df.index, 'vadj'] = full_df['vadjC_B_ma'] * full_df['vadjC_B_ma_coef']
+    full_df.loc[ intra_df.index, 'vadj'] = full_df['vadjC_B_ma'] * full_df['vadjC_B_ma_coef']
     for lag in range(1,horizon):
-        full_df.ix[ intra_df.index, 'vadj'] += full_df['vadj'+str(lag)+'_B_ma'] * full_df['vadj'+str(lag)+'_B_ma_coef']
+        full_df.loc[ intra_df.index, 'vadj'] += full_df['vadj'+str(lag)+'_B_ma'] * full_df['vadj'+str(lag)+'_B_ma_coef']
     
     return full_df
 
@@ -226,12 +228,12 @@ def calc_vadj_forecast(daily_df, intra_df, horizon):
     full_df = merge_intra_data(daily_df, intra_df)
 
     sector_name = 'Energy'
-    print "Running vadj for sector {}".format(sector_name)
+    print("Running vadj for sector {}".format(sector_name))
     sector_df = daily_df[ daily_df['sector_name'] == sector_name ]
     sector_intra_df = intra_df[ intra_df['sector_name'] == sector_name ]
     full_df = vadj_fits(sector_df, sector_intra_df, full_df, horizon, "vadj")
 
-    print "Running vadj for sector {}".format(sector_name)
+    print("Running vadj for sector {}".format(sector_name))
     sector_df = daily_df[ daily_df['sector_name'] != sector_name ]
     sector_intra_df = intra_df[ intra_df['sector_name'] != sector_name ]
     full_df = vadj_fits(sector_df, sector_intra_df, full_df, horizon, "vadj")

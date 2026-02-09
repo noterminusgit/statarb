@@ -31,18 +31,20 @@ Output:
 NOTE: This file should be renamed to 'volat_ratio.py' for clarity.
 """
 
+from __future__ import division, print_function
+
 from alphacalc import *
 
 from dateutil import parser as dateparser
 
 def calc_other_daily(daily_df, horizon):
-    print "Caculating daily other..."
+    print("Caculating daily other...")
 
     result_df = daily_df.reset_index()
     result_df = filter_expandable(result_df)
     result_df = result_df[ ['log_ret', 'volat_ratio', 'date', 'ind1', 'sid' ]]
 
-    print "Calculating other0..."
+    print("Calculating other0...")
     result_df['other0'] = result_df['log_ret'] * result_df['volat_ratio']
     result_df['other0_B'] = winsorize_by_group(result_df[ ['date', 'other0'] ], 'date')
 
@@ -51,7 +53,7 @@ def calc_other_daily(daily_df, horizon):
     result_df['other0_B_ma'] = indgroups['other0_B']
     result_df.set_index(keys=['date', 'sid'], inplace=True)
     
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['other'+str(lag)+'_B_ma'] = shift_df['other0_B_ma']
@@ -66,18 +68,18 @@ def calc_other_daily(daily_df, horizon):
     return result_df
 
 def calc_other_intra(intra_df, daily_df):
-    print "Calculating other intra..."
+    print("Calculating other intra...")
 
     result_df = filter_expandable_intra(intra_df, daily_df)
     result_df = intra_df.reset_index()
     result_df = result_df[ [ 'iclose_ts', 'log_ret', 'volat_ratio', 'open', 'iclose', 'overnight_log_ret', 'date', 'ind1', 'sid' ] ]
     result_df = result_df.dropna(how='any')
 
-    print "Calulating otherC..."
+    print("Calulating otherC...")
     result_df['otherC'] = (result_df['overnight_log_ret'] + (np.log(result_df['iclose']/result_df['open']))) * result_df['volat_ratio']
     result_df['otherC_B'] = winsorize_by_group(result_df[ ['iclose_ts', 'otherC'] ], 'iclose_ts')
 
-    print "Calulating otherC_ma..."
+    print("Calulating otherC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['otherC_B', 'iclose_ts', 'ind1']].groupby(['iclose_ts', 'ind1'], sort=False).transform(demean)
     result_df['otherC_B_ma'] = indgroups['otherC_B']
@@ -85,7 +87,7 @@ def calc_other_intra(intra_df, daily_df):
     #important for keeping NaTs out of the following merge
     del result_df['date']
 
-    print "Merging..."
+    print("Merging...")
     result_df.set_index(keys=['iclose_ts', 'sid'], inplace=True)
     result_df = pd.merge(intra_df, result_df, how='left', left_index=True, right_index=True, sort=True, suffixes=['_dead', ''])
     result_df = remove_dup_cols(result_df)
@@ -117,7 +119,7 @@ def other_fits(daily_df, intra_df, full_df, horizon, name):
     plot_fit(fits_df, "other_daily_"+name+"_" + df_dates(regress_daily_df))
 
     if name not in full_df.columns:
-        print "Creating forecast columns..."
+        print("Creating forecast columns...")
         full_df['other'] = np.nan
         full_df['otherma'] = np.nan
         full_df[ 'otherC_B_ma_coef' ] = np.nan
@@ -130,20 +132,20 @@ def other_fits(daily_df, intra_df, full_df, horizon, name):
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['other0_B'].ix[horizon].ix['coef']
-    full_df.ix[ intra_df.index, 'otherC_B_coef' ] = coef0
-    print "Coef0: {}".format(coef0)
+    coef0 = fits_df.loc['other0_B'].loc[horizon].loc['coef']
+    full_df.loc[ intra_df.index, 'otherC_B_coef' ] = coef0
+    print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['other0_B'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
-        full_df.ix[ intra_df.index, 'other'+str(lag)+'_B_coef' ] = coef
+        coef = coef0 - fits_df.loc['other0_B'].loc[lag].loc['coef'] 
+        print("Coef{}: {}".format(lag, coef))
+        full_df.loc[ intra_df.index, 'other'+str(lag)+'_B_coef' ] = coef
 
-    full_df.ix[ intra_df.index, 'other'] = full_df['otherC_B'] * full_df['otherC_B_coef']
+    full_df.loc[ intra_df.index, 'other'] = full_df['otherC_B'] * full_df['otherC_B_coef']
     for lag in range(1,horizon):
-        full_df.ix[ intra_df.index, 'other'] += full_df['other'+str(lag)+'_B'] * full_df['other'+str(lag)+'_B_coef']
+        full_df.loc[ intra_df.index, 'other'] += full_df['other'+str(lag)+'_B'] * full_df['other'+str(lag)+'_B_coef']
      
     #erase the forecast during the fit period
-#    full_df.ix[ full_df['date'] < middate, 'qhl' ]  = np.nan
+#    full_df.loc[ full_df['date'] < middate, 'qhl' ]  = np.nan
     
     return full_df
 

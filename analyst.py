@@ -53,11 +53,11 @@ Notes:
     - Legacy Python 2.7 codebase
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
-
-from pandas.stats.moments import ewma
 
 def calc_rtg_daily(daily_df, horizon):
     """
@@ -94,18 +94,18 @@ def calc_rtg_daily(daily_df, horizon):
         - det_diff captures both changes in ratings and analyst coverage
         - Squaring makes both upgrades and downgrades generate positive signal
     """
-    print "Caculating daily rtg..."
+    print("Caculating daily rtg...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating rtg0..."    
+    print("Calculating rtg0..."    )
     halflife = horizon / 2
 #    result_df['dk'] = np.exp( -1.0 * halflife *  (result_df['gdate'] - result_df['last']).astype('timedelta64[D]').astype(int) )
 
-    result_df['cum_ret'] = pd.rolling_sum(result_df['log_ret'], horizon)
+    result_df['cum_ret'] = result_df['log_ret'].rolling(horizon).sum()
 
     result_df['sum'] = result_df['mean'] * result_df['count']
-    result_df['det_diff'] = result_df['sum'].diff()    
-    result_df['det_diff_dk'] = ewma(result_df['det_diff'], halflife=horizon )   
+    result_df['det_diff'] = result_df['sum'].diff()
+    result_df['det_diff_dk'] = result_df['det_diff'].ewm(halflife=horizon, adjust=False).mean()
     result_df['rtg0'] = result_df['det_diff_dk'] * result_df['det_diff_dk']
 
     # result_df['median'] = -1.0 * (result_df['median'] - 3)
@@ -176,8 +176,8 @@ def rtg_fits(daily_df, horizon, name, middate=None):
     plot_fit(fits_df, "rtg_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
-    print "Coef{}: {}".format(0, coef0)
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
+    print("Coef{}: {}".format(0, coef0))
     outsample_daily_df[ 'rtg0_ma_coef' ] = coef0
 
     outsample_daily_df[ 'rtg' ] = outsample_daily_df['rtg0_ma'] * outsample_daily_df['rtg0_ma_coef']
@@ -254,7 +254,7 @@ if __name__=="__main__":
         daily_df = pd.read_hdf(pname+"_daily.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

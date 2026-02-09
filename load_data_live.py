@@ -50,6 +50,8 @@ Author: Legacy codebase
 Python: 2.7 (production environment)
 """
 
+from __future__ import division, print_function
+
 import sys
 import os
 import glob

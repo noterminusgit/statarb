@@ -12,7 +12,7 @@ Differences from Main bsim.py:
    - Print statements use function syntax: print() not print
    - Dictionary iteration updated (.items(), .keys(), .values())
    - Integer division uses // operator where needed
-   - Pandas DataFrame indexing uses .loc[] and .iloc[] instead of .ix[]
+   - Pandas DataFrame indexing uses .loc[] and .iloc[] instead of .loc[]
 
 2. **Simplified Data Pipeline**
    - Uses standalone loaddata.py for HDF5/CSV loading
@@ -555,7 +555,7 @@ pnl_df['min_notional'] = (-1 * pnl_df['med_volume_21'] * pnl_df['close'] * max_a
 if args.locates != "None":
     pnl_df['borrow_notional'] = pnl_df['borrow_qty'] * pnl_df['close']
     pnl_df['min_notional'] = pnl_df[['borrow_notional', 'min_notional']].max(axis=1)
-    pnl_df.ix[pnl_df['fee'] > 0, 'min_notional'] = 0
+    pnl_df.loc[pnl_df['fee'] > 0, 'min_notional'] = 0
 
 last_pos = pd.DataFrame(pnl_df.reset_index()['gvkey'].unique(), columns=['gvkey'])
 last_pos['shares_last'] = 0
@@ -656,15 +656,15 @@ for name, date_group in groups:
     if lastday is not None and lastday != dayname:
         date_group['shares_last'] = date_group['shares_last'] * (date_group['split'].fillna(1))
     date_group['position_last'] = (date_group['shares_last'] * date_group['close']).fillna(0)
-    # date_group.ix[ date_group['close'].isnull() | date_group['mdvp'].isnull() | (date_group['mdvp'] == 0) | date_group['volume_d'].isnull() | (date_group['volume_d'] == 0) | date_group['residVol'].isnull(), 'max_notional' ] = 0
-    # date_group.ix[ date_group['close'].isnull() | date_group['mdvp'].isnull() | (date_group['mdvp'] == 0) | date_group['volume_d'].isnull() | (date_group['volume_d'] == 0) | date_group['residVol'].isnull(), 'min_notional' ] = 0
+    # date_group.loc[ date_group['close'].isnull() | date_group['mdvp'].isnull() | (date_group['mdvp'] == 0) | date_group['volume_d'].isnull() | (date_group['volume_d'] == 0) | date_group['residVol'].isnull(), 'max_notional' ] = 0
+    # date_group.loc[ date_group['close'].isnull() | date_group['mdvp'].isnull() | (date_group['mdvp'] == 0) | date_group['volume_d'].isnull() | (date_group['volume_d'] == 0) | date_group['residVol'].isnull(), 'min_notional' ] = 0
 
     # if args.exclude is not None:
     #     attr, val = args.exclude.split(":")
     #     val = float(val)
-    #     date_group.ix[ date_group[attr] < val, 'forecast' ] = 0
-    #     date_group.ix[ date_group[attr] < val, 'max_notional' ] = 0
-    #     date_group.ix[ date_group[attr] < val, 'min_notional' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'forecast' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'max_notional' ] = 0
+    #     date_group.loc[ date_group[attr] < val, 'min_notional' ] = 0
 
     # ========================================================================
     # UNIVERSE FILTERS
@@ -687,32 +687,32 @@ for name, date_group in groups:
     # For excluded securities: Set forecast = 0, max_notional = 0, min_notional = 0
     # This prevents optimizer from taking any position
 
-    date_group.ix[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
+    date_group.loc[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
             date_group['ind1'] == 3520), 'forecast'] = 0  # ind1 == 3520 is PHARMA
-    date_group.ix[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
+    date_group.loc[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
             date_group['ind1'] == 3520), 'max_notional'] = 0
-    date_group.ix[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
+    date_group.loc[(date_group['mkt_cap'] < 1.6e3) | (date_group['close'] > 500.0) | (
             date_group['ind1'] == 3520), 'min_notional'] = 0
 
     if args.earnings is not None:
         days = int(args.earnings)
-        date_group.ix[date_group['daysToEarn'] == 3, 'residVol'] = date_group.ix[
+        date_group.loc[date_group['daysToEarn'] == 3, 'residVol'] = date_group.loc[
                                                                        date_group['daysToEarn'] == 3, 'residVol'] * 1.5
-        date_group.ix[date_group['daysToEarn'] == 2, 'residVol'] = date_group.ix[
+        date_group.loc[date_group['daysToEarn'] == 2, 'residVol'] = date_group.loc[
                                                                        date_group['daysToEarn'] == 2, 'residVol'] * 2
-        date_group.ix[date_group['daysToEarn'] == 1, 'residVol'] = date_group.ix[
+        date_group.loc[date_group['daysToEarn'] == 1, 'residVol'] = date_group.loc[
                                                                        date_group['daysToEarn'] == 1, 'residVol'] * 3
 
-        date_group.ix[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
-                date_group['position_last'] >= 0), 'max_notional'] = date_group.ix[
+        date_group.loc[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
+                date_group['position_last'] >= 0), 'max_notional'] = date_group.loc[
             ((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
                     date_group['position_last'] >= 0), 'position_last']
-        date_group.ix[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
+        date_group.loc[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
                 date_group['position_last'] >= 0), 'min_notional'] = 0
-        date_group.ix[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
+        date_group.loc[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
                 date_group['position_last'] <= 0), 'max_notional'] = 0
-        date_group.ix[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
-                date_group['position_last'] <= 0), 'min_notional'] = date_group.ix[
+        date_group.loc[((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
+                date_group['position_last'] <= 0), 'min_notional'] = date_group.loc[
             ((date_group['daysToEarn'] <= days) | (date_group['daysFromEarn'] < days)) & (
                     date_group['position_last'] >= 0), 'position_last']
 
@@ -744,9 +744,9 @@ for name, date_group in groups:
         find2 = 0
         for factor2 in factors:
             try:
-                factor_cov = factor_df[(factor1, factor2)].fillna(0).ix[pd.to_datetime(dayname)]
-                #                factor1_sig = np.sqrt(factor_df[(factor1, factor1)].fillna(0).ix[pd.to_datetime(dayname)])
-                #               factor2_sig = np.sqrt(factor_df[(factor2, factor2)].fillna(0).ix[pd.to_datetime(dayname)])
+                factor_cov = factor_df[(factor1, factor2)].fillna(0).loc[pd.to_datetime(dayname)]
+                #                factor1_sig = np.sqrt(factor_df[(factor1, factor1)].fillna(0).loc[pd.to_datetime(dayname)])
+                #               factor2_sig = np.sqrt(factor_df[(factor2, factor2)].fillna(0).loc[pd.to_datetime(dayname)])
                 #                print("Factor Correlation {}, {}: {}".format(factor1, factor2, factor_cov/(factor1_sig*factor2_sig)))
             except:
                 #                print("No cov found for {} {}".format(factor1, factor2))
@@ -775,12 +775,12 @@ for name, date_group in groups:
     optresults_df['costs'] = costs
     optresults_df['dutil2'] = dutil2
 
-    # pnl_df.ix[ date_group.index, 'target'] = optresults_df['target']
-    # pnl_df.ix[ date_group.index, 'eslip'] = optresults_df['eslip']
-    # pnl_df.ix[ date_group.index, 'dutil'] = optresults_df['dutil']
-    # pnl_df.ix[ date_group.index, 'dsrisk'] = optresults_df['dsrisk']
-    # pnl_df.ix[ date_group.index, 'dfrisk'] = optresults_df['dfrisk']
-    # pnl_df.ix[ date_group.index, 'dmu'] = optresults_df['dmu']
+    # pnl_df.loc[ date_group.index, 'target'] = optresults_df['target']
+    # pnl_df.loc[ date_group.index, 'eslip'] = optresults_df['eslip']
+    # pnl_df.loc[ date_group.index, 'dutil'] = optresults_df['dutil']
+    # pnl_df.loc[ date_group.index, 'dsrisk'] = optresults_df['dsrisk']
+    # pnl_df.loc[ date_group.index, 'dfrisk'] = optresults_df['dfrisk']
+    # pnl_df.loc[ date_group.index, 'dmu'] = optresults_df['dmu']
 
     date_group['target'] = optresults_df['target']
     date_group['dutil'] = optresults_df['dutil']
@@ -788,7 +788,7 @@ for name, date_group in groups:
     #    date_group['last_position'] = tmp.set_index(['date', 'gvkey'])['position']
 
     if args.nonegutil:
-        date_group.ix[date_group['dutil'] <= 0, 'target'] = date_group.ix[date_group['dutil'] <= 0, 'position_last']
+        date_group.loc[date_group['dutil'] <= 0, 'target'] = date_group.loc[date_group['dutil'] <= 0, 'position_last']
 
     date_group['max_move'] = date_group['position_last'] + date_group['max_trade_shares'] * date_group['close']
     date_group['min_move'] = date_group['position_last'] - date_group['max_trade_shares'] * date_group['close']
@@ -803,13 +803,13 @@ for name, date_group in groups:
     date_group['traded'] = date_group['position'] - date_group['position_last']
     date_group['shares'] = date_group['position'] / date_group['close']
 
-    # pnl_df.ix[ date_group.index, 'traded'] = date_group['traded']
+    # pnl_df.loc[ date_group.index, 'traded'] = date_group['traded']
 
     postmp = pd.merge(last_pos.reset_index(), date_group[['shares', 'close', 'position_last']].reset_index(),
                       how='outer', left_on=['gvkey'],
                       right_on=['gvkey']).set_index('gvkey')
     last_pos['shares_last'] = postmp['shares'].fillna(0)
-    #    pnl_df.ix[ date_group.index, 'position'] = date_group['position']
+    #    pnl_df.loc[ date_group.index, 'position'] = date_group['position']
 
     optresults_df['forecast'] = date_group['forecast']
     optresults_df['traded'] = date_group['traded']

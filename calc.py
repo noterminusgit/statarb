@@ -36,15 +36,15 @@ The module uses pandas DataFrames with MultiIndex (date, sid) for efficient
 time-series operations across securities.
 """
 
+from __future__ import division, print_function
+
 import numpy as np
 import pandas as pd
 import gc
 import logging
 
 from scipy import stats
-from pandas.stats.api import ols
-from pandas.stats import moments
-from lmfit import minimize, Parameters, Parameter, report_errors
+from lmfit import minimize, Parameters, Parameter, report_fit as report_errors
 from collections import defaultdict
 
 from util import *
@@ -86,19 +86,19 @@ def calc_vol_profiles(full_df):
     full_df['dpvolume_med_21'] = np.nan
     full_df['dpvolume_std_21'] = np.nan
     full_df['dpvolume'] = full_df['dvolume'] * full_df['dvwap']
-    print "Calculating trailing volume profile..."
+    print("Calculating trailing volume profile...")
     for timeslice in ['09:45', '10:00', '10:15', '10:30', '10:45', '11:00', '11:15', '11:30', '11:45', '12:00', '12:15', '12:30', '12:45', '13:00', '13:15', '13:30', '13:45', '14:00', '14:15', '14:30', '14:45', '15:00', '15:15', '15:30', '15:45', '16:00' ]:
         timeslice_df = full_df[ ['dpvolume', 'tradable_med_volume_21', 'close'] ]
         timeslice_df = timeslice_df.unstack().between_time(timeslice, timeslice).stack()
         timeslice_df = timeslice_df.dropna()
         if len(timeslice_df) == 0: continue
-        timeslice_df['dpvolume_med_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: pd.rolling_median(x.shift(1), 21))
-        timeslice_df['dpvolume_std_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: pd.rolling_std(x.shift(1), 21))
+        timeslice_df['dpvolume_med_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: x.shift(1).rolling(21).median())
+        timeslice_df['dpvolume_std_21'] = timeslice_df['dpvolume'].groupby(level='sid').apply(lambda x: x.shift(1).rolling(21).std())
         m_df = timeslice_df.dropna()
-        print m_df.head()
-        print "Average dvol frac at {}: {}".format(timeslice, (m_df['dpvolume_med_21'] / (m_df['tradable_med_volume_21'] * m_df['close'])).mean())
-        full_df.ix[ timeslice_df.index, 'dpvolume_med_21'] = timeslice_df['dpvolume_med_21']
-        full_df.ix[ timeslice_df.index, 'dpvolume_std_21'] = timeslice_df['dpvolume_std_21']
+        print(m_df.head())
+        print("Average dvol frac at {}: {}".format(timeslice, (m_df['dpvolume_med_21'] / (m_df['tradable_med_volume_21'] * m_df['close'])).mean()))
+        full_df.loc[ timeslice_df.index, 'dpvolume_med_21'] = timeslice_df['dpvolume_med_21']
+        full_df.loc[ timeslice_df.index, 'dpvolume_std_21'] = timeslice_df['dpvolume_std_21']
 
     return full_df
 
@@ -177,12 +177,18 @@ def calc_forward_returns(daily_df, horizon):
     if np.isinf(daily_df['log_ret']).any():
         logging.warning("Found {} infinite values in log_ret".format(np.isinf(daily_df['log_ret']).sum()))
 
-    print "Calculating forward returns..."
+    print("Calculating forward returns...")
     results_df = pd.DataFrame( index=daily_df.index )
     for ii in range(1, horizon+1):
         retname = 'cum_ret'+str(ii)
-        cum_rets = daily_df['log_ret'].groupby(level='sid').apply(lambda x: pd.rolling_sum(x, ii))
+        # Calculate rolling sum per security
+        # groupby(level='sid').apply() creates 3-level index: (sid, date, sid)
+        # We need to drop the first level to get back to (date, sid)
+        cum_rets = daily_df['log_ret'].groupby(level='sid').apply(lambda x: x.rolling(ii).sum())
+        cum_rets = cum_rets.droplevel(0)
+        # Unstack to wide format (dates x sids), shift forward, stack back
         shift_df = cum_rets.unstack().shift(-ii).stack()
+        # Now shift_df has (date, sid) MultiIndex matching results_df
         results_df[retname] = shift_df
     return results_df
 
@@ -220,7 +226,8 @@ def winsorize(data, std_level=5):
     if std_level > 10:
         logging.warning("std_level={} is unusually high, may not winsorize effectively".format(std_level))
 
-    result = data.copy()
+    # Convert to float to avoid pandas 2.x dtype issues when assigning float values
+    result = data.copy().astype(float)
 
     # Check for all NaN
     if result.isnull().all():
@@ -262,7 +269,7 @@ def winsorize_by_date(data):
         - Critical for cross-sectional alpha signals
         - Uses default std_level=5 from winsorize()
     """
-    print "Winsorizing by day..."
+    print("Winsorizing by day...")
     return data.groupby(level='date', sort=False).transform(winsorize)
 
 def winsorize_by_ts(data):
@@ -281,7 +288,7 @@ def winsorize_by_ts(data):
         - Used for intraday factor calculations
         - iclose_ts is intraday bar close timestamp
     """
-    print "Winsorizing by day..."
+    print("Winsorizing by day...")
     return data.groupby(level='iclose_ts', sort=False).transform(winsorize)
 
 def winsorize_by_group(data, group):
@@ -301,7 +308,7 @@ def winsorize_by_group(data, group):
         - Enables industry-neutral or sector-neutral winsorization
         - Prevents cross-contamination between groups
     """
-    print "Winsorizing by day..."
+    print("Winsorizing by day...")
     return data.groupby([group], sort=False).transform(winsorize)
 
 def rolling_ew_corr_pairwise(df, halflife):
@@ -309,35 +316,36 @@ def rolling_ew_corr_pairwise(df, halflife):
     Calculate exponentially-weighted pairwise correlations for all column pairs.
 
     Computes time-varying correlation matrix using exponential weighting with
-    specified halflife. Returns 3D panel with correlation time series.
+    specified halflife. Returns 3D structure (dict of dicts) with correlation time series.
 
     Args:
         df: DataFrame with time series columns
         halflife: Halflife for exponential weighting (days)
 
     Returns:
-        Panel with dimensions (time, col1, col2) containing correlation series
+        Dict of dicts with dimensions (col1, col2) containing correlation series
         for each column pair
 
     Notes:
-        - Uses pandas.stats.moments.ewmcorr (deprecated in newer pandas)
+        - Uses pandas.Series.ewm().corr() (modern pandas API)
         - Span parameter = (halflife-1)/2.0 for ewm calculation
         - Returns full symmetric correlation matrix at each timestamp
         - Used for analyzing factor co-movement and regime changes
+        - Note: Returns dict instead of deprecated Panel (Panel removed in pandas 1.0+)
 
     Example:
         If df has columns ['alpha1', 'alpha2', 'alpha3']:
-        Returns Panel[t, 'alpha1', 'alpha2'] = corr(alpha1, alpha2) at time t
+        Returns ret['alpha1']['alpha2'] = corr(alpha1, alpha2) time series
     """
     all_results = {}
-    for col, left in df.iteritems():
-        all_results[col] = col_results = {}
-        for col, right in df.iteritems():
-            col_results[col] = moments.ewmcorr(left, right, span=(halflife-1)/2.0)
+    span = (halflife - 1) / 2.0
+    for col1, left in df.items():
+        all_results[col1] = col_results = {}
+        for col2, right in df.items():
+            # Modern pandas API: Series.ewm(span=...).corr(other_series)
+            col_results[col2] = left.ewm(span=span, adjust=True).corr(right)
 
-    ret = pd.Panel(all_results)
-    ret = ret.swapaxes(0,1, copy=False)
-    return ret
+    return all_results
 
 def push_data(df, col):
     """
@@ -429,7 +437,7 @@ def calc_resid_vol(daily_df):
         Requires barraResidRet column from calc_factors()
     """
     lookback = 20
-    daily_df['barraResidVol'] = np.sqrt(pd.rolling_var(daily_df['barraResidRet'], lookback))
+    daily_df['barraResidVol'] = np.sqrt(daily_df['barraResidRet'].rolling(lookback).var())
     return daily_df['barraResidVol']
 
 def calc_factor_vol(factor_df):
@@ -451,7 +459,7 @@ def calc_factor_vol(factor_df):
         - Halflife = 20 days for exponential weighting
         - Covers all 73 factors (13 Barra + 58 industries + 2 proprietary)
         - Returns symmetric covariance matrix: cov(A,B) = cov(B,A)
-        - Uses pandas.stats.moments.ewmcov (deprecated in newer pandas)
+        - Uses pandas.Series.ewm().cov() (modern pandas API)
         - Commented-out code shows alternative: 20-day rolling covariance
         - Used by opt.py for portfolio risk calculations
 
@@ -470,7 +478,7 @@ def calc_factor_vol(factor_df):
         for factor2 in factors:
             key = (factor1, factor2)
             if key not in ret.keys():
-                ret[key] = moments.ewmcov(factor_df.xs(factor1, level=1)['ret'], factor_df.xs(factor2, level=1)['ret'], span=(halflife-1)/2.0)
+                ret[key] = factor_df.xs(factor1, level=1)['ret'].ewm(span=(halflife-1)/2.0, adjust=False).cov(factor_df.xs(factor2, level=1)['ret'])
 #                ret[key] = pd.rolling_cov(factor_df.xs(factor1, level=1)['ret'], factor_df.xs(factor2, level=1)['ret'], window=20)
 #                print "Created factor Cov on {} from {} to {}".format(key, min(ret[key].index), max(ret[key].index))
     return ret
@@ -557,7 +565,7 @@ def calc_factors(daily_df, barraOnly=False):
         calc_intra_factors() - Intraday version using 30-min bars
         factorize() - WLS regression implementation
     """
-    print "Calculating factors..."
+    print("Calculating factors...")
 
     allreturns_df = pd.DataFrame(columns=['barraResidRet'], index=daily_df.index)
     if barraOnly:
@@ -567,14 +575,14 @@ def calc_factors(daily_df, barraOnly=False):
         daily_df = create_z_score(daily_df, 'rating_mean')
         factors = ALL_FACTORS
 
-    print "Total len: {}".format(len(daily_df))
+    print("Total len: {}".format(len(daily_df)))
     cnt = 0
     cnt1 = 0
     factorrets = list()
     for name, group in daily_df.groupby(level='date'):
-        print "Regressing {}".format(name)
+        print("Regressing {}".format(name))
         cnt1 += len(group)
-        print "Size: {} {}".format(len(group), cnt1)
+        print("Size: {} {}".format(len(group), cnt1))
 
         loadings_df = group[ factors ]
         loadings_df = loadings_df.reset_index().fillna(0)
@@ -602,23 +610,23 @@ def calc_factors(daily_df, barraOnly=False):
 #        print returns_df.head()
 
         fRets, residRets = factorize(loadings_df, returns_df, weights_df, indwgt)        
-        print "Factor Returns:"
+        print("Factor Returns:")
 #        print fRets
 #        print residRets
         
         cnt += len(residRets)
-        print "Running tally: {}".format(cnt)
+        print("Running tally: {}".format(cnt))
         fdf = pd.DataFrame([ [i,v] for i, v in fRets.items() ], columns=['factor', 'ret'])
         fdf['date'] = name
         factorrets.append( fdf )
-        allreturns_df.ix[ group.index, 'barraResidRet'] = residRets
+        allreturns_df.loc[ group.index, 'barraResidRet'] = residRets
 
         fRets = residRets = None
         gc.collect()
 
 #    print allreturns_df.tail()
     factorRets_df = pd.concat(factorrets).set_index(['date', 'factor']).fillna(0)
-    print "Final len {}".format(len(allreturns_df))
+    print("Final len {}".format(len(allreturns_df)))
     daily_df['barraResidRet'] = allreturns_df['barraResidRet']
     return daily_df, factorRets_df
 
@@ -667,7 +675,7 @@ def calc_intra_factors(intra_df, barraOnly=False):
         calc_factors() - Daily version
         factorize() - WLS regression implementation
     """
-    print "Calculating intra factors..."
+    print("Calculating intra factors...")
 
     allreturns_df = pd.DataFrame(columns=['barraResidRetI'], index=intra_df.index)
 
@@ -676,14 +684,14 @@ def calc_intra_factors(intra_df, barraOnly=False):
     else:
         factors = ALL_FACTORS
     
-    print "Total len: {}".format(len(intra_df))
+    print("Total len: {}".format(len(intra_df)))
     cnt = 0
     cnt1 = 0
     factorrets = list()
     for name, group in intra_df.groupby(level='iclose_ts'):
-        print "Regressing {}".format(name)
+        print("Regressing {}".format(name))
         cnt1 += len(group)
-        print "Size: {} {}".format(len(group), cnt1)
+        print("Size: {} {}".format(len(group), cnt1))
 
         loadings_df = group[ factors ]
         loadings_df = loadings_df.reset_index().fillna(0)
@@ -710,23 +718,23 @@ def calc_intra_factors(intra_df, barraOnly=False):
 #        print returns_df.head()
 
         fRets, residRets = factorize(loadings_df, returns_df, weights_df, indwgt)        
-        print "Factor Returns:"
-        print fRets
+        print("Factor Returns:")
+        print(fRets)
 #        print residRets
         
         cnt += len(residRets)
-        print "Running tally: {}".format(cnt)
+        print("Running tally: {}".format(cnt))
         fdf = pd.DataFrame([ [i,v] for i, v in fRets.items() ], columns=['factor', 'ret'])
         fdf['iclose_ts'] = name
         factorrets.append( fdf )
-        allreturns_df.ix[ group.index, 'barraResidRetI'] = residRets
+        allreturns_df.loc[ group.index, 'barraResidRetI'] = residRets
 
         fRets = residRets = None
         gc.collect()
 
 #    print allreturns_df.tail()
     factorRets_df = pd.concat(factorrets).set_index(['iclose_ts', 'factor']).fillna(0)
-    print "Final len {}".format(len(allreturns_df))
+    print("Final len {}".format(len(allreturns_df)))
     intra_df['barraResidRetI'] = allreturns_df['barraResidRetI']
     return intra_df, factorRets_df
 
@@ -775,7 +783,7 @@ def factorize(loadings_df, returns_df, weights_df, indwgt):
         calc_factors() - Caller for daily returns
         calc_intra_factors() - Caller for intraday returns
     """
-    print "Factorizing..."
+    print("Factorizing...")
     params = Parameters()
     for colname in loadings_df.columns:
         expr = None
@@ -785,14 +793,14 @@ def factorize(loadings_df, returns_df, weights_df, indwgt):
             for ind in INDUSTRIES:
                 expr += "+" + ind + "*" + str(indwgt[ind])
 #                expr += "+" + ind
-            print expr
+            print(expr)
         params.add(colname, value=0.0, expr=expr)
 
-    print "Minimizing..."
+    print("Minimizing...")
     result = minimize(fcn2min, params, args=(loadings_df, returns_df))
-    print "Result: " 
+    print("Result: " )
     if not result.success:
-        print "ERROR: failed fit"
+        print("ERROR: failed fit")
         exit(1)
 
     fRets_d = dict()
@@ -805,15 +813,15 @@ def factorize(loadings_df, returns_df, weights_df, indwgt):
         upper = val + error * 2
         lower = val - error * 2
         if upper * lower < 0:
-            print "{} not significant: {}, {}".format(param, val, error)
+            print("{} not significant: {}, {}".format(param, val, error))
 
-    print "SEAN"
-    print result
-    print result.residual
-    print result.message
-    print result.lmdif_message
-    print result.nfev
-    print result.ndata
+    print("SEAN")
+    print(result)
+    print(result.residual)
+    print(result.message)
+    print(result.lmdif_message)
+    print(result.nfev)
+    print(result.ndata)
 
     residRets_na = result.residual
     return fRets_d, residRets_na

@@ -58,11 +58,11 @@ References:
     - Bernard, V. and Thomas, J. (1989). "Post-Earnings-Announcement Drift: Delayed Price Response or Risk Premium?"
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
-
-from pandas.stats.moments import ewma
 
 def wavg(group):
     """
@@ -88,7 +88,7 @@ def wavg(group):
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
-    print "Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum()))
+    print("Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum())))
     res = b * ((d * w).sum() / w.sum())
     return res
 
@@ -136,10 +136,10 @@ def calc_eps_daily(daily_df, horizon):
         - Industry demeaning
         These were tested but not used in final implementation.
     """
-    print "Caculating daily eps..."
+    print("Caculating daily eps...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating eps0..."    
+    print("Calculating eps0..."    )
     halflife = horizon / 2
 #    result_df['dk'] = np.exp( -1.0 * halflife *  (result_df['gdate'] - result_df['last']).astype('timedelta64[D]').astype(int) )
 
@@ -151,8 +151,8 @@ def calc_eps_daily(daily_df, horizon):
 
     result_df['std_diff'] = result_df['EPS_std'].unstack().diff().stack()
     result_df.loc[ (result_df['std_diff'] <= 0) | (result_df['std_diff'].isnull()), 'EPS_diff_mean'] = 0
-    print "SEAN2"
-    print result_df.xs(testid, level=1)
+    print("SEAN2")
+    print(result_df.xs(testid, level=1))
     result_df['eps0'] = result_df['EPS_diff_mean'] / result_df['EPS_median']
 
     # print result_df.columns
@@ -228,8 +228,8 @@ def eps_fits(daily_df, horizon, name, middate=None):
         insample_daily_df = daily_df[ daily_df.index.get_level_values('date') < middate ]
         outsample_daily_df = daily_df[ daily_df.index.get_level_values('date') >= middate ]
 
-    print insample_daily_df['eps0_ma'].describe()
-    print outsample_daily_df['eps0_ma'].describe()
+    print(insample_daily_df['eps0_ma'].describe())
+    print(outsample_daily_df['eps0_ma'].describe())
     outsample_daily_df['eps'] = np.nan
 
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
@@ -239,21 +239,21 @@ def eps_fits(daily_df, horizon, name, middate=None):
     plot_fit(fits_df, "eps_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['eps0_ma'].ix[horizon].ix['coef']
-    print "Coef{}: {}".format(0, coef0)               
+    coef0 = fits_df.loc['eps0_ma'].loc[horizon].loc['coef']
+    print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df[ 'eps0_ma_coef' ] = coef0
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['eps0_ma'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
+        coef = coef0 - fits_df.loc['eps0_ma'].loc[lag].loc['coef'] 
+        print("Coef{}: {}".format(lag, coef))
         outsample_daily_df[ 'eps'+str(lag)+'_ma_coef' ] = coef
 
-    print "SEAN1"
-    print outsample_daily_df['eps0_ma'].describe()
+    print("SEAN1")
+    print(outsample_daily_df['eps0_ma'].describe())
     outsample_daily_df[ 'eps' ] = outsample_daily_df['eps0_ma'].fillna(0) * outsample_daily_df['eps0_ma_coef']
-    print outsample_daily_df['eps'].describe()
+    print(outsample_daily_df['eps'].describe())
     for lag in range(1,horizon):
         outsample_daily_df[ 'eps'] += outsample_daily_df['eps'+str(lag)+'_ma'].fillna(0) * outsample_daily_df['eps'+str(lag)+'_ma_coef']
-        print outsample_daily_df['eps'].describe()
+        print(outsample_daily_df['eps'].describe())
     
     return outsample_daily_df
 
@@ -395,7 +395,7 @@ if __name__=="__main__":
         daily_df = pd.read_hdf(pname+"_daily.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

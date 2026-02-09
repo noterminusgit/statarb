@@ -62,11 +62,11 @@ Notes:
     - Legacy Python 2.7 codebase
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
-
-from pandas.stats.moments import ewma
 
 def wavg(group):
     """
@@ -95,7 +95,7 @@ def wavg(group):
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
-    print "Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum()))
+    print("Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum())))
     res = b * ((d * w).sum() / w.sum())
     return res
 
@@ -138,10 +138,10 @@ def calc_rtg_daily(daily_df, horizon):
         - Commented code shows alternative formulations
         - ret_rating interaction enables sector-specific analysis (Energy vs others)
     """
-    print "Caculating daily rtg..."
+    print("Caculating daily rtg...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating rtg0..."    
+    print("Calculating rtg0..."    )
 #    result_df['cum_ret'] = pd.rolling_sum(result_df['log_ret'], 6)
 #    result_df['med_diff'] = result_df['median'].unstack().diff().stack()
 #    result_df['rtg0'] = -1.0 * (result_df['median'] - 3) / ( 1.0 + result_df['std'] )
@@ -191,19 +191,19 @@ def calc_rtg_intra(intra_df):
         - Industry demeaning by timestamp (giclose_ts) instead of date
         - Requires intraday bar data from BAR_BASE_DIR
     """
-    print "Calculating rtg intra..."
+    print("Calculating rtg intra...")
     result_df = filter_expandable(intra_df)
 
-    print "Calulating rtgC..."
+    print("Calulating rtgC...")
     result_df['rtgC'] = (result_df['overnight_log_ret'] + (np.log(result_df['iclose']/result_df['dopen']))) / result_df['pbeta']
     result_df['rtgC_B'] = winsorize_by_ts(result_df[ 'rtgC' ])
 
-    print "Calulating rtgC_ma..."
+    print("Calulating rtgC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['rtgC_B', 'giclose_ts', 'ind1']].groupby(['giclose_ts', 'ind1'], sort=True).transform(demean)
     result_df['rtgC_B_ma'] = indgroups['rtgC_B']
     
-    print "Calculated {} values".format(len(result_df['rtgC_B_ma'].dropna()))
+    print("Calculated {} values".format(len(result_df['rtgC_B_ma'].dropna())))
     return result_df
 
 def rtg_fits(daily_df, intra_df, horizon, name, middate=None, intercepts=None):
@@ -270,12 +270,12 @@ def rtg_fits(daily_df, intra_df, horizon, name, middate=None, intercepts=None):
     plot_fit(fits_df, "rtg_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
     
-    coef0 = fits_df.ix['rtg0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['rtg0_B_ma'].loc[horizon].loc['coef']
     outsample_daily_df[ 'rtg0_B_ma_coef' ] = coef0
-    print "Coef0: {}".format(coef0)
+    print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['rtg0_B_ma'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
+        coef = coef0 - fits_df.loc['rtg0_B_ma'].loc[lag].loc['coef'] 
+        print("Coef{}: {}".format(lag, coef))
         outsample_daily_df[ 'rtg'+str(lag)+'_B_ma_coef' ] = coef
 
     outsample_daily_df['rtg'] = outsample_daily_df['rtg0_B_ma'] * outsample_daily_df['rtg0_B_ma_coef']
@@ -335,7 +335,7 @@ def calc_rtg_forecast(daily_df, horizon, middate):
     # result_df = rtg_fits(daily_results_df, horizon, "", middate)
     intercept_d = get_intercept(daily_results_df, horizon, 'rtg0_B_ma', middate)
     sector_name = 'Energy'
-    print "Running qhl for sector {}".format(sector_name)
+    print("Running qhl for sector {}".format(sector_name))
     sector_df = daily_results_df[ daily_results_df['sector_name'] == sector_name ]
  #   sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] == sector_name ]
     # res1 = rtg_fits( sector_df[ sector_df['ret_rating'] > 0 ], horizon, "en_up", middate)
@@ -343,7 +343,7 @@ def calc_rtg_forecast(daily_df, horizon, middate):
     # res3 = rtg_fits( sector_df[ sector_df['ret_rating'] < 0 ], horizon, "en_dn", middate)
 
     
-    print "Running qhl for not sector {}".format(sector_name)
+    print("Running qhl for not sector {}".format(sector_name))
     sector_df = daily_results_df[ daily_results_df['sector_name'] != sector_name ]
 #    sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] != sector_name ]    
 #    res4 = rtg_fits( sector_df[ sector_df['ret_rating'] > 0 ], horizon, "ot_up", middate)
@@ -378,7 +378,7 @@ if __name__=="__main__":
         daily_df = pd.read_hdf(pname+"_daily.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)
@@ -395,8 +395,8 @@ if __name__=="__main__":
 
     result_df = calc_rtg_forecast(daily_df, horizon, middate)
 
-    print "Total Alpha Summary"
-    print result_df['rtg'].describe()
+    print("Total Alpha Summary")
+    print(result_df['rtg'].describe())
 
     dump_daily_alpha(result_df, 'rtg')
 

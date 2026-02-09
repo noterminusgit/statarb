@@ -33,12 +33,14 @@ NOTE: This file should be renamed (e.g., 'bsz_simple.py') and potentially
 consolidated with bsz.py to reduce code duplication.
 """
 
+from __future__ import division, print_function
+
 from alphacalc import *
 
 from dateutil import parser as dateparser
 
 def calc_bsz_daily(intra_df, horizon):
-    print "Caculating daily bsz..."
+    print("Caculating daily bsz...")
 
     daily_df = intra_df.unstack().at_time('16:00').stack()
     daily_df = daily_df.reset_index()
@@ -46,7 +48,7 @@ def calc_bsz_daily(intra_df, horizon):
     daily_df.set_index(keys=['date', 'sid'], inplace=True)
     result_df = result_df[ ['meanSpread', 'meanEffectiveSpread', 'meanBidSize', 'meanAskSize', 'date', 'ind1', 'sid' ]]
 
-    print "Calculating bsz0..."
+    print("Calculating bsz0...")
     result_df['bsz0'] = ((result_df['meanAskSize'] - result_df['meanBidSize']) / (result_df['meanBidSize'] + result_df['meanAskSize'])) / np.sqrt(result_df['meanSpread'])
     result_df['bsz0_B'] = winsorize(result_df['bsz0'])
 
@@ -55,7 +57,7 @@ def calc_bsz_daily(intra_df, horizon):
     result_df['bsz0_B_ma'] = indgroups['bsz0_B']
     result_df.set_index(keys=['date', 'sid'], inplace=True)
     
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['bsz'+str(lag)+'_B_ma'] = shift_df['bsz0_B_ma']
@@ -66,18 +68,18 @@ def calc_bsz_daily(intra_df, horizon):
     return result_df
 
 def calc_bsz_intra(intra_df):
-    print "Calculating bsz intra..."
+    print("Calculating bsz intra...")
 
     result_df = intra_df.reset_index()
     result_df = filter_expandable(result_df)
     result_df = result_df[ [ 'iclose_ts', 'meanSpread', 'meanEffectiveSpread', 'meanBidSize', 'meanAskSize', 'date', 'ind1', 'sid' ] ]
     result_df = result_df.dropna(how='any')
 
-    print "Calulating bszC..."
+    print("Calulating bszC...")
     result_df['bszC'] = ((result_df['meanAskSize'] - result_df['meanBidSize']) / (result_df['meanBidSize'] + result_df['meanAskSize'])) / np.sqrt(result_df['meanSpread'])
     result_df['bszC_B'] = winsorize(result_df['bszC'])
 
-    print "Calulating bszC_ma..."
+    print("Calulating bszC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['bszC_B', 'date', 'ind1']].groupby(['date', 'ind1'], sort=False).transform(demean)
     result_df['bszC_B_ma'] = indgroups['bszC_B']
@@ -85,7 +87,7 @@ def calc_bsz_intra(intra_df):
     #important for keeping NaTs out of the following merge
     del result_df['date']
 
-    print "Merging..."
+    print("Merging...")
     result_df.set_index(keys=['iclose_ts', 'sid'], inplace=True)
     result_df = pd.merge(intra_df, result_df, how='left', left_index=True, right_index=True, sort=True, suffixes=['_dead', ''])
     result_df = remove_dup_cols(result_df)
@@ -108,21 +110,21 @@ def bsz_fits(daily_df, intra_df, full_df, horizon, name):
     plot_fit(fits_df[ fits_df['indep'] == 'bsz0_B' ], name + "_daily_" + df_dates(daily_df))
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['bsz0_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['bsz0_B_ma'].loc[horizon].loc['coef']
     full_df[ 'bszC_B_ma_coef' ] = coef0
     full_df[ 'bsz0_B_ma_coef' ] = coef0
     for lag in range(1,horizon+1):
-        full_df[ 'bsz'+str(lag)+'_B_ma_coef' ] = coef0 - fits_df.ix['bsz0_B_ma'].ix[lag].ix['coef'] 
+        full_df[ 'bsz'+str(lag)+'_B_ma_coef' ] = coef0 - fits_df.loc['bsz0_B_ma'].loc[lag].loc['coef'] 
 
     full_df['bszma'] = full_df['bszC_B_ma'] * full_df['bszC_B_ma_coef']
     for lag in range(0,horizon):
         full_df['bszma'] += full_df['bsz'+str(lag)+'_B_ma'] * full_df['bsz'+str(lag)+'_B_ma_coef']
 
-    coef0 = fits_df.ix['bsz0_B'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['bsz0_B'].loc[horizon].loc['coef']
     full_df[ 'bszC_B_coef' ] = coef0
     full_df[ 'bsz0_B_coef' ] = coef0
     for lag in range(1,horizon+1):
-        full_df[ 'bsz'+str(lag)+'_B_coef' ] = coef0 - fits_df.ix['bsz0_B_ma'].ix[lag].ix['coef'] 
+        full_df[ 'bsz'+str(lag)+'_B_coef' ] = coef0 - fits_df.loc['bsz0_B_ma'].loc[lag].loc['coef'] 
 
     full_df['bsz'] = full_df['bszC_B'] * full_df['bszC_B_coef']
     for lag in range(0,horizon):
@@ -136,12 +138,12 @@ def calc_bsz_forecast(intra_df, horizon):
     full_df = merge_intra_data(daily_df, intra_df)
 
     sector_name = 'Energy'
-    print "Running bsz for sector {}".format(sector_name)
+    print("Running bsz for sector {}".format(sector_name))
     sector_df = daily_df[ daily_df['sector_name'] == sector_name ]
     sector_intra_df = intra_df[ intra_df['sector_name'] == sector_name ]
     full_df = bsz_fits(sector_df, sector_intra_df, full_df, horizon, "bsz_in")
 
-    print "Running bsz for sector {}".format(sector_name)
+    print("Running bsz for sector {}".format(sector_name))
     sector_df = daily_df[ daily_df['sector_name'] != sector_name ]
     sector_intra_df = intra_df[ intra_df['sector_name'] != sector_name ]
     full_df = bsz_fits(sector_df, sector_intra_df, full_df, horizon, "bsz_ex")

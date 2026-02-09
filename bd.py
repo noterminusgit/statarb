@@ -104,6 +104,8 @@ returns. This implementation combines that insight with beta-neutral positioning
 to isolate stock-specific information from market-wide effects.
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -230,7 +232,7 @@ def calc_bd_daily(daily_df, horizon):
         - Commented code shows experimental variants (interaction with returns)
         - Lagged signals enable multi-horizon regression fitting
     """
-    print "Caculating daily bd..."
+    print("Caculating daily bd...")
     result_df = filter_expandable(daily_df)
 
 #    decile = lambda x: 10.0 * x.rank()/float(len(x))
@@ -238,7 +240,7 @@ def calc_bd_daily(daily_df, horizon):
     result_df['bret'] = result_df[['log_ret', 'pbeta', 'mkt_cap_y', 'gdate']].groupby('gdate').apply(wavg).reset_index(level=0)['pbeta']
     result_df['badjret'] = result_df['log_ret'] - result_df['bret']
 
-    print "Calculating bd0..."
+    print("Calculating bd0...")
     result_df['bd0'] = (result_df['askHitDollars'] - result_df['bidHitDollars']) / (result_df['askHitDollars'] + result_df['midHitDollars'] + result_df['bidHitDollars'])
     result_df['bd0_B'] = winsorize_by_date( result_df['bd0'] / np.sqrt(result_df['spread_bps']) / 10000.0)
 
@@ -247,9 +249,9 @@ def calc_bd_daily(daily_df, horizon):
     result_df['bd0_B_ma'] = indgroups['bd0_B']
  #   result_df['bd0_B_ma'] = result_df['bd0_B_ma'] * np.abs(result_df['badjret'])
 #    result_df['bd0_B_ma'] =  result_df['bd0_B_ma'].clip(0,1000) * np.sign(result_df['log_ret'])
-    #    result_df.ix[ (result_df['log_ret_decile'] < 2) | (result_df['log_ret_decile'] == 9), 'bd0_B_ma'] = np.nan
+    #    result_df.loc[ (result_df['log_ret_decile'] < 2) | (result_df['log_ret_decile'] == 9), 'bd0_B_ma'] = np.nan
 
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['bd'+str(lag)+'_B_ma'] = shift_df['bd0_B_ma']
@@ -310,7 +312,7 @@ def calc_bd_intra(intra_df):
           * Time-of-day decay scaling (distance from EOD)
         - Does not create lags (intraday lags handled differently)
     """
-    print "Calculating bd intra..."
+    print("Calculating bd intra...")
     result_df = filter_expandable(intra_df)
 
     result_df['cur_log_ret'] = np.log(result_df['iclose']/result_df['bopen'])
@@ -320,18 +322,18 @@ def calc_bd_intra(intra_df):
 #    decile = lambda x: 10.0 * x.rank()/float(len(x))
 #    result_df['cur_log_ret_decile'] = result_df[['cur_log_ret', 'giclose_ts']].groupby(['giclose_ts'], sort=False).transform(decile)['cur_log_ret']
 
-    print "Calulating bdC..."
+    print("Calulating bdC...")
     result_df['bdC'] = (result_df['askHitDollars'] - result_df['bidHitDollars']) / (result_df['askHitDollars'] + result_df['midHitDollars'] + result_df['bidHitDollars'])
     result_df['bdC_B'] = winsorize_by_ts(result_df['bdC'] / np.sqrt(result_df['spread_bps']) / 10000.0)
 
-    print "Calulating bdC_ma..."
+    print("Calulating bdC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['bdC_B', 'giclose_ts', 'ind1']].groupby(['giclose_ts', 'ind1'], sort=False).transform(demean)
     result_df['bdC_B_ma'] = indgroups['bdC_B']
 #    result_df['bdC_B_ma'] = result_df['bdC_B_ma'] * np.abs(result_df['badjret'])
 
 #    result_df['bdC_B_ma'] =  result_df['bdC_B_ma'].clip(0,1000) * np.sign(result_df['cur_log_ret'])
-#    result_df.ix[ (result_df['cur_log_ret_decile'] < 1) | (result_df['cur_log_ret_decile'] == 9), 'bdC_B_ma'] = np.nan
+#    result_df.loc[ (result_df['cur_log_ret_decile'] < 1) | (result_df['cur_log_ret_decile'] == 9), 'bdC_B_ma'] = np.nan
 #    result_df['bdC_B_ma'] = result_df['bdC_B_ma'] * (2 - result_df['cur_log_ret_r'])
 
     # result_df['eod_ts'] = result_df['date'].apply(lambda x: x + timedelta(hours=15, minutes=30))
@@ -434,9 +436,9 @@ def bd_fits(daily_df, intra_df, horizon, name, middate):
     coefs[4] = unstacked.between_time('12:30', '13:31').stack().index
     coefs[5] = unstacked.between_time('13:30', '14:31').stack().index
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
-    print fits_df.head()
+    print(fits_df.head())
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'bdC_B_ma_coef' ] = fits_df.ix['bdC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'bdC_B_ma_coef' ] = fits_df.loc['bdC_B_ma'].loc[ii].loc['coef']
 
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
     for lag in range(1,horizon+1):
@@ -445,12 +447,12 @@ def bd_fits(daily_df, intra_df, horizon, name, middate):
     plot_fit(fits_df, "bdma_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
 
-    coef0 = fits_df.ix['bd0_B_ma'].ix[horizon].ix['coef']
-#    full_df.ix[ outsample_intra_df.index, 'bdC_B_ma_coef' ] = coef0
-    print "Coef0: {}".format(coef0)
+    coef0 = fits_df.loc['bd0_B_ma'].loc[horizon].loc['coef']
+#    full_df.loc[ outsample_intra_df.index, 'bdC_B_ma_coef' ] = coef0
+    print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['bd0_B_ma'].ix[lag].ix['coef']
-        print "Coef{}: {}".format(lag, coef)
+        coef = coef0 - fits_df.loc['bd0_B_ma'].loc[lag].loc['coef']
+        print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'bd'+str(lag)+'_B_ma_coef' ] = coef
 
     outsample_intra_df[ 'bdma'] = outsample_intra_df['bdC_B_ma'] * outsample_intra_df['bdC_B_ma_coef']
@@ -526,7 +528,7 @@ if __name__=="__main__":
         intra_df = pd.read_hdf(pname+"_intra.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

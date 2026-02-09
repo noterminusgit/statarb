@@ -48,6 +48,8 @@ This is a minimal utility script for quick data inspection during development.
 For production CSV parsing, use pandas.read_csv() or the csv module.
 """
 
+from __future__ import division, print_function
+
 import sys
 
 cnt = 0
@@ -60,5 +62,5 @@ for line in sys.stdin:
     else:
         ii = 0
         for item in line.split(","):
-            print "{} : {}".format(keys[ii], item)
+            print("{} : {}".format(keys[ii], item))
             ii += 1

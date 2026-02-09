@@ -236,7 +236,7 @@ def get_intercept(daily_df, horizon, name, middate=None):
 
     result = dict()
     for ii in range(1, horizon + 1):
-        result[ii] = float(fits_df.ix[name].ix[ii].ix['intercept'])
+        result[ii] = float(fits_df.loc[name].loc[ii].loc['intercept'])
 
     return result
 
@@ -576,7 +576,7 @@ def regress_alpha_intra(intra_df, indep, horizon):
         timeslice_df = fitdata_df.unstack().between_time(timeslice, timeslice).stack()
         shift_df = timeslice_df.unstack().shift(-horizon).stack()
         timeslice_df[retname] = shift_df['log_ret'].groupby(level='sid').apply(lambda x: pd.rolling_sum(x, horizon))
-        #        intra_df.ix[ timeslice_df.index, retname ] = timeslice_df[retname]
+        #        intra_df.loc[ timeslice_df.index, retname ] = timeslice_df[retname]
         timeslice_df['day_ret'] = np.exp(
             np.log(timeslice_df['close'] / timeslice_df['iclose']) + timeslice_df[retname]) - 1
         timeslice_df = timeslice_df.dropna()

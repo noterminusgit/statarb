@@ -78,11 +78,11 @@ Notes:
     - Legacy Python 2.7 codebase
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
-
-from pandas.stats.moments import ewma
 
 def wavg(group):
     """
@@ -104,7 +104,7 @@ def wavg(group):
     b = group['pbeta']
     d = group['log_ret']
     w = group['mkt_cap_y'] / 1e6
-    print "Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum()))
+    print("Mkt return: {} {}".format(group['gdate'], ((d * w).sum() / w.sum())))
     res = b * ((d * w).sum() / w.sum())
     return res
 
@@ -156,10 +156,10 @@ def calc_rtg_daily(daily_df, horizon):
         - Multi-lag structure for decay modeling
         - Quadratic amplification is key differentiator vs rating_diff.py
     """
-    print "Caculating daily rtg..."
+    print("Caculating daily rtg...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating rtg0..."    
+    print("Calculating rtg0..."    )
 #    result_df['cum_ret'] = pd.rolling_sum(result_df['log_ret'], 6)
 #    result_df['med_diff'] = result_df['median'].unstack().diff().stack()
 #    result_df['rtg0'] = -1.0 * (result_df['median'] - 3) / ( 1.0 + result_df['std'] )
@@ -167,10 +167,10 @@ def calc_rtg_daily(daily_df, horizon):
 #    result_df['rtg0'] = -1.0 * result_df['med_diff_dk'] * result_df['cum_ret']
 
     result_df['std_diff'] = result_df['rating_std'].unstack().diff().stack()
-    print "SEAN"
-    print result_df['rating_diff_mean'].describe()
+    print("SEAN")
+    print(result_df['rating_diff_mean'].describe())
     result_df.loc[ result_df['std_diff'] <= 0, 'rating_diff_mean'] = 0
-    print result_df['rating_diff_mean'].describe()
+    print(result_df['rating_diff_mean'].describe())
     result_df['rtg0'] = result_df['rating_diff_mean'] * result_df['rating_diff_mean'] * np.sign(result_df['rating_diff_mean'])
 
 
@@ -275,15 +275,15 @@ def rtg_fits(daily_df, horizon, name, middate=None, intercepts=None):
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     plot_fit(fits_df, "rtg_up_"+name+"_" + df_dates(insample_up_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
-    intercept0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['intercept']
-    print "Coef{}: {}".format(0, coef0)               
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
+    intercept0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['intercept']
+    print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg0_ma_coef' ] = coef0
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg0_ma_intercept' ] =  intercept0
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['rtg0_ma'].ix[lag].ix['coef'] 
-        intercept = intercept0 - fits_df.ix['rtg0_ma'].ix[lag].ix['intercept'] 
-        print "Coef{}: {}".format(lag, coef)
+        coef = coef0 - fits_df.loc['rtg0_ma'].loc[lag].loc['coef'] 
+        intercept = intercept0 - fits_df.loc['rtg0_ma'].loc[lag].loc['intercept'] 
+        print("Coef{}: {}".format(lag, coef))
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg'+str(lag)+'_ma_coef' ] = coef
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] > 0, 'rtg'+str(lag)+'_ma_intercept' ] = intercept
 
@@ -296,33 +296,33 @@ def rtg_fits(daily_df, horizon, name, middate=None, intercepts=None):
         fits_df = fits_df.append(fitresults_df, ignore_index=True) 
     plot_fit(fits_df, "rtg_dn_"+name+"_" + df_dates(insample_dn_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
-    intercept0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['intercept']
-    print "Coef{}: {}".format(0, coef0)               
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
+    intercept0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['intercept']
+    print("Coef{}: {}".format(0, coef0)               )
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg0_ma_coef' ] = coef0
     outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg0_ma_intercept' ] =  intercept0
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['rtg0_ma'].ix[lag].ix['coef'] 
-        intercept = intercept0 - fits_df.ix['rtg0_ma'].ix[lag].ix['intercept'] 
-        print "Coef{}: {}".format(lag, coef)
+        coef = coef0 - fits_df.loc['rtg0_ma'].loc[lag].loc['coef'] 
+        intercept = intercept0 - fits_df.loc['rtg0_ma'].loc[lag].loc['intercept'] 
+        print("Coef{}: {}".format(lag, coef))
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg'+str(lag)+'_ma_coef' ] = coef
         outsample_daily_df.loc[ outsample_daily_df[ESTIMATE + '_diff_mean'] <= 0, 'rtg'+str(lag)+'_ma_intercept' ] = intercept
 
 
 
-    coef0 = fits_df.ix['rtg0_ma'].ix[horizon].ix['coef']
-    print "Coef{}: {}".format(0, coef0)
+    coef0 = fits_df.loc['rtg0_ma'].loc[horizon].loc['coef']
+    print("Coef{}: {}".format(0, coef0))
     outsample_daily_df[ 'rtg0_ma_coef' ] = coef0
 
     outsample_daily_df[ 'rtg' ] = outsample_daily_df['rtg0_ma'].fillna(0) * outsample_daily_df['rtg0_ma_coef']  + outsample_daily_df['rtg0_ma_intercept']
     for lag in range(1,horizon):
         weight = (horizon - lag) / float(horizon)
         lagname = 'rtg'+str(lag)+'_ma'
-        print "Running lag {} with weight: {}".format(lag, weight)
+        print("Running lag {} with weight: {}".format(lag, weight))
         outsample_daily_df[ 'rtg'] += weight * (outsample_daily_df[lagname].fillna(0) * outsample_daily_df['rtg0_ma_coef'] + outsample_daily_df['rtg'+str(lag)+'_ma_intercept'])
 
-    print "Alpha Summary {}".format(name)
-    print outsample_daily_df['rtg'].describe()
+    print("Alpha Summary {}".format(name))
+    print(outsample_daily_df['rtg'].describe())
     
     return outsample_daily_df
 
@@ -415,7 +415,7 @@ if __name__=="__main__":
         daily_df = pd.read_hdf(pname+"_daily.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)
@@ -432,8 +432,8 @@ if __name__=="__main__":
 
     result_df = calc_rtg_forecast(daily_df, horizon, middate)
 
-    print "Total Alpha Summary"
-    print result_df['rtg'].describe()
+    print("Total Alpha Summary")
+    print(result_df['rtg'].describe())
 
     dump_daily_alpha(result_df, 'rtg')
 

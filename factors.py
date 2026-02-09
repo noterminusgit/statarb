@@ -73,6 +73,8 @@ Notes
 - Add command-line arguments for flexible factor selection
 """
 
+from __future__ import division, print_function
+
 from util import *
 from regress import *
 from loaddata import *

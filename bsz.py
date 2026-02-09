@@ -39,6 +39,8 @@ Data Requirements:
   - pbeta: Predicted beta from Barra model
 """
 
+from __future__ import division, print_function
+
 from regress import *
 from loaddata import *
 from util import *
@@ -59,10 +61,10 @@ def wavg2(group):
 
 
 def calc_bsz_daily(daily_df, horizon):
-    print "Caculating daily bsz..."
+    print("Caculating daily bsz...")
     result_df = filter_expandable(daily_df)
 
-    print "Calculating bsz0..."
+    print("Calculating bsz0...")
     result_df['rv'] = result_df['meanBidSize'].astype(float) / result_df['meanAskSize']
     result_df['bret'] = result_df[['log_ret', 'pbeta', 'mkt_cap_y', 'gdate']].groupby('gdate').apply(wavg).reset_index(level=0)['pbeta']
     result_df['badjret'] = result_df['log_ret'] - result_df['bret']
@@ -75,7 +77,7 @@ def calc_bsz_daily(daily_df, horizon):
     indgroups = result_df[['bsz0_B', 'gdate', 'ind1']].groupby(['gdate', 'ind1'], sort=False).transform(demean)
     result_df['bsz0_B_ma'] = indgroups['bsz0_B']
     
-    print "Calulating lags..."
+    print("Calulating lags...")
     for lag in range(1,horizon+1):
         shift_df = result_df.unstack().shift(lag).stack()
         result_df['bsz'+str(lag)+'_B_ma'] = shift_df['bsz0_B_ma']
@@ -84,10 +86,10 @@ def calc_bsz_daily(daily_df, horizon):
     return result_df
 
 def calc_bsz_intra(intra_df):
-    print "Calculating bsz intra..."
+    print("Calculating bsz intra...")
     result_df = filter_expandable(intra_df)
 
-    print "Calulating bszC..."
+    print("Calulating bszC...")
     result_df['cur_log_ret'] = result_df['overnight_log_ret'] + (np.log(result_df['iclose']/result_df['bopen']))
 #    result_df['c2c_badj'] = result_df['cur_log_ret'] / result_df['pbeta']
     result_df['bret'] = result_df[['cur_log_ret', 'pbeta', 'mkt_cap_y', 'giclose_ts']].groupby(['giclose_ts'], sort=False).apply(wavg2).reset_index(level=0)['pbeta']
@@ -98,7 +100,7 @@ def calc_bsz_intra(intra_df):
     result_df['bszC'] = ((result_df['meanAskSize'] - result_df['meanBidSize']) / (result_df['meanBidSize'] + result_df['meanAskSize'])) / np.sqrt(result_df['meanSpread'])
     result_df['bszC_B'] = winsorize_by_ts(result_df[ 'bszC' ] / 10000)
 
-    print "Calulating bszC_ma..."
+    print("Calulating bszC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['bszC_B', 'giclose_ts', 'ind1']].groupby(['giclose_ts', 'ind1'], sort=False).transform(demean)
     result_df['bszC_B_ma'] = indgroups['bszC_B']
@@ -139,9 +141,9 @@ def bsz_fits(daily_df, intra_df, horizon, name, middate):
     coefs[4] = unstacked.between_time('12:30', '13:31').stack().index
     coefs[5] = unstacked.between_time('13:30', '14:31').stack().index
     coefs[6] = unstacked.between_time('14:30', '15:59').stack().index
-    print fits_df.head()
+    print(fits_df.head())
     for ii in range(1,7):
-        outsample_intra_df.ix[ coefs[ii], 'bszC_B_ma_coef' ] = fits_df.ix['bszC_B_ma'].ix[ii].ix['coef']
+        outsample_intra_df.loc[ coefs[ii], 'bszC_B_ma_coef' ] = fits_df.loc['bszC_B_ma'].loc[ii].loc['coef']
 
     fits_df = pd.DataFrame(columns=['horizon', 'coef', 'indep', 'tstat', 'nobs', 'stderr'])
     for lag in range(1,horizon+1):
@@ -150,11 +152,11 @@ def bsz_fits(daily_df, intra_df, horizon, name, middate):
     plot_fit(fits_df, "bsz_daily_"+name+"_" + df_dates(insample_daily_df))
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
 
-    coef0 = fits_df.ix['bsz0_B_ma'].ix[horizon].ix['coef']
-    print "Coef0: {}".format(coef0)
+    coef0 = fits_df.loc['bsz0_B_ma'].loc[horizon].loc['coef']
+    print("Coef0: {}".format(coef0))
     for lag in range(1,horizon):
-        coef = coef0 - fits_df.ix['bsz0_B_ma'].ix[lag].ix['coef'] 
-        print "Coef{}: {}".format(lag, coef)
+        coef = coef0 - fits_df.loc['bsz0_B_ma'].loc[lag].loc['coef'] 
+        print("Coef{}: {}".format(lag, coef))
         outsample_intra_df[ 'bsz'+str(lag)+'_B_ma_coef' ] = coef
 
     outsample_intra_df['bsz'] = outsample_intra_df['bszC_B_ma'] * outsample_intra_df['bszC_B_ma_coef']
@@ -199,7 +201,7 @@ if __name__=="__main__":
         intra_df = pd.read_hdf(pname+"_intra.h5", 'table')
         loaded = True
     except:
-        print "Did not load cached data..."
+        print("Did not load cached data...")
 
     if not loaded:
         uni_df = get_uni(start, end, lookback)

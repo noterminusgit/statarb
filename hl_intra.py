@@ -159,6 +159,8 @@ Implementation Notes:
 - Bug on line 46: `lag` undefined before use in coefficient assignment
 """
 
+from __future__ import division, print_function
+
 from alphacalc import *
 
 from dateutil import parser as dateparser
@@ -224,18 +226,18 @@ def calc_hl_intra(full_df):
             hlC_B_ma = 1.0004 - 1.002 = -0.0016
             (Stock is below industry average, weak long signal)
     """
-    print "Calculating hl intra..."
+    print("Calculating hl intra...")
     result_df = full_df.reset_index()
     result_df = filter_expandable(result_df)
     result_df = result_df[ ['iclose_ts', 'iclose', 'dhigh', 'dlow', 'date', 'ind1', 'sid' ] ]
     result_df = result_df.dropna(how='any')
 
-    print "Calulating hlC..."
-    print result_df.tail()
+    print("Calulating hlC...")
+    print(result_df.tail())
     result_df['hlC'] = result_df['iclose'] / np.sqrt(result_df['dhigh'] * result_df['dlow'])
     result_df['hlC_B'] = winsorize(result_df['hlC'])
 
-    print "Calulating hlC_ma..."
+    print("Calulating hlC_ma...")
     demean = lambda x: (x - x.mean())
     indgroups = result_df[['hlC_B', 'iclose_ts', 'ind1']].groupby(['iclose_ts', 'ind1'], sort=False).transform(demean)
     result_df['hlC_B_ma'] = indgroups['hlC_B']
@@ -243,7 +245,7 @@ def calc_hl_intra(full_df):
     #important for keeping NaTs out of the following merge
     del result_df['date']
 
-    print "Merging..."
+    print("Merging...")
     result_df.set_index(keys=['iclose_ts', 'sid'], inplace=True)
     result_df = pd.merge(full_df, result_df, how='left', left_index=True, right_index=True, sort=True, suffixes=['_dead', ''])
     result_df = remove_dup_cols(result_df)
@@ -309,7 +311,7 @@ def hl_fits(daily_df, intra_df, full_df, horizon, name):
 
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)
     horizon = 1
-    coef0 = fits_df.ix['hlC_B_ma'].ix[horizon].ix['coef']
+    coef0 = fits_df.loc['hlC_B_ma'].loc[horizon].loc['coef']
 
     #should only set where key in daily_df
     full_df[ 'hlC_B_ma_coef' ] = coef0
@@ -387,12 +389,12 @@ def calc_hl_forecast(daily_df, intra_df, horizon):
     full_df = merge_intra_data(daily_df, intra_df)
 
     sector_name = 'Energy'
-    print "Running hl for sector {}".format(sector_name)
+    print("Running hl for sector {}".format(sector_name))
     sector_df = daily_df[ daily_df['sector_name'] == sector_name ]
     sector_intra_df = intra_df[ intra_df['sector_name'] == sector_name ]
     full_df = hl_fits(sector_df, sector_intra_df, full_df, horizon, "hl_in")
 
-    print "Running hl for sector {}".format(sector_name)
+    print("Running hl for sector {}".format(sector_name))
     sector_df = daily_df[ daily_df['sector_name'] != sector_name ]
     sector_intra_df = intra_df[ intra_df['sector_name'] != sector_name ]
     full_df = hl_fits(sector_df, sector_intra_df, full_df, horizon, "hl_ex")
