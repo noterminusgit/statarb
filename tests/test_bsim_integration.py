@@ -24,7 +24,7 @@ import sys
 import os
 import tempfile
 import shutil
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 # Import modules from parent directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
