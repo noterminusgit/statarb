@@ -44,7 +44,7 @@ import gc
 import logging
 
 from scipy import stats
-from lmfit import minimize, Parameters, Parameter, report_errors
+from lmfit import minimize, Parameters, Parameter, report_fit as report_errors
 from collections import defaultdict
 
 from util import *

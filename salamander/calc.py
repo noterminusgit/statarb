@@ -72,7 +72,7 @@ import gc
 from scipy import stats
 # from pandas.stats.api import ols
 # from pandas.stats import moments
-from lmfit import minimize, Parameters, Parameter, report_errors
+from lmfit import minimize, Parameters, Parameter, report_fit as report_errors
 from collections import defaultdict
 
 from util import *

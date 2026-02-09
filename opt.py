@@ -102,7 +102,7 @@ g_fcov = None
 g_vol = None
 g_mktcap = None
 g_advpt = None
-numpy.set_printoptions(threshold=float('nan'))
+numpy.set_printoptions(threshold=sys.maxsize)
 
 p=None
 
