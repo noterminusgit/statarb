@@ -1,5 +1,5 @@
 study PLAN.md.
-study plan/00-documentation-overview.md and have a subagent implement the most important task based on your own analysis, not what's suggested to you. Only implement one task per subagent. You can have up to 1 subagents running. Spawn additional agents as-needed for outstanding items as agents finish.
+study plan/00-documentation-overview.md and have a subagent implement the most important task based on your own analysis, not what's suggested to you. Only implement one task per subagent. You can have up to 3 subagents running. Spawn additional agents as-needed for outstanding items as agents finish.
 study LOG.md
 
 IMPORTANT:
