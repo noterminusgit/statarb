@@ -110,6 +110,6 @@ daily_df, factor_df = calc_factors(daily_df)
 daily_df = calc_price_extras(daily_df)
 intra_df = merge_intra_data(daily_df, intra_df)
 intra_df = calc_vol_profiles(intra_df)
-dump_hd5(intra_df.sort(), "all")
-dump_hd5(factor_df.sort(), "all.factors")
+dump_hd5(intra_df.sort_index(), "all")
+dump_hd5(factor_df.sort_index(), "all.factors")
 

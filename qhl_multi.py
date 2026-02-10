@@ -781,7 +781,7 @@ if __name__=="__main__":
         intra_df.to_hdf(pname+"_intra.h5", 'table', complib='zlib')
 
     full_df = calc_qhl_forecast(daily_df, intra_df, horizon, outsample)
-    dump_alpha(outsample_df, 'qhl_m')
-    dump_all(outsample_df)
+    dump_alpha(full_df, 'qhl_m')
+    dump_all(full_df)
 
 

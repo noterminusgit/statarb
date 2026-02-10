@@ -249,12 +249,12 @@ def calc_vadj_forecast(daily_df, intra_df, horizon, middate):
     print("Running vadj for sector {}".format(sector_name))
     sector_df = daily_results_df[ daily_results_df['sector_name'] == sector_name ]
     sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] == sector_name ]
-    result1_df = vadj_fits(sector_df, sector_intra_results_df, horizon, "ex", middate)
+    result1_df = vadj_fits(sector_df, sector_intra_results_df, horizon, "in", middate)
 
     print("Running vadj for sector {}".format(sector_name))
     sector_df = daily_results_df[ daily_results_df['sector_name'] != sector_name ]
     sector_intra_results_df = intra_results_df[ intra_results_df['sector_name'] != sector_name ]
-    result2_df = vadj_fits(sector_df, sector_intra_results_df, horizon, "in", middate)
+    result2_df = vadj_fits(sector_df, sector_intra_results_df, horizon, "ex", middate)
 
     result_df = pd.concat([result1_df, result2_df], verify_integrity=True)
     return result_df

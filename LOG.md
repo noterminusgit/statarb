@@ -1,3 +1,24 @@
+2026-02-10 - Fixed 9 bugs from BUGS.md ✅ COMPLETE
+
+**Runtime NameErrors (4):**
+- bsim.py:490 — Commented out undefined `testid` debug print
+- new1.py:160 — Added `middate` param to `calc_insd_forecast()`; updated caller
+- qhl_multi.py:784-785 — `outsample_df` → `full_df`
+- slip.py:81 — `merged_Df` → `merged_df` (typo)
+
+**Logic Errors (2):**
+- prod_sal.py:239,240,258,259 — `tgt0_ma_coef`/`tgt0_ma_intercept` → `sal0_ma_coef`/`sal0_ma_intercept` (4 lines, copy-paste from prod_tgt.py)
+- vadj_intra.py:252,257 — Swapped `"ex"`/`"in"` sector labels (Energy→"in", non-Energy→"ex")
+
+**Deprecated pandas API (2):**
+- dumpall.py:113-114 — `.sort()` → `.sort_index()`
+- salamander/regress.py:578 — `pd.rolling_sum(x, horizon)` → `x.rolling(horizon).sum()`
+
+**Debug code (1):**
+- bigsim_test.py:541 — Removed commented-out line referencing undefined `testid`
+
+---
+
 2026-02-09 - Phase 5: Production deployment preparation ✅ COMPLETE - MIGRATION 100% COMPLETE!
 
 **Status:** ALL PHASES COMPLETE - Ready for master merge

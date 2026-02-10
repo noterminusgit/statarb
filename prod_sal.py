@@ -236,8 +236,8 @@ def generate_coefs(daily_df, horizon, name, coeffile=None, intercepts=None):
     coef0 = fits_df.loc['sal0_ma'].loc[horizon].loc['coef']
     intercept0 = fits_df.loc['sal0_ma'].loc[horizon].loc['intercept']
     coef_list = list()
-    coef_list.append( { 'name': 'tgt0_ma_coef', 'group': "up", 'coef': coef0 } )
-    coef_list.append( { 'name': 'tgt0_ma_intercept', 'group': 'up', 'coef': intercept0 } )
+    coef_list.append( { 'name': 'sal0_ma_coef', 'group': "up", 'coef': coef0 } )
+    coef_list.append( { 'name': 'sal0_ma_intercept', 'group': 'up', 'coef': intercept0 } )
     print("Coef{}: {}".format(0, coef0)               )
     for lag in range(1,horizon):
         coef = coef0 - fits_df.loc['sal0_ma'].loc[lag].loc['coef'] 
@@ -255,8 +255,8 @@ def generate_coefs(daily_df, horizon, name, coeffile=None, intercepts=None):
     fits_df.set_index(keys=['indep', 'horizon'], inplace=True)    
     coef0 = fits_df.loc['sal0_ma'].loc[horizon].loc['coef']
     intercept0 = fits_df.loc['sal0_ma'].loc[horizon].loc['intercept']
-    coef_list.append( { 'name': 'tgt0_ma_coef', 'group': "dn", 'coef': coef0 } )
-    coef_list.append( { 'name': 'tgt0_ma_intercept', 'group': 'dn', 'coef': intercept0 } )
+    coef_list.append( { 'name': 'sal0_ma_coef', 'group': "dn", 'coef': coef0 } )
+    coef_list.append( { 'name': 'sal0_ma_intercept', 'group': 'dn', 'coef': intercept0 } )
 
     print("Coef{}: {}".format(0, coef0)               )
     for lag in range(1,horizon):
