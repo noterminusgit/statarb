@@ -536,5 +536,3 @@ for name, date_group in groups:
     gc.collect()
     
 email("bsim done: " + args.fcast, "")
-
-#pnl_df.to_csv("debug." + "-".join(forecasts) + "." + str(start) + "." + str(end) + ".csv")
