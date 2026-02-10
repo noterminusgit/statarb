@@ -486,8 +486,8 @@ for name, date_group in groups:
     opt.g_vol = date_group['volat_21_y'].copy().fillna(0).values * horizon  # Volatility scaled to horizon
     opt.g_mktcap = date_group['mkt_cap_y'].copy().fillna(0).values  # Market capitalization
 
-    # Debug output for test security
-    print(date_group.xs(testid, level=1)[['forecast', 'min_notional', 'max_notional', 'position_last']])
+    # Debug output for test security (removed: testid was undefined)
+    # print(date_group.xs(testid, level=1)[['forecast', 'min_notional', 'max_notional', 'position_last']])
 
     # Pass Barra factor exposures to optimizer (13 factors x N securities matrix)
     find = 0

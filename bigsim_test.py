@@ -538,5 +538,3 @@ for name, date_group in groups:
 email("bsim done: " + args.fcast, "")
 
 #pnl_df.to_csv("debug." + "-".join(forecasts) + "." + str(start) + "." + str(end) + ".csv")
-#pnl_df.xs(testid, level=1).to_csv("debug.csv")
-    

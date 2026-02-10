@@ -150,7 +150,7 @@ def insd_fits(daily_df, intra_df, horizon, name, middate):
     
     return outsample_intra_df
 
-def calc_insd_forecast(daily_df, intra_df, horizon):
+def calc_insd_forecast(daily_df, intra_df, horizon, middate):
     daily_results_df = calc_insd_daily(daily_df, horizon) 
     forwards_df = calc_forward_returns(daily_df, horizon)
     daily_results_df = pd.concat( [daily_results_df, forwards_df], axis=1)
@@ -202,6 +202,6 @@ if __name__=="__main__":
         daily_df.to_hdf(pname+"_daily.h5", 'table', complib='zlib')
         intra_df.to_hdf(pname+"_intra.h5", 'table', complib='zlib')
     
-    outsample_df = calc_insd_forecast(daily_df, intra_df, horizon)
+    outsample_df = calc_insd_forecast(daily_df, intra_df, horizon, middate)
     dump_alpha(outsample_df, 'insd')
 #    dump_all(outsample_df)
